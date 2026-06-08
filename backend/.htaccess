@@ -1,0 +1,11 @@
+# Protege a pasta data/ de acesso direto pelo navegador
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^data/ - [F,L]
+</IfModule>
+
+# Fallback: bloqueia acesso a arquivos .json diretamente
+<FilesMatch "\.json$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

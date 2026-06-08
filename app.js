@@ -1,0 +1,2859 @@
+// App State â€” STORES_DATA sempre vem do data.js (nunca salvo completo no localStorage)
+// Apenas atualizações leves (lastVisit, currentStatus) são persistidas em hr_store_updates
+// Fallbacks seguros caso o data.js falhe ao carregar
+if (typeof PRODUCTS_DATA === 'undefined') {
+    window.PRODUCTS_DATA = [];
+    console.warn("PRODUCTS_DATA não encontrado. data.js falhou ao carregar?");
+}
+if (typeof STORES_DATA === 'undefined') {
+    window.STORES_DATA = [];
+    console.warn("STORES_DATA não encontrado. data.js falhou ao carregar?");
+}
+
+let products = PRODUCTS_DATA;
+
+// Cache de fotos em memória (não persiste no localStorage e evita estouro)
+// Mapa: { [visitId]: [base64, base64, ...] }
+const photoCache = {};
+
+// Carrega visitas e STRIP fotos do localStorage legado (libera espaço imediatamente)
+let visits = (function() {
+    try {
+        const raw = JSON.parse(localStorage.getItem('hr_visits')) || [];
+        let dirty = false;
+        const cleaned = raw.map(v => {
+            if (v.photos && v.photos.length > 0) {
+                photoCache[v.id] = v.photos; // mantém fotos em memória
+                dirty = true;
+                return { ...v, photos: [] };  // remove do objeto persistido
+            }
+            return v;
+        });
+        if (dirty) {
+            // Resalva versão sem fotos para liberar o espaço legado
+            localStorage.setItem('hr_visits', JSON.stringify(cleaned));
+        }
+        return cleaned;
+    } catch(e) {
+        return [];
+    }
+})();
+
+let validatedRuptures = [];
+let dismissedNotifications = [];
+try {
+    validatedRuptures = JSON.parse(localStorage.getItem('hr_validated_ruptures')) || [];
+    dismissedNotifications = JSON.parse(localStorage.getItem('hr_dismissed')) || [];
+} catch(e) {
+    console.warn("localStorage indisponível", e);
+}
+
+// Funções auxiliares para o padrão de atualizações leves de lojas
+function loadStoreUpdates() {
+    try { return JSON.parse(localStorage.getItem('hr_store_updates')) || {}; }
+    catch(e) { return {}; }
+}
+
+function saveStoreUpdates() {
+    // Persiste apenas os campos voláteis (lastVisit, currentStatus) de cada loja
+    const updates = {};
+    stores.forEach(s => {
+        if (s.lastVisit || s.currentStatus) {
+            updates[s.id] = { lastVisit: s.lastVisit || null, currentStatus: s.currentStatus || 'pending' };
+        }
+    });
+    try {
+        localStorage.setItem('hr_store_updates', JSON.stringify(updates));
+    } catch(e) {
+        console.warn('Falha ao salvar atualizações de lojas:', e);
+    }
+}
+
+function saveAppStateLocally() {
+    saveStoreUpdates();
+    try {
+        localStorage.setItem('hr_visits', JSON.stringify(visits));
+        localStorage.setItem('hr_validated_ruptures', JSON.stringify(validatedRuptures));
+        localStorage.setItem('hr_dismissed', JSON.stringify(dismissedNotifications));
+    } catch (e) {
+        console.warn('Falha ao salvar estado local:', e);
+    }
+}
+
+async function syncAppStateServer() {
+    if (typeof Storage === 'undefined' || !Storage.isServer) return;
+    const updatesMap = {};
+    stores.forEach(s => {
+        if (s.lastVisit || s.currentStatus) {
+            updatesMap[s.id] = { lastVisit: s.lastVisit, currentStatus: s.currentStatus };
+        }
+    });
+
+    try {
+        await Storage.syncAll(visits, updatesMap, validatedRuptures, dismissedNotifications);
+    } catch (err) {
+        console.warn('[Storage] Falha ao sincronizar com servidor:', err);
+    }
+}
+
+async function persistAppState() {
+    saveAppStateLocally();
+    await syncAppStateServer();
+}
+
+// Inicializa stores mesclando STORES_DATA com atualizações salvas
+const _storeUpdates = loadStoreUpdates();
+let stores = (STORES_DATA || []).map(s => {
+    const upd = _storeUpdates[s.id];
+    return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s };
+});
+
+function safeGetItem(key, def = null) {
+    try { return localStorage.getItem(key) || def; } 
+    catch(e) { return def; }
+}
+
+function safeSetItem(key, value) {
+    try { localStorage.setItem(key, value); return true; } 
+    catch(e) { return false; }
+}
+
+function safeRemoveItem(key) {
+    try { localStorage.removeItem(key); } 
+    catch(e) {}
+}
+
+// Limpa chave legada hr_stores se existir (libera espaço imediatamente)
+if (safeGetItem('hr_stores')) {
+    safeRemoveItem('hr_stores');
+}
+if (safeGetItem('hr_products')) {
+    safeRemoveItem('hr_products');
+}
+
+// DOM Elements
+const dashboardStoreList = document.getElementById('dashboardStoreList');
+const activeRupturesCount = document.getElementById('activeRupturesCount');
+const contentArea = document.getElementById('content-area');
+const navItems = document.querySelectorAll('.nav-item');
+const storeSelect = document.getElementById('storeSelect');
+const productListChecklist = document.getElementById('productListChecklist');
+const visitModal = document.getElementById('visitModal');
+const addVisitBtn = document.getElementById('addVisitBtn');
+const importBtn = document.getElementById('importBtn');
+const spreadsheetInput = document.getElementById('spreadsheetInput');
+const productSearch = document.getElementById('productSearch');
+const visitForm = document.getElementById('visitForm');
+const closeModal = document.querySelector('#visitModal .close-modal');
+const globalSearch = document.getElementById('globalSearch');
+const filterOverdueBtn = document.getElementById('filterOverdueBtn');
+const globalStartDate = document.getElementById('globalStartDate');
+const globalEndDate = document.getElementById('globalEndDate');
+const globalNetworkSelect = document.getElementById('globalNetworkSelect');
+
+// Funï¿½ï¿½o de Notificaï¿½ï¿½o Visual (Toast)
+function showToast(message, type = 'success') {
+    let toast = document.getElementById('toast-notification');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast-notification';
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background: #27ae60;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+        `;
+        document.body.appendChild(toast);
+    }
+    
+    toast.style.background = type === 'success' ? '#27ae60' : '#e74c3c';
+    toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i> ${message}`;
+    
+    // Mostrar
+    setTimeout(() => {
+        toast.style.transform = 'translateY(0)';
+        toast.style.opacity = '1';
+    }, 10);
+    
+    // Esconder
+    setTimeout(() => {
+        toast.style.transform = 'translateY(100px)';
+        toast.style.opacity = '0';
+    }, 3000);
+}
+
+let currentGlobalFilter = '';
+let showingOnlyOverdue = false;
+let globalFilterDateStart = '';
+let globalFilterDateEnd = '';
+let globalFilterNetworks = []; // Vazio = Todas as Redes
+let currentPage = 'dashboard';
+let reportFilterOnlyRuptures = false; // Filtro "Em Ruptura" na aba de Relatórios
+let editingVisitId = null; // null = nova visita | number = ID da visita sendo editada
+
+
+window.populateGlobalNetworkFilter = function() {
+    const container = document.getElementById('globalNetworkOptions');
+    const textSpan = document.getElementById('globalSelectedNetworksText');
+    if (!container) return;
+
+    const nets = new Set(stores.map(s => s.network).filter(Boolean));
+    container.innerHTML = '';
+    
+    Array.from(nets).sort().forEach(net => {
+        const isChecked = globalFilterNetworks.includes(net) ? 'checked' : '';
+        container.innerHTML += `
+            <label style="display: flex; align-items: center; justify-content: flex-start; padding: 6px 4px; cursor: pointer; border-radius: 4px; width: 100%;">
+                <input type="checkbox" value="${net}" ${isChecked} onchange="toggleGlobalNetwork('${net}')" style="margin-right: 8px; width: 15px; height: 15px; cursor: pointer; flex-shrink: 0;">
+                <span style="text-align: left; color: var(--text-dark); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${net}</span>
+            </label>
+        `;
+    });
+    
+    updateGlobalNetworkText(textSpan);
+};
+
+window.toggleDropdown = function(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+    }
+};
+
+window.toggleGlobalNetwork = function(net) {
+    const idx = globalFilterNetworks.indexOf(net);
+    if (idx > -1) {
+        globalFilterNetworks.splice(idx, 1);
+    } else {
+        globalFilterNetworks.push(net);
+    }
+    
+    const textSpan = document.getElementById('globalSelectedNetworksText');
+    updateGlobalNetworkText(textSpan);
+    refreshGlobalDashboard();
+};
+
+function updateGlobalNetworkText(spanEl) {
+    if (!spanEl) return;
+    if (globalFilterNetworks.length === 0) {
+        spanEl.textContent = "Todas as Redes";
+    } else if (globalFilterNetworks.length === 1) {
+        spanEl.textContent = globalFilterNetworks[0];
+    } else {
+        spanEl.textContent = globalFilterNetworks.length + " Redes";
+    }
+}
+
+// Initialize App
+async function init() {
+    setupEventListeners();
+    checkLoginStatus();
+    populateGlobalNetworkFilter();
+    checkLoginStatus();
+    
+    // ?? Sincronizaï¿½ï¿½o com o Servidor HostGator (se disponível)
+    if (typeof Storage !== 'undefined' && Storage.isServer) {
+        console.log("[Storage] Sincronizando com Servidor...");
+        const serverData = await Storage.loadFromServer();
+        if (serverData) {
+            if (serverData.visits) visits = serverData.visits;
+            if (serverData.validated_ruptures) validatedRuptures = serverData.validated_ruptures;
+            if (serverData.dismissed) dismissedNotifications = serverData.dismissed;
+            
+            const sUpdates = serverData.store_updates || {};
+            stores = STORES_DATA.map(s => {
+                const upd = sUpdates[s.id];
+                return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s };
+            });
+            
+            if (serverData.photo_map) {
+                Object.keys(serverData.photo_map).forEach(vId => {
+                    photoCache[vId] = serverData.photo_map[vId];
+                });
+            }
+        }
+    }
+
+    checkOverdueStores();
+    renderPage('dashboard');
+    populateSelects();
+    renderChecklist();
+    updateStats();
+    renderValidatedRuptures();
+}
+
+function checkLoginStatus() {
+    const isLoggedIn = safeGetItem('hr_logged_in') === 'true';
+    if (isLoggedIn) {
+        document.body.classList.add('logged-in');
+        document.body.classList.remove('not-logged-in');
+    } else {
+        document.body.classList.add('not-logged-in');
+        document.body.classList.remove('logged-in');
+    }
+}
+
+function checkOverdueStores() {
+    const now = new Date();
+    stores.forEach(store => {
+        if (!store.lastVisit) {
+            store.currentStatus = 'pending';
+            return;
+        }
+
+        const lastVisitDate = new Date(store.lastVisit);
+        const diffTime = Math.abs(now - lastVisitDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        const freq = store.frequency || 1;
+        const maxDays = 7 / freq;
+
+        if (diffDays > maxDays) {
+            store.currentStatus = 'overdue';
+        } else {
+            store.currentStatus = 'visited';
+        }
+    });
+}
+
+let selectedPhotos = [];
+
+function setupEventListeners() {
+    const loginForm = document.getElementById('loginForm');
+    const visitPhotosInput = document.getElementById('visitPhotos');
+    const photoPreviewContainer = document.getElementById('photoPreviewContainer');
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+    }
+
+    if (visitPhotosInput) {
+        visitPhotosInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            for (const file of files) {
+                try {
+                    // Tenta comprimir a imagem para otimizar espaço no localStorage
+                    const base64 = await compressImage(file);
+                    selectedPhotos.push(base64);
+                    
+                    const preview = document.createElement('div');
+                    preview.className = 'preview-item';
+                    preview.innerHTML = `<img src="${base64}">`;
+                    photoPreviewContainer.appendChild(preview);
+                } catch (err) {
+                    console.error("Erro ao comprimir imagem, usando original:", err);
+                    const base64 = await convertToBase64(file);
+                    selectedPhotos.push(base64);
+                    
+                    const preview = document.createElement('div');
+                    preview.className = 'preview-item';
+                    preview.innerHTML = `<img src="${base64}">`;
+                    photoPreviewContainer.appendChild(preview);
+                }
+            }
+        });
+    }
+
+    function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Mantém proporï¿½ï¿½o da imagem ao redimensionar
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Converte para jpeg comprimido
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedBase64);
+                };
+                img.onerror = (err) => reject(err);
+            };
+            reader.onerror = (err) => reject(err);
+        });
+    }
+
+    function convertToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    addVisitBtn.addEventListener('click', () => visitModal.style.display = 'flex');
+    importBtn.addEventListener('click', () => spreadsheetInput.click());
+
+    // Garante reset do modo ediï¿½ï¿½o ao fechar o modal pelo "X"
+    closeModal.addEventListener('click', () => {
+        visitModal.style.display = 'none';
+        productSearch.value = '';
+        renderChecklist();
+        _resetEditMode();
+    });
+
+    spreadsheetInput.addEventListener('change', handleImport);
+
+    productSearch.addEventListener('input', (e) => {
+        const selectedStoreId = parseInt(storeSelect.value);
+        const store = stores.find(s => s.id === selectedStoreId);
+        renderChecklist(e.target.value, store ? store.productIds : null);
+    });
+
+    storeSelect.addEventListener('change', (e) => {
+        const selectedStoreId = parseInt(e.target.value);
+        if (selectedStoreId) {
+            const store = stores.find(s => s.id === selectedStoreId);
+            renderChecklist(productSearch.value, store.productIds);
+        } else {
+            renderChecklist(productSearch.value);
+        }
+    });
+
+    addVisitBtn.addEventListener('click', () => {
+        _resetEditMode();
+        visitModal.style.display = 'flex';
+        document.getElementById('visitDate').valueAsDate = new Date();
+    });
+
+    globalSearch.addEventListener('input', (e) => {
+        currentGlobalFilter = e.target.value.toLowerCase();
+        refreshGlobalDashboard();
+    });
+
+    globalStartDate?.addEventListener('change', (e) => {
+        globalFilterDateStart = e.target.value;
+        refreshGlobalDashboard();
+    });
+
+    globalEndDate?.addEventListener('change', (e) => {
+        globalFilterDateEnd = e.target.value;
+        refreshGlobalDashboard();
+    });
+
+    window.refreshGlobalDashboard = function() {
+        renderDashboard();
+        updateStats();
+        renderAttentionRanking();
+        renderCriticalDelays();
+        renderVisitsChart();
+        renderValidatedRuptures();
+    };
+
+    window.getGlobalFilteredRuptures = function() {
+        let filtered = validatedRuptures;
+
+        // Filtra por data: usa a data da última visita é loja como referência
+        if (globalFilterDateStart || globalFilterDateEnd) {
+            filtered = filtered.filter(r => {
+                const store = stores.find(s => s.id === r.storeId);
+                const visitDate = store && store.lastVisit ? store.lastVisit : null;
+                if (!visitDate) return false; // sem visita registrada ? não exibe
+                if (globalFilterDateStart && visitDate < globalFilterDateStart) return false;
+                if (globalFilterDateEnd && visitDate > globalFilterDateEnd) return false;
+                return true;
+            });
+        }
+
+        // Filtra por rede
+        if (globalFilterNetworks.length > 0) {
+            filtered = filtered.filter(r => {
+                const s = stores.find(store => store.id === r.storeId);
+                return s && globalFilterNetworks.includes(s.network);
+            });
+        }
+        return filtered;
+    };
+
+    window.getGlobalFilteredVisits = function() {
+        let filtered = visits;
+        if (globalFilterDateStart) {
+            filtered = filtered.filter(v => v.date >= globalFilterDateStart);
+        }
+        if (globalFilterDateEnd) {
+            filtered = filtered.filter(v => v.date <= globalFilterDateEnd);
+        }
+        if (globalFilterNetworks.length > 0) {
+            filtered = filtered.filter(v => {
+                const s = stores.find(store => store.id === v.storeId);
+                return s && globalFilterNetworks.includes(s.network);
+            });
+        }
+        return filtered;
+    };
+
+    window.getGlobalFilteredStores = function() {
+        let filtered = stores;
+        if (globalFilterNetworks.length > 0) {
+            filtered = filtered.filter(s => globalFilterNetworks.includes(s.network));
+        }
+        if (showingOnlyOverdue) {
+            filtered = filtered.filter(s => s.currentStatus === 'overdue');
+        }
+        if (currentGlobalFilter) {
+            filtered = filtered.filter(store => {
+                const searchTerm = currentGlobalFilter.toLowerCase();
+                const matchesStore = store.name.toLowerCase().includes(searchTerm);
+                const matchesNetwork = store.network.toLowerCase().includes(searchTerm);
+                const matchesProduct = store.productIds?.some(pId => {
+                    const product = products.find(p => p.id === pId);
+                    return product && product.name.toLowerCase().includes(searchTerm);
+                });
+                return matchesStore || matchesNetwork || matchesProduct;
+            });
+        }
+        return filtered;
+    };
+
+    filterOverdueBtn.addEventListener('click', () => {
+        showingOnlyOverdue = !showingOnlyOverdue;
+        filterOverdueBtn.classList.toggle('active');
+        filterOverdueBtn.style.backgroundColor = showingOnlyOverdue ? 'var(--primary-red)' : '';
+        filterOverdueBtn.style.color = showingOnlyOverdue ? 'white' : '';
+        renderDashboard();
+    });
+
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = item.getAttribute('data-page');
+            renderPage(page);
+        });
+    });
+
+    const notificationBtn = document.getElementById('notificationBtn');
+    const notificationDropdown = document.getElementById('notificationDropdown');
+    
+    notificationBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        notificationDropdown.classList.toggle('active');
+        updateNotifications();
+    });
+
+    window.addEventListener('click', () => {
+        notificationDropdown.classList.remove('active');
+    });
+
+    notificationDropdown.addEventListener('click', (e) => e.stopPropagation());
+
+    window.addEventListener('click', (e) => {
+        if (e.target === visitModal) {
+            visitModal.style.display = 'none';
+            _resetEditMode();
+        }
+        if (e.target === document.getElementById('productDetailModal')) document.getElementById('productDetailModal').style.display = 'none';
+        if (e.target === document.getElementById('reportsModal')) document.getElementById('reportsModal').style.display = 'none';
+        if (e.target === document.getElementById('imageModal')) closeImageModal();
+        if (e.target === document.getElementById('syncModal')) closeSyncModal();
+        
+        // Fechar dropdowns de rede se clicar fora
+        const networkDropdown = document.getElementById('networkDropdown');
+        if (networkDropdown && !networkDropdown.contains(e.target)) {
+            const opts = document.getElementById('networkOptions');
+            if (opts) opts.style.display = 'none';
+        }
+        
+        const globalDropdown = document.getElementById('globalNetworkDropdown');
+        if (globalDropdown && !globalDropdown.contains(e.target)) {
+            const opts = document.getElementById('globalNetworkOptions');
+            if (opts) opts.style.display = 'none';
+        }
+    });
+
+    visitForm.addEventListener('submit', handleVisitSubmit);
+
+    // Sidebar navigation is fully handled by the navItems click listener above calling renderPage()
+}
+
+function handleImport(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const text = event.target.result;
+        processCSV(text);
+    };
+    reader.readAsText(file);
+}
+
+function processCSV(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim() !== '');
+    if (lines.length === 0) return;
+
+    // Detectar delimitador (vírgula ou ponto e vírgula)
+    const firstLine = lines[0];
+    const delimiter = firstLine.includes(';') ? ';' : ',';
+    
+    const headers = firstLine.split(delimiter).map(h => h.trim().toLowerCase());
+    
+    // Identificar colunas (usando indexof e removendo possíveis acentos/espaços)
+    const findCol = (names) => headers.findIndex(h => names.some(n => h.includes(n)));
+
+    const colLoja = findCol(['loja', 'unidade', 'ponto']);
+    const colItem = findCol(['item', 'produto', 'descri']);
+    const colRede = findCol(['rede', 'bandeira', 'grupo']);
+    const colStatus = findCol(['status', 'situa']);
+
+    if (colLoja === -1 || colItem === -1) {
+        alert('Não consegui identificar as colunas de "Loja" e "Item". Verifique o cabeçalho do arquivo.');
+        return;
+    }
+
+    const newStores = [];
+    const newProducts = [];
+    const storeMap = new Map();
+    const productMap = new Map();
+
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(delimiter);
+        
+        const storeName = cols[colLoja]?.trim();
+        const productName = cols[colItem]?.trim();
+        const networkName = colRede !== -1 ? cols[colRede]?.trim() : 'Geral';
+        const productStatus = colStatus !== -1 ? cols[colStatus]?.trim() : 'Ativo';
+
+        if (storeName && !storeMap.has(storeName.toLowerCase())) {
+            const id = newStores.length + 1;
+            const storeObj = { id, name: storeName, network: networkName, lastVisit: null, status: 'pending', productIds: [] };
+            newStores.push(storeObj);
+            storeMap.set(storeName.toLowerCase(), storeObj);
+        }
+
+        if (productName && !productMap.has(productName.toLowerCase())) {
+            const id = 100 + newProducts.length + 1;
+            const prodObj = { id, name: productName, network: networkName, status: productStatus };
+            newProducts.push(prodObj);
+            productMap.set(productName.toLowerCase(), prodObj);
+        }
+        
+        // Link product to store (case insensitive)
+        if (storeName && productName) {
+            const sObj = storeMap.get(storeName.toLowerCase());
+            const pObj = productMap.get(productName.toLowerCase());
+            if (sObj && pObj && !sObj.productIds.includes(pObj.id)) {
+                sObj.productIds.push(pObj.id);
+            }
+        }
+    }
+
+    if (newStores.length > 0 || newProducts.length > 0) {
+        stores = newStores;
+        products = newProducts;
+        visits = [];
+        
+        // Salva apenas os dados leves; hr_stores Nï¿½O é mais persistido
+        saveStoreUpdates();
+        localStorage.setItem('hr_visits', JSON.stringify(visits));
+        
+        init();
+        alert(`Sucesso! ${newStores.length} lojas e ${newProducts.length} produtos importados.`);
+    }
+}
+
+function renderPage(page) {
+    currentPage = page;
+    
+    // Reseta o filtro de ruptura ao sair dos relat\u00f3rios
+    if (page !== 'reports' && reportFilterOnlyRuptures) {
+        reportFilterOnlyRuptures = false;
+    }
+
+    // Update Sidebar UI
+    navItems.forEach(item => {
+        item.classList.toggle('active', item.getAttribute('data-page') === page);
+    });
+
+    if (page === 'dashboard') {
+        renderDashboardView();
+    } else if (page === 'reports') {
+        renderReportsView();
+    } else if (page === 'stores') {
+        renderStoresListView();
+    } else if (page === 'products') {
+        renderProductsListView();
+    }
+}
+
+function renderDashboard() {
+    const list = document.getElementById('dashboardStoreList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    const filteredStores = getGlobalFilteredStores();
+
+    filteredStores.forEach(store => {
+        const card = document.createElement('div');
+        card.className = 'store-card';
+        card.innerHTML = `
+            <div class="status-indicator ${store.currentStatus || store.status}"></div>
+            <div class="store-info">
+                <p class="store-name">${store.name} <span class="network-tag">${store.network}</span></p>
+                <p class="store-date">${store.lastVisit ? 'última visita: ' + formatDate(store.lastVisit) : 'Nunca visitada'}</p>
+            </div>
+            <div class="store-badge">
+                ${renderStatusBadge(store)}
+            </div>
+            <button class="btn-icon" onclick="openVisitForStore(${store.id})"><i class="fa-solid fa-chevron-right"></i></button>
+        `;
+        list.appendChild(card);
+    });
+}
+
+function renderReportsView() {
+    contentArea.innerHTML = `
+        <div class="panel">
+            <div class="panel-header" style="display: block; margin-bottom: 20px;">
+                <h2 style="margin-bottom: 15px;">Histórico de Visitas (Relatórios)</h2>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+                    <div class="header-filters" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; flex: 1; min-width: 0;">
+                        <div class="search-bar" style="width: 200px;">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="reportSearch" placeholder="Buscar loja ou item..." oninput="renderReportsTable()">
+                        </div>
+                        <div class="filter-select" style="display: flex; gap: 8px; align-items: center; padding: 0 15px; height: 42px; background: white; border: 1px solid #eee; border-radius: 12px; font-family: 'Outfit', sans-serif;">
+                            <i class="fa-regular fa-calendar" style="color: var(--text-light); font-size: 0.9rem;"></i>
+                            <input type="date" id="reportStartDate" class="hide-calendar-icon" onchange="renderReportsTable()" title="Data Inicial" style="border: none; padding: 0; outline: none; background: transparent; cursor: pointer; color: var(--text-dark); font-family: 'Outfit', sans-serif; font-size: 0.9rem;" onclick="this.showPicker()">
+                            <span style="color: var(--text-light); font-size: 0.85rem;">até</span>
+                            <input type="date" id="reportEndDate" class="hide-calendar-icon" onchange="renderReportsTable()" title="Data Final" style="border: none; padding: 0; outline: none; background: transparent; cursor: pointer; color: var(--text-dark); font-family: 'Outfit', sans-serif; font-size: 0.9rem;" onclick="this.showPicker()">
+                        </div>
+                        <div class="custom-multiselect" style="position: relative; width: 220px;">
+                            <button id="networkFilterBtn" class="filter-select" onclick="toggleNetworkDropdown()" style="width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; background: white; cursor: pointer; height: 42px; padding: 0 15px;">
+                                <span id="networkFilterLabel" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Todas as Redes</span>
+                                <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: var(--text-light); margin-left: 10px;"></i>
+                            </button>
+                            <div id="networkDropdown" style="display: none; position: absolute; top: calc(100% + 5px); left: 0; right: 0; background: white; border: 1px solid var(--border); border-radius: 6px; z-index: 100; max-height: 280px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 8px;">
+                                <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid #eee; margin-bottom: 4px;">
+                                    <input type="checkbox" id="selectAllNetworks" checked onchange="toggleAllNetworks(this)" style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer;">
+                                    <strong style="color: var(--text-dark);">Todas as Redes</strong>
+                                </label>
+                                ${[...new Set(stores.map(s => s.network))].sort().map(net => `
+                                    <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-radius: 4px;">
+                                        <input type="checkbox" class="network-checkbox" value="${net}" checked onchange="updateNetworkFilterLabel()" style="margin-right: 8px; width: 15px; height: 15px; cursor: pointer;">
+                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dark); font-size: 0.9rem;">${net}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <button
+                            id="reportRuptureFilterBtn"
+                            onclick="toggleRuptureFilter()"
+                            class="filter-select"
+                            title="Mostrar apenas lojas com ruptura nesta visita"
+                            style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; border: 1px solid #eee; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; color: var(--text-dark); transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;"
+                        >
+                            <i class="fa-solid fa-triangle-exclamation" style="font-size: 0.85rem;"></i>
+                            Em Ruptura
+                        </button>
+                    </div>
+                    <div class="header-actions" style="display: flex; gap: 15px; align-items: center; flex-shrink: 0; justify-content: flex-end;">
+                        <button class="btn btn-secondary" onclick="exportVisitsCSV()">
+                            <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                        </button>
+                        <button class="btn btn-primary" onclick="exportVisitsPDF()">
+                            <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+                        </button>
+                        <button id="bulkDeleteBtn" class="btn btn-danger" style="display: none;" onclick="deleteSelectedVisits()">
+                            <i class="fa-solid fa-trash"></i> Excluir Selecionados
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="reports-container">
+                <table class="reports-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAllVisits" onclick="toggleSelectAll(this)"></th>
+                            <th>Data</th>
+                            <th>Loja</th>
+                            <th>Rede</th>
+                            <th>Rupturas</th>
+                            <th>Fotos</th>
+                            <th>Observações</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTableBody">
+                        <!-- Visitas aqui -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    renderReportsTable();
+}
+
+function renderDashboardView() {
+    contentArea.innerHTML = `
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <div class="stat-icon red"><i class="fa-solid fa-store"></i></div>
+                <div class="stat-details">
+                    <h3>Lojas Totais</h3>
+                    <p id="totalStores">${stores.length}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="fa-solid fa-calendar-check"></i></div>
+                <div class="stat-details">
+                    <h3>Visitas este Mês</h3>
+                    <p id="totalVisits">${visits.length}</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="stat-details">
+                    <h3>Taxa de Ruptura</h3>
+                    <p id="ruptureRate">${calculateRuptureRate()}%</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Linha 1: Operacional -->
+            <div class="panel store-status">
+                <div class="panel-header">
+                    <h2>Status das Lojas</h2>
+                </div>
+                <div class="store-list" id="dashboardStoreList">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+
+            <div class="panel rupture-trends">
+                <div class="panel-header">
+                    <h2>Alerta de Produtos em Ruptura</h2>
+                    <span class="badge-count" id="activeRupturesCount">${validatedRuptures.length}</span>
+                </div>
+                <div class="rupture-search-bar">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="ruptureStoreSearch" placeholder="Pesquisar por loja..." oninput="filterRupturesByStore()">
+                </div>
+                <div class="rupture-management-list" id="dashboardProductAlerts">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+
+            <!-- Linha 2: Analítico (Gráfico) -->
+            <div class="panel visits-chart-panel" style="grid-column: span 2;">
+                <div class="panel-header">
+                    <h2>Tendência de Visitas por Rede (Últimos 7 Dias)</h2>
+                </div>
+                <div class="chart-container" style="height: 250px; position: relative;">
+                    <canvas id="visitsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Linha 3: Estratégico (Compacto) -->
+            <div class="panel ranking-panel" style="max-height: 300px; overflow-y: auto;">
+                <div class="panel-header">
+                    <h2>TOP 5: Atenção</h2>
+                    <i class="fa-solid fa-ranking-star" style="color: var(--primary-red);"></i>
+                </div>
+                <div class="ranking-list" id="attentionRanking">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+
+            <div class="panel critical-delay-panel" style="max-height: 300px; overflow-y: auto;">
+                <div class="panel-header">
+                    <h2>Atraso Crítico (+14 dias)</h2>
+                    <i class="fa-solid fa-triangle-exclamation" style="color: orange;"></i>
+                </div>
+                <div class="critical-list" id="criticalDelayList">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Re-link dynamic elements
+    renderDashboard(); 
+    renderValidatedRuptures();
+    renderVisitsChart();
+    renderAttentionRanking();
+    renderCriticalDelays();
+}
+
+function renderAttentionRanking() {
+    const container = document.getElementById('attentionRanking');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const fVisits = typeof getGlobalFilteredVisits === 'function' ? getGlobalFilteredVisits() : visits;
+    const fRuptures = typeof getGlobalFilteredRuptures === 'function' ? getGlobalFilteredRuptures() : validatedRuptures;
+
+    // Se não houver visitas E não houver rupturas validadas no filtro, não mostra ranking
+    if (fVisits.length === 0 && fRuptures.length === 0) {
+        container.innerHTML = '<p class="empty-state" style="padding: 10px;">Aguardando dados para gerar ranking...</p>';
+        return;
+    }
+
+    const now = new Date();
+    const fStores = typeof getGlobalFilteredStores === 'function' ? getGlobalFilteredStores() : stores;
+    const ranked = fStores.map(store => {
+        const lastVisitDate = store.lastVisit ? new Date(store.lastVisit) : null;
+        const daysSince = lastVisitDate ? Math.floor((now - lastVisitDate) / (1000 * 60 * 60 * 24)) : 0;
+        const ruptureCount = fRuptures.filter(r => r.storeId === store.id).length;
+        
+        // Só gera score se tiver pelo menos um motivo de atenï¿½ï¿½o
+        return {
+            ...store,
+            score: (ruptureCount * 5) + daysSince
+        };
+    }).filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
+
+    if (ranked.length === 0) {
+        container.innerHTML = '<p class="empty-state" style="padding: 10px;">Nenhuma loja requer atenï¿½ï¿½o imediata.</p>';
+        return;
+    }
+
+    ranked.forEach((store, index) => {
+        const item = document.createElement('div');
+        item.className = 'ranking-item';
+        item.innerHTML = `
+            <div class="rank-number">${index + 1}</div>
+            <div class="rank-info">
+                <strong>${store.name}</strong>
+                <span>Score de Risco: ${store.score}</span>
+            </div>
+            <button class="btn-icon" onclick="openVisitForStore(${store.id})"><i class="fa-solid fa-location-arrow"></i></button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function renderCriticalDelays() {
+    const container = document.getElementById('criticalDelayList');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const now = new Date();
+    const fStores = typeof getGlobalFilteredStores === 'function' ? getGlobalFilteredStores() : stores;
+    // Só entra no atraso crítico se já tiver sido visitada alguma vez (para ter um parâmetro)
+    const critical = fStores.filter(store => {
+        if (!store.lastVisit) return false; 
+        const lastVisitDate = new Date(store.lastVisit);
+        const daysSince = Math.floor((now - lastVisitDate) / (1000 * 60 * 60 * 24));
+        return daysSince >= 14;
+    }).sort((a, b) => {
+        const dateA = new Date(a.lastVisit);
+        const dateB = new Date(b.lastVisit);
+        return dateA - dateB;
+    });
+
+    if (critical.length === 0) {
+        container.innerHTML = '<p class="empty-state" style="padding: 10px;">Aguardando histórico de visitas...</p>';
+        return;
+    }
+
+    critical.forEach(store => {
+        const days = store.lastVisit ? Math.floor((now - new Date(store.lastVisit)) / (1000 * 60 * 60 * 24)) : '8';
+        const item = document.createElement('div');
+        item.className = 'critical-item';
+        item.innerHTML = `
+            <div class="critical-info">
+                <strong>${store.name}</strong>
+                <span>Sem visita há ${days} dias</span>
+            </div>
+            <i class="fa-solid fa-circle-exclamation" style="color: var(--primary-red);"></i>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function renderVisitsChart() {
+    const ctx = document.getElementById('visitsChart');
+    if (!ctx) return;
+    
+    if (typeof Chart === 'undefined') {
+        const container = ctx.parentElement;
+        if (container) container.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">Gráfico indisponível (verifique sua conexão)</p>';
+        return;
+    }
+
+    const fVisits = typeof getGlobalFilteredVisits === 'function' ? getGlobalFilteredVisits() : visits;
+
+    // Determinar range de datas para o eixo X
+    let startDate, endDate;
+    const now = new Date();
+
+    if (globalFilterDateStart && globalFilterDateEnd) {
+        startDate = new Date(globalFilterDateStart + 'T12:00:00');
+        endDate = new Date(globalFilterDateEnd + 'T12:00:00');
+    } else if (globalFilterDateStart) {
+        startDate = new Date(globalFilterDateStart + 'T12:00:00');
+        endDate = now;
+    } else if (globalFilterDateEnd) {
+        endDate = new Date(globalFilterDateEnd + 'T12:00:00');
+        startDate = new Date(endDate);
+        startDate.setDate(startDate.getDate() - 29);
+    } else {
+        endDate = now;
+        startDate = new Date();
+        startDate.setDate(now.getDate() - 29);
+    }
+
+    // Limitar a no máximo 60 dias para não sobrecarregar o grï¿½fico
+    const diffDays = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
+    const totalDays = Math.min(diffDays, 60);
+    
+    const labels = [];
+    for (let i = totalDays; i >= 0; i--) {
+        const d = new Date(endDate);
+        d.setDate(endDate.getDate() - i);
+        labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+    }
+
+    // Agrupar visitas por Rede e Data
+    const fStores = typeof getGlobalFilteredStores === 'function' ? getGlobalFilteredStores() : stores;
+    
+    // Cores por rede para o grÃ¡fico
+    const networkColors = {
+        'Bretas': '#E60000',     // Vermelho
+        'Bahamas': '#FF8C00',    // Laranja
+        'Supermercados BH': '#003366', // Azul Escuro
+        'Mart Minas': '#009933'  // Verde
+    };
+
+    const chartNetworks = (typeof globalFilterNetworks !== 'undefined' && globalFilterNetworks.length > 0)
+        ? globalFilterNetworks
+        : Array.from(new Set(fStores.map(s => s.network).filter(Boolean)));
+
+    const datasets = chartNetworks.map((net, index) => {
+        const data = labels.map(label => {
+            const visitCount = fVisits.filter(v => {
+                const store = stores.find(s => s.id === v.storeId);
+                const vDateObj = new Date(v.date + 'T12:00:00');
+                const vDateStr = vDateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                return store && store.network === net && vDateStr === label;
+            }).length;
+            return visitCount;
+        });
+
+        // Cores variadas
+        const colors = ['#E53935', '#0047AB', '#FFC107', '#4CAF50', '#9C27B0', '#FF9800'];
+        return {
+            label: net,
+            data: data,
+            borderColor: colors[index % colors.length],
+            backgroundColor: 'transparent',
+            tension: 0.3,
+            borderWidth: 3,
+            pointRadius: 4
+        };
+    });
+
+    new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderStoresListView() {
+    contentArea.innerHTML = `
+        <div class="panel">
+            <div class="panel-header">
+                <h2>Gestão de Lojas (${stores.length})</h2>
+                <div class="search-bar" style="width: 300px;">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="storePageSearch" placeholder="Filtrar lojas...">
+                </div>
+            </div>
+            <div class="store-grid-full" id="storePageList">
+                <!-- Injected by JS -->
+            </div>
+        </div>
+    `;
+    
+    const searchInput = document.getElementById('storePageSearch');
+    searchInput.addEventListener('input', (e) => {
+        renderStorePageItems(e.target.value.toLowerCase());
+    });
+    
+    renderStorePageItems();
+}
+
+function renderStorePageItems(filter = '') {
+    const container = document.getElementById('storePageList');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const filtered = stores.filter(s => 
+        s.name.toLowerCase().includes(filter) || 
+        s.network.toLowerCase().includes(filter)
+    );
+
+    filtered.forEach(store => {
+        const item = document.createElement('div');
+        item.className = 'store-card-full';
+        item.innerHTML = `
+            <div class="store-main-info">
+                <span class="status-indicator ${store.currentStatus || 'pending'}"></span>
+                <strong>${store.name}</strong>
+                <span class="network-tag">${store.network}</span>
+            </div>
+            <div class="store-meta">
+                <span>Frequência: ${store.frequency || 1}x/sem</span>
+                <button class="btn btn-secondary btn-small" onclick="openVisitForStore(${store.id})">Visitar</button>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function renderProductsListView() {
+    contentArea.innerHTML = `
+        <div class="panel">
+            <div class="panel-header">
+                <h2>Análise de Produtos e Rupturas</h2>
+            </div>
+            <div class="reports-container">
+                <table class="reports-table">
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Total Rupturas</th>
+                            <th>Lojas Afetadas</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody">
+                        <!-- Injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div id="productDetailModal" class="modal-detail" style="display:none">
+            <!-- Modal dinâmico -->
+        </div>
+    `;
+    renderProductsTable();
+}
+
+function renderProductsTable() {
+    const tbody = document.getElementById('productsTableBody');
+    if (!tbody) return;
+
+    const fRuptures = typeof getGlobalFilteredRuptures === 'function' ? getGlobalFilteredRuptures() : validatedRuptures;
+
+    products.forEach(product => {
+        // Calcular rupturas para este produto
+        const productRuptures = fRuptures.filter(r => r.productId === product.id);
+        const storesAffected = [...new Set(productRuptures.map(r => r.storeId))].length;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${product.name}</strong></td>
+            <td><span class="badge-rupture">${productRuptures.length}</span></td>
+            <td>${storesAffected} lojas</td>
+            <td><span class="status-tag ${productRuptures.length > 0 ? 'warning' : 'ok'}">${productRuptures.length > 0 ? 'Com Ruptura' : 'Normal'}</span></td>
+            <td>
+                <button class="btn btn-secondary btn-small" onclick="showProductDetails(${product.id})">
+                    <i class="fa-solid fa-eye"></i> Detalhes
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+window.showProductDetails = function(productId) {
+    const product = products.find(p => p.id === productId);
+    const fRuptures = typeof getGlobalFilteredRuptures === 'function' ? getGlobalFilteredRuptures() : validatedRuptures;
+    const productRuptures = fRuptures.filter(r => r.productId === productId);
+    
+    const modal = document.getElementById('productDetailModal');
+    modal.style.display = 'flex';
+    
+    modal.innerHTML = `
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>Lojas em Ruptura: ${product.name}</h2>
+                <span class="close-modal" onclick="document.getElementById('productDetailModal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <ul class="detail-list">
+                    ${productRuptures.length === 0 ? '<li>Nenhuma ruptura ativa.</li>' : 
+                      productRuptures.map(r => `
+                        <li>
+                            <div class="detail-item">
+                                <strong>${r.storeName}</strong>
+                                <span class="rupture-time">${getTimeDiff(r.timestamp)}</span>
+                            </div>
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+        </div>
+    `;
+};
+
+function renderReportsTable() {
+    const tbody = document.getElementById('reportsTableBody');
+    const searchTerm = document.getElementById('reportSearch')?.value.toLowerCase() || '';
+    const startDate = document.getElementById('reportStartDate')?.value || '';
+    const endDate = document.getElementById('reportEndDate')?.value || '';
+    const checkboxes = document.querySelectorAll('.network-checkbox');
+    const selectedNetworks = checkboxes.length > 0 ? Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value) : ['all'];
+    const isAllSelected = document.getElementById('selectAllNetworks')?.checked ?? true;
+    
+    if (!tbody) return;
+
+    if (visits.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Nenhuma visita registrada ainda.</td></tr>';
+        return;
+    }
+
+    const filteredVisits = getFilteredReportVisits();
+
+    if (filteredVisits.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Nenhum resultado para os filtros aplicados.</td></tr>';
+        return;
+    }
+
+    // Ordenar por data (mais recente primeiro)
+    const sortedVisits = [...filteredVisits].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    tbody.innerHTML = '';
+    sortedVisits.forEach(visit => {
+        const store = stores.find(s => s.id === visit.storeId);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="checkbox" class="visit-checkbox" value="${visit.id}" onchange="updateBulkDeleteButton()"></td>
+            <td>
+                <div class="editable-date">
+                    <span>${formatDate(visit.date)}</span>
+                    <button class="btn-edit-small" onclick="editVisitDate(${visit.id})" title="Alterar Data">
+                        <i class="fa-solid fa-calendar-day"></i>
+                    </button>
+                </div>
+            </td>
+            <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="showVisitDetails(${visit.id})" title="Ver detalhes da visita">${store ? store.name : 'Loja Removida'}</strong></td>
+            <td><span class="network-tag">${store ? store.network : '-'}</span></td>
+            <td><span class="badge-rupture">${visit.ruptures.length} itens</span></td>
+            <td>
+                <div class="history-photos">
+                    ${(photoCache[visit.id] && photoCache[visit.id].length > 0) ? photoCache[visit.id].map(p => `
+                        <img src="${p}" class="history-photo-thumb" onclick="viewPhoto('${p}')">
+                    `).join('') : '<span style="color:#ccc; font-size: 0.7rem;">Sem fotos</span>'}
+                </div>
+            </td>
+            <td class="notes-cell" title="${visit.notes || ''}">${visit.notes || '-'}</td>
+            <td>
+                <div style="display: flex; gap: 8px; flex-wrap: nowrap; align-items: center;">
+                    <button class="btn-icon text-blue" onclick="openEditVisit(${visit.id})" title="Editar Visita">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    <button class="btn-icon text-red" onclick="deleteVisit(${visit.id})" title="Excluir Visita">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+window.toggleSelectAll = function(masterCb) {
+    const checkboxes = document.querySelectorAll('.visit-checkbox');
+    checkboxes.forEach(cb => cb.checked = masterCb.checked);
+    updateBulkDeleteButton();
+};
+
+window.updateBulkDeleteButton = function() {
+    const checkedCount = document.querySelectorAll('.visit-checkbox:checked').length;
+    const btn = document.getElementById('bulkDeleteBtn');
+    if (btn) {
+        btn.style.display = checkedCount > 0 ? 'inline-flex' : 'none';
+        btn.innerHTML = `<i class="fa-solid fa-trash"></i> Excluir (${checkedCount})`;
+    }
+};
+
+window.deleteSelectedVisits = function() {
+    const selectedIds = Array.from(document.querySelectorAll('.visit-checkbox:checked'))
+                            .map(cb => parseInt(cb.value));
+    
+    if (confirm(`Deseja realmente excluir as ${selectedIds.length} visitas selecionadas?`)) {
+        // Captura lojas afetadas antes de remover as visitas
+        const affectedStoreIds = new Set(visits.filter(v => selectedIds.includes(v.id)).map(v => v.storeId));
+
+        // Remove visitas
+        visits = visits.filter(v => !selectedIds.includes(v.id));
+
+        // Persistência e sincronizaï¿½ï¿½o
+        saveAppStateLocally();
+        if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
+
+        // Recalcula status das lojas afetadas e atualiza views
+        affectedStoreIds.forEach(id => recomputeStoreStatus(id));
+        checkOverdueStores();
+        renderPage('reports');
+        updateStats();
+        alert("Visitas selecionadas foram removidas.");
+    }
+};
+
+window.deleteVisit = async function(id) {
+    if (confirm("Deseja realmente excluir esta visita e todas as suas fotos permanentemente?")) {
+        // Identifica loja afetada antes de remover
+        const visitObj = visits.find(v => v.id === id);
+        const storeId = visitObj ? visitObj.storeId : null;
+
+        // Remove a visita do histórico
+        visits = visits.filter(v => v.id !== id);
+        saveAppStateLocally();
+
+        // ?? Apaga fotos e sincroniza no servidor
+        if (typeof Storage !== 'undefined' && Storage.isServer) {
+            await Storage.deleteVisitPhotos(id);
+            await syncAppStateServer();
+        }
+
+        // Recalcula status da loja afetada
+        if (storeId) {
+            recomputeStoreStatus(storeId);
+            checkOverdueStores();
+        }
+
+        renderPage('reports'); // Recarregar a view
+        updateStats(); // Atualizar contadores
+        alert("Visita removida com sucesso.");
+    }
+};
+
+// Recalcula o `lastVisit` e o `status` de uma loja com base no histórico de `visits`
+function recomputeStoreStatus(storeId) {
+    const storeIdx = stores.findIndex(s => s.id === storeId);
+    if (storeIdx === -1) return;
+
+    // Encontra as visitas restantes dessa loja (mais recente primeiro)
+    const storeVisits = visits
+        .filter(v => v.storeId === storeId)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (storeVisits.length === 0) {
+        stores[storeIdx].lastVisit = null;
+        stores[storeIdx].status = null;
+        stores[storeIdx].currentStatus = 'pending';
+    } else {
+        stores[storeIdx].lastVisit = storeVisits[0].date;
+        stores[storeIdx].status = 'visited';
+        // currentStatus será recalculado por checkOverdueStores()
+    }
+}
+
+window.editVisitDate = function(id) {
+    const visit = visits.find(v => v.id === id);
+    if (!visit) return;
+
+    const newDate = prompt("Digite a nova data (AAAA-MM-DD):", visit.date);
+    if (newDate && newDate !== visit.date) {
+        // Validaï¿½ï¿½o simples de formato AAAA-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+            visit.date = newDate;
+            recomputeStoreStatus(visit.storeId);
+            saveAppStateLocally();
+            if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
+            renderPage('reports');
+            updateStats();
+            alert("Data atualizada!");
+        } else {
+            alert("Formato de data inválido. Use AAAA-MM-DD.");
+        }
+    }
+};
+
+window.viewPhoto = function(src) {
+    const win = window.open();
+    win.document.write(`<img src="${src}" style="max-width:100%; height:auto; display:block; margin:auto; border-radius:10px; margin-top:20px;">`);
+};
+
+function calculateRuptureRate() {
+    const fVisits = typeof getGlobalFilteredVisits === 'function' ? getGlobalFilteredVisits() : visits;
+    if (fVisits.length === 0) return "0.0";
+    const totalPossible = fVisits.length * products.length; 
+    const totalRuptures = fVisits.reduce((acc, v) => acc + (v.ruptures ? v.ruptures.length : 0), 0);
+    return ((totalRuptures / totalPossible) * 100).toFixed(1);
+}
+
+function updateStats() {
+    const totalStoresEl = document.getElementById('totalStores');
+    const totalVisitsEl = document.getElementById('totalVisits');
+    const ruptureRateEl = document.getElementById('ruptureRate');
+
+    const fStores = typeof getGlobalFilteredStores === 'function' ? getGlobalFilteredStores() : stores;
+    const fVisits = typeof getGlobalFilteredVisits === 'function' ? getGlobalFilteredVisits() : visits;
+
+    if (totalStoresEl) totalStoresEl.textContent = fStores.length;
+    if (totalVisitsEl) totalVisitsEl.textContent = fVisits.length;
+    if (ruptureRateEl) ruptureRateEl.textContent = calculateRuptureRate() + '%';
+    
+    // Atualizar alertas de produtos se estiver na dashboard
+    const alertsContainer = document.getElementById('dashboardProductAlerts');
+    if (alertsContainer) {
+        renderValidatedRuptures();
+    }
+}
+
+window.exportVisitsCSV = function() {
+    const searchTerm = document.getElementById('reportSearch')?.value.toLowerCase() || '';
+    const startDate = document.getElementById('reportStartDate')?.value || '';
+    const endDate = document.getElementById('reportEndDate')?.value || '';
+    const checkboxes = document.querySelectorAll('.network-checkbox');
+    const selectedNetworks = checkboxes.length > 0 ? Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value) : ['all'];
+    const isAllSelected = document.getElementById('selectAllNetworks')?.checked ?? true;
+
+    const filtered = visits.filter(v => {
+        const store = stores.find(s => s.id === v.storeId);
+        if (!store) return false;
+        const matchesNetwork = isAllSelected || selectedNetworks.includes(store.network);
+        const matchesSearch = store.name.toLowerCase().includes(searchTerm) || 
+                             (v.notes && v.notes.toLowerCase().includes(searchTerm));
+        const matchesDate = (!startDate || v.date >= startDate) && (!endDate || v.date <= endDate);
+        const matchesRupture = !reportFilterOnlyRuptures || (v.ruptures && v.ruptures.length > 0);
+        return matchesNetwork && matchesSearch && matchesDate && matchesRupture;
+    });
+
+    if (filtered.length === 0) {
+        alert('Não hï¿½ dados filtrados para exportar.');
+        return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,Data;Loja;Rede;Qtd Rupturas;Itens em Ruptura;Observações\n";
+    
+    filtered.forEach(v => {
+        const store = stores.find(s => s.id === v.storeId);
+        const ruptureNames = v.ruptures.map(id => {
+            const p = products.find(prod => prod.id === id);
+            return p ? p.name : id;
+        }).join(" | ");
+        
+        const row = [
+            formatDate(v.date),
+            store ? store.name : 'N/A',
+            store ? store.network : 'N/A',
+            v.ruptures.length,
+            ruptureNames,
+            v.notes || ''
+        ].join(";");
+        csvContent += row + "\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `relatorio_visitas_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+function getReportFilterSettings() {
+    const searchTerm = document.getElementById('reportSearch')?.value.toLowerCase() || '';
+    const startDate = document.getElementById('reportStartDate')?.value || '';
+    const endDate = document.getElementById('reportEndDate')?.value || '';
+    const checkboxes = document.querySelectorAll('.network-checkbox');
+    const selectedNetworks = checkboxes.length > 0 ? Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value) : ['all'];
+    const isAllSelected = document.getElementById('selectAllNetworks')?.checked ?? true;
+
+    return { searchTerm, startDate, endDate, selectedNetworks, isAllSelected };
+}
+
+function getFilteredReportVisits() {
+    const { searchTerm, startDate, endDate, selectedNetworks, isAllSelected } = getReportFilterSettings();
+
+    return visits.filter(v => {
+        const store = stores.find(s => s.id === v.storeId);
+        if (!store) return false;
+
+        const matchesNetwork = isAllSelected || selectedNetworks.includes(store.network);
+        const matchesSearch = store.name.toLowerCase().includes(searchTerm) ||
+                             (v.notes && v.notes.toLowerCase().includes(searchTerm));
+        const matchesDate = (!startDate || v.date >= startDate) && (!endDate || v.date <= endDate);
+        const matchesRupture = !reportFilterOnlyRuptures || (v.ruptures && v.ruptures.length > 0);
+
+        return matchesNetwork && matchesSearch && matchesDate && matchesRupture;
+    });
+}
+
+function buildReportInsightsHTML(filteredVisits) {
+    const storeMap = new Map();
+    const networkCounts = {};
+    let totalRuptureItems = 0;
+    const productRuptureCounts = {};
+
+    filteredVisits.forEach(v => {
+        const store = stores.find(s => s.id === v.storeId);
+        if (!store) return;
+        
+        const rupCount = (v.ruptures || []).length;
+        totalRuptureItems += rupCount;
+
+        (v.ruptures || []).forEach(pId => {
+            productRuptureCounts[pId] = (productRuptureCounts[pId] || 0) + 1;
+        });
+
+        const networkName = store.network || 'Não informada';
+        networkCounts[networkName] = (networkCounts[networkName] || 0) + 1;
+
+        if (!storeMap.has(store.id)) {
+            storeMap.set(store.id, []);
+        }
+        storeMap.get(store.id).push(v);
+    });
+
+    const totalPossibleRuptures = filteredVisits.length * products.length;
+    const generalRuptureRate = totalPossibleRuptures > 0 
+        ? ((totalRuptureItems / totalPossibleRuptures) * 100).toFixed(1) 
+        : "0.0";
+
+    const topProducts = Object.entries(productRuptureCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([pId, count]) => {
+            const p = products.find(prod => prod.id === parseInt(pId));
+            return { name: p ? p.name : `Prod #${pId}`, count };
+        });
+
+    const storeSummaries = [];
+    storeMap.forEach((storeVisits, storeId) => {
+        const store = stores.find(s => s.id === storeId);
+        const visitsSorted = [...storeVisits].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const firstCount = (visitsSorted[0].ruptures || []).length;
+        const lastCount = (visitsSorted[visitsSorted.length - 1].ruptures || []).length;
+        const delta = firstCount - lastCount;
+        const percent = firstCount === 0
+            ? (lastCount === 0 ? 0 : -100)
+            : Math.round((delta / Math.max(firstCount, 1)) * 100);
+
+        storeSummaries.push({
+            store,
+            firstCount,
+            lastCount,
+            delta,
+            percent,
+            visits: visitsSorted.length
+        });
+    });
+
+    const improvedStores = storeSummaries.filter(s => s.delta > 0).sort((a, b) => b.delta - a.delta);
+    const worsenedStores = storeSummaries.filter(s => s.delta < 0).sort((a, b) => a.delta - b.delta);
+    const mostVisitedStore = [...storeSummaries].sort((a, b) => b.visits - a.visits)[0] || null;
+    const topNetwork = Object.entries(networkCounts).sort((a, b) => b[1] - a[1])[0] || ['Nenhum', 0];
+
+    const improvedText = improvedStores.length > 0
+        ? `${improvedStores.length} ${improvedStores.length === 1 ? 'loja' : 'lojas'} reduziram rupturas.`
+        : 'Nenhuma loja apresentou redução de rupturas neste período.';
+    const worsenedText = worsenedStores.length > 0
+        ? `${worsenedStores.length} ${worsenedStores.length === 1 ? 'loja' : 'lojas'} tiveram acréscimo de rupturas.`
+        : 'Nenhuma loja apresentou aumento de rupturas neste período.';
+
+    const highlightImprov = improvedStores[0];
+    const highlightWorse = worsenedStores[0];
+
+    const sentences = [];
+    sentences.push(`Total de visitas no relatório: <strong>${filteredVisits.length}</strong>.`);
+    sentences.push(`Lojas diferentes no recorte: <strong>${storeMap.size}</strong>.`);
+    sentences.push(`Rede mais registrada: <strong>${topNetwork[0]}</strong> (${topNetwork[1]} visitas).`);
+    sentences.push(`Taxa Geral de Ruptura: <strong style="color: #E53935;">${generalRuptureRate}%</strong> (Média de ${(totalRuptureItems / Math.max(1, filteredVisits.length)).toFixed(1)} itens/visita).`);
+    sentences.push(improvedText);
+    sentences.push(worsenedText);
+
+    let details = '';
+    
+    if (topProducts.length > 0) {
+        const topList = topProducts.map(p => `${p.name} (${p.count}x)`).join(', ');
+        details += `<li><strong>Top 5 Produtos Críticos:</strong> ${topList}</li>`;
+    }
+
+    if (highlightImprov) {
+        details += `<li><strong>${highlightImprov.store.name}</strong> apresentou a maior melhora: de ${highlightImprov.firstCount} para ${highlightImprov.lastCount} itens (${highlightImprov.percent}% de melhoria).</li>`;
+    }
+    if (highlightWorse) {
+        details += `<li><strong>${highlightWorse.store.name}</strong> teve a maior piora: de ${highlightWorse.firstCount} para ${highlightWorse.lastCount} itens.</li>`;
+    }
+    if (mostVisitedStore) {
+        details += `<li><strong>${mostVisitedStore.store.name}</strong> foi a loja com mais visitas no período (${mostVisitedStore.visits}).</li>`;
+    }
+
+    return `
+        <div style="background: #f4f8ff; border: 1px solid #d8e7ff; border-radius: 16px; padding: 18px 20px; margin-bottom: 24px; font-family: 'Outfit', sans-serif; color: #24305e; page-break-inside: avoid; break-inside: avoid;">
+            <h2 style="margin: 0 0 12px; font-size: 18px; color: #0d3b7f;">Principais Insights</h2>
+            <div style="display: grid; gap: 10px;">
+                ${sentences.map(text => `<p style="margin: 0; line-height: 1.6; font-size: 13px;">${text}</p>`).join('')}
+            </div>
+            ${details ? `<ul style="margin: 12px 0 0 18px; padding: 0; list-style-type: disc; color: #2d3f69; font-size: 13px;">${details}</ul>` : ''}
+        </div>
+    `;
+}
+
+function buildReportTableHTML(filteredVisits) {
+    const rows = filteredVisits.map(v => {
+        const store = stores.find(s => s.id === v.storeId) || { name: 'Loja Removida', network: 'N/A' };
+        const ruptureCount = (v.ruptures || []).length;
+        const notesText = v.notes ? v.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '-';
+
+        return `
+            <tr style="border-bottom: 1px solid #ececec; page-break-inside: avoid; break-inside: avoid;">
+                <td style="padding: 10px; font-weight: 600; color: #2b3a55;">${formatDate(v.date)}</td>
+                <td style="padding: 10px; color: #2b3a55;">${store.name}</td>
+                <td style="padding: 10px; color: #0c5db8; font-weight: 700;">${store.network}</td>
+                <td style="padding: 10px; color: #333;">${ruptureCount}</td>
+                <td style="padding: 10px; color: #555;">${notesText}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <div style="background: white; padding: 16px 18px; border-radius: 18px; border: 1px solid #e8edff; margin-bottom: 24px; font-family: 'Outfit', sans-serif; page-break-inside: avoid; break-inside: avoid;">
+            <h2 style="margin: 0 0 12px; color: #0d3b7f; font-size: 16px;">Visitas Incluídas no Relatório</h2>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                    <tr style="background: #f3f6ff; color: #2b3a55; text-align: left;">
+                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Data</th>
+                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Loja</th>
+                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Rede</th>
+                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Rupturas</th>
+                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Observações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function generateChartImage(config, width = 500, height = 300) {
+    return new Promise(resolve => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.position = 'absolute';
+        canvas.style.left = '-9999px';
+        document.body.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, width, height);
+
+        if (!config.options) config.options = {};
+        if (!config.options.animation) config.options.animation = false;
+        config.options.responsive = false;
+
+        new Chart(ctx, config);
+
+        setTimeout(() => {
+            const dataUrl = canvas.toDataURL('image/png');
+            document.body.removeChild(canvas);
+            resolve(dataUrl);
+        }, 150);
+    });
+}
+
+window.exportVisitsPDF = async function() {
+    const element = document.querySelector('.reports-container');
+    const filteredVisits = getFilteredReportVisits();
+    const { selectedNetworks, isAllSelected, startDate, endDate } = getReportFilterSettings();
+
+    if (filteredVisits.length === 0) {
+        alert('Não há dados para exportar. Ajuste os filtros ou registre visitas antes.');
+        return;
+    }
+
+    const filenameNetwork = !isAllSelected ? selectedNetworks.join('_').substring(0, 40).replace(/\s+/g, '_') : 'Geral';
+    const opt = {
+        margin:       [10, 10],
+        filename:     `Relatorio_Trade_Hiperroll_${filenameNetwork}_${new Date().toLocaleDateString()}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    // Calculate Top 5 Products for the Bar Chart
+    // Calculate Top 5 Products for the Bar Chart
+    const productRuptureData = {};
+    filteredVisits.forEach(v => {
+        const store = stores.find(s => s.id === v.storeId);
+        const net = store && store.network ? store.network : 'Outros';
+        (v.ruptures || []).forEach(pId => {
+            if (!productRuptureData[pId]) {
+                productRuptureData[pId] = { count: 0, networks: {} };
+            }
+            productRuptureData[pId].count += 1;
+            productRuptureData[pId].networks[net] = (productRuptureData[pId].networks[net] || 0) + 1;
+        });
+    });
+
+    const topProductsList = Object.entries(productRuptureData)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 5)
+        .map(([pId, data]) => {
+            const p = products.find(prod => prod.id === parseInt(pId));
+            return { 
+                name: p ? p.name : `Produto ${pId}`, 
+                count: data.count, 
+                networks: data.networks 
+            };
+        });
+
+    const formatProductNetStr = (netObj) => {
+        return Object.entries(netObj)
+            .sort((a, b) => b[1] - a[1])
+            .map(([n, c]) => `${n} (${c}x)`)
+            .join(', ');
+    };
+
+    let barLegendHtml = '';
+    if (topProductsList.length > 0) {
+        barLegendHtml += `<div style="text-align: left; font-size: 10px; margin-top: 12px; background: #f9f9f9; padding: 10px 14px; border-radius: 8px; width: 85%; border: 1px solid #eee; font-family: 'Outfit', sans-serif;">`;
+        barLegendHtml += `<strong style="color: #0047AB; display: block; margin-bottom: 6px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px;">Detalhamento das Faltas (Por Rede)</strong>`;
+        topProductsList.forEach(p => {
+            barLegendHtml += `<p style="margin: 0 0 3px; color: #555;"><strong style="color: #333;">${p.name}:</strong> ${formatProductNetStr(p.networks)}</p>`;
+        });
+        barLegendHtml += `</div>`;
+    }
+
+    const barChartConfig = {
+        type: 'bar',
+        data: {
+            labels: topProductsList.map(p => p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name),
+            datasets: [{
+                label: 'Faltas Registradas',
+                data: topProductsList.map(p => p.count),
+                backgroundColor: '#0047AB',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            plugins: { title: { display: true, text: 'Top 5 Produtos em Ruptura', font: { size: 14 } } },
+            scales: { 
+                y: { 
+                    beginAtZero: true, 
+                    ticks: { stepSize: 1 },
+                    title: { display: true, text: 'Lojas Afetadas (Qtd)', font: { size: 11, weight: 'bold' } }
+                } 
+            }
+        }
+    };
+
+    // Calculate visits with/without ruptures for Donut Chart
+    const visitsWithRupture = filteredVisits.filter(v => v.ruptures && v.ruptures.length > 0).length;
+    const visitsWithout = filteredVisits.length - visitsWithRupture;
+
+    // Calculate network breakdowns for the HTML legend
+    const okNetworks = {};
+    const rupNetworks = {};
+    filteredVisits.forEach(v => {
+        const store = stores.find(s => s.id === v.storeId);
+        const net = store && store.network ? store.network : 'Outros';
+        if (v.ruptures && v.ruptures.length > 0) {
+            rupNetworks[net] = (rupNetworks[net] || 0) + 1;
+        } else {
+            okNetworks[net] = (okNetworks[net] || 0) + 1;
+        }
+    });
+
+    const formatNetStr = (netObj, totalCat) => {
+        return Object.entries(netObj)
+            .sort((a, b) => b[1] - a[1])
+            .map(([n, c]) => `<strong>${n}</strong> (${Math.round((c/totalCat)*100)}%)`)
+            .join(', ');
+    };
+
+    const strOk = visitsWithout > 0 ? formatNetStr(okNetworks, visitsWithout) : 'N/A';
+    const strRup = visitsWithRupture > 0 ? formatNetStr(rupNetworks, visitsWithRupture) : 'N/A';
+
+    const donutChartConfig = {
+        type: 'doughnut',
+        data: {
+            labels: ['Com Ruptura', 'Sem Ruptura'],
+            datasets: [{
+                data: [visitsWithRupture, visitsWithout],
+                backgroundColor: ['#E53935', '#27ae60']
+            }]
+        },
+        plugins: [{
+            id: 'textInside',
+            afterDraw: function(chart) {
+                const ctx = chart.ctx;
+                chart.data.datasets.forEach((dataset, i) => {
+                    chart.getDatasetMeta(i).data.forEach((element, index) => {
+                        const data = dataset.data[index];
+                        if (data > 0) {
+                            const total = dataset.data.reduce((a, b) => a + b, 0);
+                            const percent = Math.round((data / total) * 100) + '%';
+                            ctx.fillStyle = 'white';
+                            ctx.font = 'bold 16px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            const position = element.tooltipPosition();
+                            ctx.fillText(percent, position.x, position.y);
+                        }
+                    });
+                });
+            }
+        }],
+        options: {
+            plugins: { 
+                title: { display: true, text: 'Status das Visitas', font: { size: 14 } },
+                legend: { position: 'bottom' }
+            }
+        }
+    };
+
+    // Generate Chart Images
+    const barChartUrl = await generateChartImage(barChartConfig, 500, 250);
+    const donutChartUrl = await generateChartImage(donutChartConfig, 350, 250);
+
+    const header = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; font-family: 'Outfit', sans-serif; border-bottom: 2px solid #0047AB; padding-bottom: 14px; width: 100%; box-sizing: border-box;">
+            <div style="text-align: left; flex: 1; padding-right: 20px;">
+                <h1 style="color: #0047AB; margin: 0; font-size: 24px; font-weight: 700;">Hiperroll Embalagens</h1>
+                <h3 style="color: #E53935; margin: 6px 0 0; font-size: 16px; font-weight: 600;">Relatório de Visitas Trade Marketing</h3>
+                <p style="font-size: 10px; color: #666; margin: 6px 0 0; font-weight: 400;">Gerado em: ${new Date().toLocaleString()}</p>
+                <p style="font-size: 11px; color: #333; margin: 4px 0 0; font-weight: 600;">Responsável: Nicole Portela - Trade Marketing</p>
+            </div>
+            <div style="text-align: center; min-width: 160px;">
+                <div style="background: #0047AB; color: white; padding: 14px 20px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; display: inline-block; margin-bottom: 8px;">
+                    HIPERROLL
+                </div>
+                <p style="font-size: 11px; color: #0047AB; margin: 0; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;">INTELIGÊNCIA EM TRADE</p>
+            </div>
+        </div>
+    `;
+
+    const filtersSummary = `
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; font-family: 'Outfit', sans-serif;">
+            <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e1e9ff; min-width: 220px;">
+                <strong style="display:block; margin-bottom: 4px; color: #0d3b7f; font-size: 12px;">Período</strong>
+                <span style="font-size: 12px; color: #333;">${startDate || 'Início'} até ${endDate || 'Fim'}</span>
+            </div>
+            <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e1e9ff; min-width: 220px;">
+                <strong style="display:block; margin-bottom: 4px; color: #0d3b7f; font-size: 12px;">Rede</strong>
+                <span style="font-size: 12px; color: #333;">${isAllSelected ? 'Todas as Redes' : selectedNetworks.join(', ')}</span>
+            </div>
+            <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e1e9ff; min-width: 220px;">
+                <strong style="display:block; margin-bottom: 4px; color: #0d3b7f; font-size: 12px;">Rupturas</strong>
+                <span style="font-size: 12px; color: #333;">${reportFilterOnlyRuptures ? 'Somente visitas com ruptura' : 'Todas as visitas'}</span>
+            </div>
+        </div>
+    `;
+
+    const chartsSection = `
+        <div style="display: flex; justify-content: space-around; align-items: flex-start; margin-bottom: 24px; background: white; padding: 16px; border-radius: 16px; border: 1px solid #e8edff; page-break-inside: avoid; break-inside: avoid;">
+            <div style="flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                <img src="${donutChartUrl}" style="max-width: 100%; height: auto; max-height: 220px;" />
+                <div style="text-align: left; font-size: 11px; margin-top: 12px; background: #f9f9f9; padding: 10px 14px; border-radius: 8px; width: 85%; border: 1px solid #eee; font-family: 'Outfit', sans-serif;">
+                    <div style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #e0e0e0;">
+                        <strong style="color: #27ae60; display: block; margin-bottom: 2px; white-space: nowrap;">Sem Ruptura (Composição por Rede)</strong>
+                        <span style="color: #555;">${strOk}</span>
+                    </div>
+                    <div>
+                        <strong style="color: #E53935; display: block; margin-bottom: 2px; white-space: nowrap;">Com Ruptura (Composição por Rede)</strong>
+                        <span style="color: #555;">${strRup}</span>
+                    </div>
+                </div>
+            </div>
+            <div style="flex: 1.2; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                <img src="${barChartUrl}" style="max-width: 100%; height: auto; max-height: 220px;" />
+                ${barLegendHtml}
+            </div>
+        </div>
+    `;
+
+    const insightsSection = buildReportInsightsHTML(filteredVisits);
+    const tableSection = buildReportTableHTML(filteredVisits);
+    
+    const container = document.createElement('div');
+    container.innerHTML = header + filtersSummary + chartsSection + insightsSection + tableSection;
+
+    html2pdf().set(opt).from(container).save();
+};
+
+function buildPendingStoresInsightsHTML(pendingStores) {
+    const overdueCounts = pendingStores.filter(s => s.currentStatus === 'overdue').length;
+    const pendingCounts = pendingStores.filter(s => s.currentStatus === 'pending' || s.status === 'pending').length;
+    const networkMap = {};
+    const neverVisited = pendingStores.filter(s => !s.lastVisit).length;
+    
+    pendingStores.forEach(s => {
+        const net = s.network || 'Não informada';
+        networkMap[net] = (networkMap[net] || 0) + 1;
+    });
+    
+    const topNetwork = Object.entries(networkMap).sort((a, b) => b[1] - a[1])[0] || ['Nenhuma', 0];
+    const overduePct = Math.round((overdueCounts / pendingStores.length) * 100);
+    
+    return `
+        <div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 16px; padding: 16px 18px; margin-bottom: 20px; font-family: 'Outfit', sans-serif;">
+            <h2 style="margin: 0 0 12px; font-size: 16px; color: #8b6914;">Resumo Executivo</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; color: #555; line-height: 1.6;">
+                <div><strong>Lojas no relatório:</strong> ${pendingStores.length}</div>
+                <div><strong>Em atraso:</strong> ${overdueCounts} (${overduePct}%)</div>
+                <div><strong>Pendentes de visita:</strong> ${pendingCounts}</div>
+                <div><strong>Nunca visitadas:</strong> ${neverVisited}</div>
+                <div><strong>Rede mais afetada:</strong> ${topNetwork[0]} (${topNetwork[1]} lojas)</div>
+                <div style="color: #d9534f; font-weight: 600;"><i class="fa-solid fa-exclamation-circle"></i> Prioridade: Agendar visitas</div>
+            </div>
+        </div>
+    `;
+}
+
+window.exportDashboardPDF = function() {
+    const fStores = typeof getGlobalFilteredStores === 'function' ? getGlobalFilteredStores() : stores;
+    const pendingStores = fStores.filter(s => s.currentStatus === 'overdue' || s.currentStatus === 'pending' || s.status === 'pending');
+
+    if (pendingStores.length === 0) {
+        alert('Não há lojas pendentes ou em atraso para exportar.');
+        return;
+    }
+
+    const opt = {
+        margin:       [10, 10],
+        filename:     `Relatorio_Lojas_Pendentes_${new Date().toLocaleDateString()}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    const header = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; font-family: 'Outfit', sans-serif; border-bottom: 2px solid #0047AB; padding-bottom: 15px; width: 100%; box-sizing: border-box;">
+            <div style="text-align: left; flex: 1; padding-right: 20px;">
+                <h1 style="color: #0047AB; margin: 0; font-size: 24px; font-weight: 700;">Hiperroll Embalagens</h1>
+                <h3 style="color: #E53935; margin: 5px 0 0; font-size: 16px; font-weight: 600;">Relatório de Lojas Pendentes / Em Atraso</h3>
+                <p style="font-size: 11px; color: #666; margin: 6px 0 0; font-weight: 400;">Gerado em: ${new Date().toLocaleString()}</p>
+                <p style="font-size: 12px; color: #333; margin-top: 5px; font-weight: 600;">Responsável: Nicole Portela - Trade Marketing</p>
+            </div>
+            <div style="text-align: center; min-width: 160px;">
+                <div style="background: #0047AB; color: white; padding: 14px 20px; border-radius: 10px; font-weight: 700; font-size: 18px; letter-spacing: 0.5px; display: inline-block; margin-bottom: 8px;">
+                    HIPERROLL
+                </div>
+                <p style="font-size: 11px; color: #0047AB; margin: 0; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;">INTELIGÊNCIA EM TRADE</p>
+            </div>
+        </div>
+    `;
+
+    const insightsHtml = buildPendingStoresInsightsHTML(pendingStores);
+
+    let tableHtml = `
+        <table style="width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif; font-size: 12px; text-align: left;">
+            <thead>
+                <tr style="background-color: #f5f5f5; border-bottom: 1px solid #ddd;">
+                    <th style="padding: 10px;">Loja</th>
+                    <th style="padding: 10px;">Rede</th>
+                    <th style="padding: 10px;">Status</th>
+                    <th style="padding: 10px;">Última Visita</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    pendingStores.forEach(s => {
+        let statusStr = "Pendente";
+        let statusColor = "#FFC107";
+        if (s.currentStatus === 'overdue') {
+            statusStr = "Atrasado";
+            statusColor = "#E53935";
+        }
+
+        let lastVisitStr = "Nunca visitada";
+        if (s.lastVisit) {
+            lastVisitStr = formatDate(s.lastVisit);
+        }
+
+        tableHtml += `
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px; font-weight: 600; color: #333;">${s.name}</td>
+                <td style="padding: 10px; font-weight: bold; color: var(--primary-blue);">${s.network}</td>
+                <td style="padding: 10px; color: ${statusColor}; font-weight: bold;">${statusStr}</td>
+                <td style="padding: 10px; color: #666;">${lastVisitStr}</td>
+            </tr>
+        `;
+    });
+
+    tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+    const container = document.createElement('div');
+    container.innerHTML = header + insightsHtml + tableHtml;
+
+    html2pdf().set(opt).from(container).save();
+};
+
+window.toggleRuptureFilter = function() {
+    reportFilterOnlyRuptures = !reportFilterOnlyRuptures;
+    const btn = document.getElementById('reportRuptureFilterBtn');
+    if (btn) {
+        if (reportFilterOnlyRuptures) {
+            btn.style.background = 'var(--primary-red, #E53935)';
+            btn.style.color = 'white';
+            btn.style.borderColor = 'var(--primary-red, #E53935)';
+        } else {
+            btn.style.background = 'white';
+            btn.style.color = 'var(--text-dark)';
+            btn.style.borderColor = '#eee';
+        }
+    }
+    renderReportsTable();
+};
+
+function updateNotifications() {
+    const badge = document.getElementById('notificationBadge');
+    const list = document.getElementById('notificationList');
+    if (!badge || !list) return;
+
+    const notifications = [];
+
+    // 1. Alertas de Atraso Crítico (+14 dias)
+    stores.forEach(s => {
+        if (s.lastVisit) {
+            const last = new Date(s.lastVisit + 'T12:00:00');
+            const diff = Math.floor((new Date() - last) / (1000 * 60 * 60 * 24));
+            if (diff >= 14) {
+                const notifId = `overdue-${s.id}-${s.lastVisit}`;
+                if (!dismissedNotifications.includes(notifId)) {
+                    notifications.push({
+                        id: notifId,
+                        type: 'danger',
+                        icon: 'fa-calendar-xmark',
+                        title: 'Atraso Crítico',
+                        text: `${s.name} sem visita há ${diff} dias.`
+                    });
+                }
+            }
+        }
+    });
+
+    // 2. Rupturas não validadas (Alertas Recentes)
+    visits.forEach(v => {
+        if (v.ruptures && v.ruptures.length > 0) {
+            v.ruptures.forEach(pId => {
+                const store = stores.find(s => s.id === v.storeId);
+                const prod = products.find(p => p.id === pId);
+                const notifId = `rupture-${v.id}-${pId}`;
+                
+                // Só mostra se não foi validada e não foi "limpa/dismissed"
+                const isValidated = validatedRuptures.some(r => r.productId === pId && r.storeId === v.storeId);
+                if (!isValidated && !dismissedNotifications.includes(notifId)) {
+                    notifications.push({
+                        id: notifId,
+                        type: 'warning',
+                        icon: 'fa-triangle-exclamation',
+                        title: 'Ruptura Detectada',
+                        text: `${prod ? prod.name : 'Item'} em falta no ${store ? store.name : 'PDV'}.`
+                    });
+                }
+            });
+        }
+    });
+
+    // Atualizar Badge
+    if (notifications.length > 0) {
+        badge.textContent = notifications.length;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+
+    // Renderizar Lista
+    if (notifications.length === 0) {
+        list.innerHTML = '<div class="notif-empty">Nenhuma notificação nova</div>';
+    } else {
+        list.innerHTML = notifications.map(n => `
+            <div class="notification-item">
+                <i class="fa-solid ${n.icon} ${n.type === 'danger' ? 'noti-red' : 'noti-orange'}"></i>
+                <div class="noti-content">
+                    <strong>${n.title}</strong>
+                    <p>${n.text}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+window.clearNotifications = function() {
+    const badge = document.getElementById('notificationBadge');
+    const list = document.getElementById('notificationList');
+    
+    const currentNotifs = [];
+    stores.forEach(s => {
+        if (s.lastVisit) {
+            const last = new Date(s.lastVisit + 'T12:00:00');
+            const diff = Math.floor((new Date() - last) / (1000 * 60 * 60 * 24));
+            if (diff >= 14) currentNotifs.push(`overdue-${s.id}-${s.lastVisit}`);
+        }
+    });
+    visits.forEach(v => {
+        if (v.ruptures) {
+            v.ruptures.forEach(pId => currentNotifs.push(`rupture-${v.id}-${pId}`));
+        }
+    });
+
+    dismissedNotifications = [...new Set([...dismissedNotifications, ...currentNotifs])];
+    saveAppStateLocally();
+    if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
+
+    updateNotifications();
+};
+
+// Update badge on init
+setTimeout(updateNotifications, 1000);
+
+function renderStatusBadge(store) {
+    if (store.currentStatus === 'overdue') return '<span style="color: #e74c3c; font-size: 0.8rem;"><i class="fa-solid fa-triangle-exclamation"></i> Em Atraso</span>';
+    if (store.currentStatus === 'visited' || store.status === 'visited') return '<span style="color: #27ae60; font-size: 0.8rem;"><i class="fa-solid fa-circle-check"></i> OK</span>';
+    return '<span style="color: #f39c12; font-size: 0.8rem;"><i class="fa-solid fa-clock"></i> Pendente</span>';
+}
+
+function populateSelects() {
+    storeSelect.innerHTML = '<option value="">Selecione uma loja...</option>';
+    stores.forEach(store => {
+        const option = document.createElement('option');
+        option.value = store.id;
+        option.textContent = store.name;
+        storeSelect.appendChild(option);
+    });
+}
+
+function renderChecklist(searchTerm = '', storeProductIds = null) {
+    productListChecklist.innerHTML = '';
+    
+    let filteredProducts = products;
+    
+    // Filtro por termo de busca
+    if (searchTerm) {
+        filteredProducts = filteredProducts.filter(p => 
+            p.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }
+    
+    // Filtro por Loja (Opï¿½ï¿½o 2: Apenas itens daquela loja específica)
+    if (storeProductIds) {
+        filteredProducts = filteredProducts.filter(p => 
+            storeProductIds.includes(p.id)
+        );
+    }
+
+    if (filteredProducts.length === 0) {
+        productListChecklist.innerHTML = `<p style="padding: 10px; color: var(--text-muted);">
+            ${storeProductIds ? 'Nenhum item cadastrado para esta loja específica.' : 'Selecione uma loja para ver os produtos.'}
+        </p>`;
+        return;
+    }
+
+    filteredProducts.forEach(product => {
+        const item = document.createElement('div');
+        item.className = 'checklist-item';
+        item.innerHTML = `
+            <input type="checkbox" id="prod-${product.id}" value="${product.id}" class="rupture-check">
+            <label for="prod-${product.id}">${product.name}</label>
+        `;
+        productListChecklist.appendChild(item);
+    });
+}
+
+async function handleVisitSubmit(e) {
+    e.preventDefault();
+
+    // Trava de segurança contra cliques duplos
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn.disabled) return;
+
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+
+    const storeId   = parseInt(storeSelect.value);
+    const notes     = document.getElementById('visitNotes').value;
+    const checkedProducts = Array.from(document.querySelectorAll('.rupture-check:checked'))
+                                 .map(cb => parseInt(cb.value));
+    const visitDate = document.getElementById('visitDate').value;
+
+    // ============================================================
+    // MODO EDIï¿½AO: sobrepõe a visita existente, sem criar duplicata
+    // ============================================================
+    if (editingVisitId !== null) {
+        const idx = visits.findIndex(v => v.id === editingVisitId);
+        if (idx !== -1) {
+            const oldVisit = visits[idx];
+            const oldStoreId = oldVisit.storeId;
+
+            // Atualiza os campos editáveis (mantém id e fotos originais)
+            visits[idx] = {
+                ...oldVisit,
+                storeId,
+                date: visitDate,
+                ruptures: checkedProducts,
+                notes,
+            };
+
+            // ----------------------------------------------------------
+            // Atualiza rupturas validadas:
+            // Remove as antigas vinculadas a esta visita (pela loja antiga)
+            // e garante que as novas existam.
+            // ----------------------------------------------------------
+            const oldRuptureIds = oldVisit.ruptures || [];
+            const newRuptureIds = checkedProducts;
+
+            // Remove rupturas que foram DESMARCADAS nesta ediï¿½ï¿½o
+            oldRuptureIds.forEach(pId => {
+                if (!newRuptureIds.includes(pId)) {
+                    // Só remove se nenhuma OUTRA visita da mesma loja também reporta esta ruptura
+                    const stillReported = visits.some(
+                        (v, i) => i !== idx && v.storeId === storeId && v.ruptures && v.ruptures.includes(pId)
+                    );
+                    if (!stillReported) {
+                        validatedRuptures = validatedRuptures.filter(
+                            r => !(r.productId === pId && r.storeId === storeId)
+                        );
+                    }
+                }
+            });
+
+            // Adiciona rupturas NOVAS que não existiam antes
+            newRuptureIds.forEach(pId => {
+                const exists = validatedRuptures.find(r => r.productId === pId && r.storeId === storeId);
+                if (!exists) {
+                    const product = products.find(p => p.id === pId);
+                    const store   = stores.find(s => s.id === storeId);
+                    validatedRuptures.push({
+                        id: Date.now() + Math.random(),
+                        productId: pId,
+                        productName: product ? product.name : 'Produto',
+                        storeId,
+                        storeName: store ? store.name : 'Loja',
+                        timestamp: new Date().getTime()
+                    });
+                }
+            });
+
+            // Recalcula status das lojas envolvidas
+            recomputeStoreStatus(storeId);
+            if (oldStoreId !== storeId) recomputeStoreStatus(oldStoreId);
+
+            try {
+                await persistAppState();
+                renderValidatedRuptures();
+                selectedPhotos = [];
+                document.getElementById('photoPreviewContainer').innerHTML = '';
+                e.target.reset();
+                visitModal.style.display = 'none';
+                _resetEditMode();
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                checkOverdueStores();
+                if (currentPage === 'reports') renderPage('reports');
+                updateStats();
+                updateNotifications();
+                showToast('Visita atualizada com sucesso!');
+            } catch (err) {
+                console.error('Erro ao salvar ediï¿½ï¿½o:', err);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                alert('Erro ao salvar a ediï¿½ï¿½o. Tente novamente.');
+            }
+            return; // Encerra aqui é não executa o fluxo de nova visita
+        }
+    }
+
+    // ============================================================
+    // MODO NOVA VISITA (comportamento original)
+    // ============================================================
+    const newVisit = {
+        id: Date.now(),
+        storeId,
+        date: visitDate,
+        ruptures: checkedProducts,
+        notes,
+        photos: []  // fotos ficam apenas em memória (photoCache), não no localStorage
+    };
+
+    // Guarda fotos só em memória para a sessão atual
+    if (selectedPhotos.length > 0) {
+        photoCache[newVisit.id] = [...selectedPhotos];
+        
+        // ?? Upload para o servidor (em background)
+        if (typeof Storage !== 'undefined' && Storage.isServer) {
+            const urls = [];
+            for (const b64 of selectedPhotos) {
+                const u = await Storage.uploadPhoto(b64, newVisit.id);
+                if (u) urls.push(u);
+            }
+            if (urls.length > 0) photoCache[newVisit.id] = urls;
+        }
+    }
+    
+    // Atualiza Estado
+    visits.push(newVisit);
+    
+    recomputeStoreStatus(storeId);
+    
+    // Sugerir rupturas para validaï¿½ï¿½o (em lote para performance)
+    newVisit.ruptures.forEach(pId => {
+        const exists = validatedRuptures.find(r => r.productId === pId && r.storeId === storeId);
+        if (!exists) {
+            const product = products.find(p => p.id === pId);
+            const store = stores.find(s => s.id === storeId);
+            validatedRuptures.push({
+                id: Date.now() + Math.random(),
+                productId: pId,
+                productName: product ? product.name : 'Produto',
+                storeId,
+                storeName: store ? store.name : 'Loja',
+                timestamp: new Date().getTime()
+            });
+        }
+    });
+
+    // Feedback e Reset imediato
+    try {
+        await persistAppState();
+        renderValidatedRuptures();
+        
+        selectedPhotos = [];
+        const photoPreview = document.getElementById('photoPreviewContainer');
+        if (photoPreview) photoPreview.innerHTML = '';
+        e.target.reset();
+        
+        visitModal.style.display = 'none';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+
+        checkOverdueStores();
+        renderDashboard();
+        updateStats();
+        updateNotifications();
+        
+        showToast("Visita registrada com sucesso!");
+    } catch (err) {
+        console.error("Erro ao salvar:", err);
+        // Libera chaves legadas e tenta salvar novamente automaticamente
+        localStorage.removeItem('hr_stores');
+        localStorage.removeItem('hr_products');
+        // Segunda tentativa após limpar espaço
+        try {
+            localStorage.setItem('hr_visits', JSON.stringify(visits));
+            saveStoreUpdates();
+            localStorage.setItem('hr_validated_ruptures', JSON.stringify(validatedRuptures));
+            showToast("Visita salva após liberar espaço!", 'success');
+        } catch(err2) {
+            alert("Armazenamento cheio mesmo após limpeza. Exporte o relatério em CSV e limpe o histórico de visitas antigas.");
+        }
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    }
+}
+
+function suggestRupture(productId, storeId) {
+    // Verifica se já não está validada
+    const exists = validatedRuptures.find(r => r.productId === productId && r.storeId === storeId);
+    if (!exists) {
+        // Por enquanto, vamos validar automaticamente para demonstraï¿½ï¿½o, 
+        // ou adicionar a uma lista de "pendentes"
+        const product = products.find(p => p.id === productId);
+        const store = stores.find(s => s.id === storeId);
+        
+        // Adicionar botão de validaï¿½ï¿½o na UI ou validar direto se for a chefe
+        // Vamos criar a entrada de ruptura validada
+        const newRupture = {
+            id: Date.now() + Math.random(),
+            productId,
+            productName: product ? product.name : 'Produto',
+            storeId,
+            storeName: store ? store.name : 'Loja',
+            timestamp: new Date().getTime()
+        };
+        
+        validatedRuptures.push(newRupture);
+        localStorage.setItem('hr_validated_ruptures', JSON.stringify(validatedRuptures));
+        renderValidatedRuptures();
+    }
+}
+
+function renderValidatedRuptures(storeFilter) {
+    const container = document.getElementById('dashboardProductAlerts');
+    const fRuptures = typeof getGlobalFilteredRuptures === 'function' ? getGlobalFilteredRuptures() : validatedRuptures;
+    const countEl = document.getElementById('activeRupturesCount');
+    if (countEl) countEl.textContent = fRuptures.length;
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    // Se não recebeu filtro, tenta ler do input
+    if (storeFilter === undefined) {
+        const searchInput = document.getElementById('ruptureStoreSearch');
+        storeFilter = searchInput ? searchInput.value : '';
+    }
+
+    // Normaliza o filtro (remove acentos e lowercase)
+    const normalizeStr = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const filterNorm = normalizeStr(storeFilter || '');
+
+    // Filtra rupturas pela loja
+    const filtered = filterNorm
+        ? fRuptures.filter(r => normalizeStr(r.storeName || '').includes(filterNorm))
+        : fRuptures;
+
+    if (fRuptures.length === 0) {
+        container.innerHTML = '<p class="empty-state">Nenhuma ruptura ativa para os filtros atuais.</p>';
+        return;
+    }
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<p class="empty-state">Nenhuma ruptura encontrada para esta loja.</p>';
+        return;
+    }
+
+    // Pré-calcular reincidências: contagem de visitas consecutivas mais recentes
+    // reportando o mesmo produto em ruptura na mesma loja
+    const recurrenceMap = {};
+    fRuptures.forEach(r => {
+        const key = `${r.productId}-${r.storeId}`;
+        if (!recurrenceMap[key]) {
+            const storeVisits = visits.filter(v => v.storeId === r.storeId)
+                                      .sort((a, b) => new Date(b.date) - new Date(a.date));
+            let streak = 0;
+            for (const v of storeVisits) {
+                if (v.ruptures && v.ruptures.includes(r.productId)) {
+                    streak++;
+                } else {
+                    break;
+                }
+            }
+            recurrenceMap[key] = streak;
+        }
+    });
+
+    filtered.forEach(rupture => {
+        // Encontra a loja para pegar a data da última visita
+        const store = stores.find(s => s.id === rupture.storeId);
+        
+        let referenceTime = rupture.timestamp;
+        if (store && store.lastVisit) {
+            // lastVisit é uma string "YYYY-MM-DD"; converter para timestamp
+            const parsed = new Date(store.lastVisit + 'T12:00:00').getTime();
+            if (!isNaN(parsed)) referenceTime = parsed;
+        }
+        
+        const timeDiff = getTimeDiff(referenceTime);
+        const key = `${rupture.productId}-${rupture.storeId}`;
+        const visitCount = recurrenceMap[key] || 0;
+        const isRecurrent = visitCount >= 2;
+
+        const item = document.createElement('div');
+        item.className = 'rupture-item' + (isRecurrent ? ' rupture-recurrent' : '');
+        item.innerHTML = `
+            <div class="rupture-item-header">
+                <span class="rupture-product">${rupture.productName}</span>
+                <span class="rupture-time">${timeDiff}</span>
+            </div>
+            <div class="rupture-store-row">
+                <span class="rupture-store">${rupture.storeName}</span>
+                ${isRecurrent ? `
+                    <span class="rupture-recurrence-badge" title="Produto em ruptura em ${visitCount} visitas é mesma loja">
+                        <i class="fa-solid fa-fire"></i> ${visitCount}ª visita sem resolver
+                    </span>
+                ` : ''}
+            </div>
+            <div class="rupture-actions">
+                <button class="btn btn-secondary btn-small" onclick="resolveRupture(${rupture.id})">
+                    <i class="fa-solid fa-check"></i> Resolvido
+                </button>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+// Funï¿½ï¿½o chamada pelo input de busca por loja no painel de rupturas
+window.filterRupturesByStore = function() {
+    const searchInput = document.getElementById('ruptureStoreSearch');
+    renderValidatedRuptures(searchInput ? searchInput.value : '');
+};
+
+function getTimeDiff(timestamp) {
+    const now = new Date().getTime();
+    const diff = now - timestamp;
+    
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60) ;
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `Há ${days}d`;
+    if (hours > 0) return `Há ${hours}h`;
+    return `Há ${minutes}min`;
+}
+
+window.resolveRupture = function(id) {
+    validatedRuptures = validatedRuptures.filter(r => r.id !== id);
+    saveAppStateLocally();
+    if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
+    renderValidatedRuptures();
+    updateStats();
+};
+
+// (updateStats unificado)
+
+function renderProductAlerts() {
+    const alertsContainer = document.getElementById('dashboardProductAlerts');
+    alertsContainer.innerHTML = '';
+    
+    // Contar quantas vezes cada produto entrou em ruptura
+    const ruptureCounts = {};
+    visits.forEach(v => {
+        v.ruptures.forEach(pId => {
+            ruptureCounts[pId] = (ruptureCounts[pId] || 0) + 1;
+        });
+    });
+    
+    // Criar lista ordenada por maior ruptura
+    const sortedAlerts = Object.entries(ruptureCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+        
+    if (sortedAlerts.length === 0) {
+        alertsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">Nenhuma ruptura registrada ainda.</p>';
+        return;
+    }
+
+    sortedAlerts.forEach(([pId, count]) => {
+        const product = products.find(p => p.id == pId);
+        const item = document.createElement('div');
+        item.style.marginBottom = '12px';
+        item.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 500;">${product ? product.name : 'Desconhecido'}</span>
+                <span class="badge" style="position: static; background: var(--primary-red);">${count}x</span>
+            </div>
+            <div style="height: 6px; background: #eee; border-radius: 3px; margin-top: 5px;">
+                <div style="width: ${(count/visits.length)*100}%; height: 100%; background: var(--primary-red); border-radius: 3px;"></div>
+            </div>
+        `;
+        alertsContainer.appendChild(item);
+    });
+}
+
+function formatDate(dateStr) {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+}
+
+function handleLogin(e) {
+    e.preventDefault();
+    const user = document.getElementById('username').value;
+    const pass = document.getElementById('password').value;
+    const errorMsg = document.getElementById('loginError');
+
+    // Credenciais Personalizadas - liberado temporariamente para testes
+    if (true || (user.toLowerCase() === 'nicole.portela' && pass === 'lasanha10')) {
+        safeSetItem('hr_logged_in', 'true');
+        document.body.classList.add('logged-in');
+        document.body.classList.remove('not-logged-in');
+        updateNotifications(); // Atualizar alertas após login
+        updateStats(); // Garantir que as estatísticas carreguem no login
+    } else {
+        errorMsg.style.display = 'block';
+    }
+}
+
+window.logout = function() {
+    safeRemoveItem('hr_logged_in');
+    location.reload();
+};
+
+window.openVisitForStore = function(storeId) {
+    _resetEditMode();
+    visitModal.style.display = 'flex';
+    storeSelect.value = storeId;
+    document.getElementById('visitDate').valueAsDate = new Date();
+    const store = stores.find(s => s.id === storeId);
+    renderChecklist('', store ? store.productIds : null);
+};
+
+// Restaura o modal para o estado padrão de "Nova Visita"
+function _resetEditMode() {
+    editingVisitId = null;
+    // Desbloqueia o select de loja (pode ter sido travado em modo ediï¿½ï¿½o)
+    if (storeSelect) storeSelect.disabled = false;
+    const modalTitle = document.querySelector('#visitModal .modal-header h2');
+    if (modalTitle) modalTitle.textContent = 'Registrar Visita';
+    const submitBtn = document.querySelector('#visitForm button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = 'Salvar Visita';
+        submitBtn.className = 'btn btn-success';
+    }
+    // Remove banner de modo ediï¿½ï¿½o se existir
+    const editBanner = document.getElementById('editModeBanner');
+    if (editBanner) editBanner.remove();
+}
+
+// Abre o modal prï¿½-populado com os dados da visita para ediï¿½ï¿½o
+window.openEditVisit = function(visitId) {
+    const visit = visits.find(v => v.id === visitId);
+    if (!visit) { alert('Visita não encontrada.'); return; }
+
+    const store = stores.find(s => s.id === visit.storeId);
+
+    // Define o ID em ediï¿½ï¿½o ANTES de qualquer renderizaï¿½ï¿½o
+    editingVisitId = visitId;
+
+    // Abre o modal
+    visitModal.style.display = 'flex';
+
+    // Ajusta título e botão para indicar modo ediï¿½ï¿½o
+    const modalTitle = document.querySelector('#visitModal .modal-header h2');
+    if (modalTitle) modalTitle.textContent = 'Editar Visita';
+
+    const submitBtn = document.querySelector('#visitForm button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar Alterações';
+        submitBtn.className = 'btn btn-primary';
+    }
+
+    // Adiciona banner visual de aviso (se não existir ainda)
+    if (!document.getElementById('editModeBanner')) {
+        const form = document.getElementById('visitForm');
+        const banner = document.createElement('div');
+        banner.id = 'editModeBanner';
+        banner.style.cssText = `
+            background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;
+            padding: 10px 14px; margin-bottom: 14px; font-size: 0.85rem;
+            color: #856404; display: flex; align-items: center; gap: 8px;
+        `;
+        banner.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Você está <strong>editando</strong> uma visita existente. As alterações substituirão os dados anteriores.</span>`;
+        form.insertBefore(banner, form.firstChild);
+    }
+
+    // Pré-preenche a loja
+    storeSelect.value = visit.storeId;
+    // Bloqueia troca de loja durante ediï¿½ï¿½o para evitar inconsistência
+    storeSelect.disabled = true;
+
+    // Pré-preenche a data
+    document.getElementById('visitDate').value = visit.date;
+
+    // Pré-preenche observaï¿½ï¿½es
+    document.getElementById('visitNotes').value = visit.notes || '';
+
+    // Renderiza checklist da loja e depois marca os produtos em ruptura
+    renderChecklist('', store ? store.productIds : null);
+
+    // Aguarda o DOM da checklist ser montado antes de marcar os checkboxes
+    requestAnimationFrame(() => {
+        const checkboxes = document.querySelectorAll('.rupture-check');
+        checkboxes.forEach(cb => {
+            cb.checked = visit.ruptures && visit.ruptures.includes(parseInt(cb.value));
+        });
+    });
+
+    // Garante que ao fechar o modal (pelo X ou fundo) a loja seja desbloqueada
+    const unlockStore = () => { storeSelect.disabled = false; };
+    visitModal.addEventListener('click', function onBgClick(e) {
+        if (e.target === visitModal) { unlockStore(); visitModal.removeEventListener('click', onBgClick); }
+    }, { once: true });
+    const xBtn = document.querySelector('#visitModal .close-modal');
+    if (xBtn) xBtn.addEventListener('click', unlockStore, { once: true });
+};
+
+window.toggleNetworkDropdown = function() {
+    const dropdown = document.getElementById('networkDropdown');
+    if (dropdown) dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+};
+
+window.toggleAllNetworks = function(selectAllCheckbox) {
+    const checkboxes = document.querySelectorAll('.network-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+    updateNetworkFilterLabel();
+};
+
+window.updateNetworkFilterLabel = function() {
+    const checkboxes = document.querySelectorAll('.network-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+    
+    const selectAllCb = document.getElementById('selectAllNetworks');
+    if (selectAllCb) selectAllCb.checked = allChecked;
+    
+    const label = document.getElementById('networkFilterLabel');
+    if (label) {
+        if (allChecked || checkboxes.length === 0) {
+            label.textContent = "Todas as Redes";
+        } else if (someChecked) {
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+            label.textContent = `${checkedCount} rede(s) selecionada(s)`;
+        } else {
+            label.textContent = "Nenhuma rede";
+        }
+    }
+    renderReportsTable();
+};
+
+document.addEventListener('click', function(event) {
+    const multiselect = document.querySelector('.custom-multiselect');
+    if (multiselect && !multiselect.contains(event.target)) {
+        const dropdown = document.getElementById('networkDropdown');
+        if (dropdown) dropdown.style.display = 'none';
+    }
+});
+
+// Start the app
+window.addEventListener('unhandledrejection', function(event) {
+    alert("Erro assíncrono detectado: " + event.reason);
+});
+init().catch(err => {
+    alert("Erro crítico ao inicializar o painel: " + err.message);
+    console.error(err);
+});
+
+window.showVisitDetails = function(visitId) {
+    const visit = visits.find(v => v.id === visitId);
+    if (!visit) return;
+    const store = stores.find(s => s.id === visit.storeId);
+    const modal = document.getElementById('visitDetailsModal');
+    const body = document.getElementById('visitDetailsBody');
+    
+    if (!modal || !body) return;
+    
+    const ruptureNames = visit.ruptures.map(pId => {
+        const prod = products.find(p => p.id === pId);
+        return prod ? prod.name : 'Produto Desconhecido';
+    });
+    
+    // Busca outras visitas para a mesma loja
+    const otherVisits = visits.filter(v => v.storeId === visit.storeId && v.id !== visitId)
+                              .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    let historyHtml = '';
+    if (otherVisits.length > 0) {
+        historyHtml = `
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 2px dashed var(--border-color);">
+                <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--primary-blue);">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Outras Visitas é ${store ? store.name : 'Loja'}
+                </h3>
+                <ul style="list-style: none; padding: 0; font-size: 0.85rem;">
+        `;
+        otherVisits.forEach(v => {
+            let itemsHtml = '';
+            
+            if (v.ruptures && v.ruptures.length > 0) {
+                const itemsList = v.ruptures.map(pId => {
+                    const prod = products.find(p => p.id === pId);
+                    const name = prod ? prod.name : 'Produto Desconhecido';
+                    
+                    // Verifica se já foi resolvido (se o produto Nï¿½O está mais na lista de rupturas validadas/ativas para esta loja)
+                    const isResolved = !validatedRuptures.some(r => r.productId === pId && r.storeId === v.storeId);
+                    
+                    if (isResolved) {
+                        return `<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-bottom: 4px; border-bottom: 1px solid #e0e0e0;">
+                                    <span style="color: var(--text-muted); text-decoration: line-through;">${name}</span>
+                                    <span style="font-size: 0.65rem; background: #e8f5e9; color: #2e7d32; padding: 3px 6px; border-radius: 4px; font-weight: bold;"><i class="fa-solid fa-check"></i> Resolvido</span>
+                                </div>`;
+                    } else {
+                        return `<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-bottom: 4px; border-bottom: 1px solid #e0e0e0;">
+                                    <span style="color: var(--text-dark); font-weight: 500;">${name}</span>
+                                    <span style="font-size: 0.65rem; background: #ffebee; color: var(--primary-red); padding: 3px 6px; border-radius: 4px; font-weight: bold;"><i class="fa-solid fa-triangle-exclamation"></i> Pendente</span>
+                                </div>`;
+                    }
+                }).join('');
+                
+                itemsHtml = `<div style="margin-top: 8px;">${itemsList}</div>`;
+            } else {
+                itemsHtml = `<span style="color: #27ae60; font-weight: 500; display: block; margin-top: 8px;">Tudo Ok (Sem rupturas)</span>`;
+            }
+            
+            historyHtml += `
+                    <li style="margin-bottom: 12px; padding: 12px; background: var(--bg-light); border-radius: 8px; border-left: 3px solid ${(v.ruptures && v.ruptures.length > 0) ? 'var(--primary-red)' : '#27ae60'}">
+                        <strong style="display: block; margin-bottom: 4px; color: var(--primary-blue); border-bottom: 1px solid #ddd; padding-bottom: 6px;">
+                            <i class="fa-solid fa-calendar-day"></i> ${formatDate(v.date)}
+                        </strong>
+                        ${itemsHtml}
+                    </li>
+            `;
+        });
+        historyHtml += `
+                </ul>
+            </div>
+        `;
+    }
+
+    body.innerHTML = `
+        <div style="margin-bottom: 15px;">
+            <strong style="font-size: 1.1rem; color: var(--primary-blue);">${store ? store.name : 'Removida'}</strong><br>
+            <span style="color: var(--text-muted); font-size: 0.9rem;">Data da Visita: ${formatDate(visit.date)}</span>
+        </div>
+        <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--primary-red);">Itens em Ruptura (${ruptureNames.length}):</h3>
+        ${ruptureNames.length > 0 
+            ? `<ul class="detail-list">${ruptureNames.map(name => `<li><div class="detail-item">${name}</div></li>`).join('')}</ul>` 
+            : '<p class="empty-state">Nenhuma ruptura registrada nesta visita.</p>'}
+        ${visit.notes ? `
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                <strong>Observações:</strong>
+                <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-muted);">${visit.notes}</p>
+            </div>
+        ` : ''}
+        ${historyHtml}
+    `;
+    
+    modal.style.display = 'flex';
+};
+
+
+
+
+
+
+
+
+
+
