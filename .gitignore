@@ -1,0 +1,32 @@
+# Arquivos de configuração com credenciais
+.env
+.env.local
+.env.*.local
+config.php
+backend/config.php
+
+# Dados sensíveis
+*.key
+*.pem
+secrets.json
+
+# Cache e logs
+node_modules/
+*.log
+logs/
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Sistema operacional
+desktop.ini
+.Thumbs.db
+
+# Uploads temporários (manter apenas a pasta)
+uploads/*
+!uploads/.gitkeep
