@@ -71,8 +71,13 @@ const Storage = (function () {
         return await call('save_dismissed', { dismissed });
     }
 
+    // --- Sincroniza histórico de rupturas resolvidas ---
+    async function syncResolvedHistory(resolvedHistory) {
+        return await call('save_resolved_history', { resolved_history: resolvedHistory });
+    }
+
     // --- Faz sync completo de todos os dados de uma vez ---
-    async function syncAll(visits, storeUpdatesMap, ruptures, dismissed) {
+    async function syncAll(visits, storeUpdatesMap, ruptures, dismissed, resolvedHistory) {
         if (_syncing) return; // evita sobreposição
         _syncing = true;
         try {
@@ -81,6 +86,7 @@ const Storage = (function () {
                 syncStoreUpdates(storeUpdatesMap),
                 syncRuptures(ruptures),
                 syncDismissed(dismissed),
+                syncResolvedHistory(resolvedHistory),
             ]);
         } finally {
             _syncing = false;
@@ -129,6 +135,7 @@ const Storage = (function () {
         syncStoreUpdates,
         syncRuptures,
         syncDismissed,
+        syncResolvedHistory,
         syncAll,
         uploadPhoto,
         deleteVisitPhotos,

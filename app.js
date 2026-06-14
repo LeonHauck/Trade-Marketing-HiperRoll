@@ -10,7 +10,121 @@ if (typeof STORES_DATA === 'undefined') {
     console.warn("STORES_DATA não encontrado. data.js falhou ao carregar?");
 }
 
-let products = PRODUCTS_DATA;
+function normalizeText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+function loadDataOverrides() {
+    try {
+        return JSON.parse(localStorage.getItem('hr_data_overrides') || 'null');
+    } catch (e) {
+        return null;
+    }
+}
+
+function persistDataOverrides(mergedStores, mergedProducts) {
+    try {
+        localStorage.setItem('hr_data_overrides', JSON.stringify({
+            stores: mergedStores,
+            products: mergedProducts
+        }));
+    } catch (e) {
+        console.warn('Falha ao salvar overrides de dados:', e);
+    }
+}
+
+function mergeDataCollections(baseProducts, baseStores, incomingProducts, incomingStores) {
+    const mergedProducts = Array.isArray(baseProducts) ? [...baseProducts] : [];
+    const mergedStores = Array.isArray(baseStores)
+        ? baseStores.map(s => ({ ...s, productIds: Array.isArray(s.productIds) ? [...s.productIds] : [] }))
+        : [];
+
+    const productIndex = new Map();
+    mergedProducts.forEach(product => {
+        if (product && product.name) {
+            productIndex.set(normalizeText(product.name), product);
+        }
+    });
+
+    (incomingProducts || []).forEach(product => {
+        const key = normalizeText(product.name);
+        const existingProduct = productIndex.get(key);
+
+        if (existingProduct) {
+            if (product.network && !existingProduct.network) existingProduct.network = product.network;
+            if (product.status && !existingProduct.status) existingProduct.status = product.status;
+            return;
+        }
+
+        const nextId = mergedProducts.reduce((max, item) => Math.max(max, Number(item.id) || 0), 100) + 1;
+        const newProduct = {
+            id: nextId,
+            name: product.name,
+            network: product.network || 'Geral',
+            status: product.status || 'Ativo'
+        };
+        mergedProducts.push(newProduct);
+        productIndex.set(key, newProduct);
+    });
+
+    const storeIndex = new Map();
+    mergedStores.forEach(store => {
+        if (store && store.name) {
+            storeIndex.set(normalizeText(store.name), store);
+        }
+    });
+
+    (incomingStores || []).forEach(importedStore => {
+        const key = normalizeText(importedStore.name);
+        let store = storeIndex.get(key);
+
+        if (!store) {
+            const nextId = mergedStores.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
+            store = {
+                id: nextId,
+                name: importedStore.name,
+                network: importedStore.network || 'Geral',
+                lastVisit: null,
+                status: 'pending',
+                productIds: []
+            };
+            mergedStores.push(store);
+            storeIndex.set(key, store);
+        }
+
+        if (importedStore.network && !store.network) {
+            store.network = importedStore.network;
+        }
+
+        const productNames = Array.isArray(importedStore.productNames) ? importedStore.productNames : [];
+        const productIds = Array.isArray(importedStore.productIds) ? importedStore.productIds : [];
+
+        [...productIds, ...productNames].forEach(item => {
+            if (typeof item === 'number') {
+                if (!store.productIds.includes(item)) store.productIds.push(item);
+                return;
+            }
+
+            const product = productIndex.get(normalizeText(item));
+            if (product && !store.productIds.includes(product.id)) {
+                store.productIds.push(product.id);
+            }
+        });
+    });
+
+    return { products: mergedProducts, stores: mergedStores };
+}
+
+const persistedDataOverrides = loadDataOverrides();
+const initialData = persistedDataOverrides
+    ? mergeDataCollections(PRODUCTS_DATA, STORES_DATA, persistedDataOverrides.products || [], persistedDataOverrides.stores || [])
+    : { products: PRODUCTS_DATA, stores: STORES_DATA };
+
+let products = initialData.products;
 
 // Cache de fotos em memória (não persiste no localStorage e evita estouro)
 // Mapa: { [visitId]: [base64, base64, ...] }
@@ -41,9 +155,12 @@ let visits = (function() {
 
 let validatedRuptures = [];
 let dismissedNotifications = [];
+let resolvedRupturesHistory = [];
+let historyBackfillNotice = '';
 try {
     validatedRuptures = JSON.parse(localStorage.getItem('hr_validated_ruptures')) || [];
     dismissedNotifications = JSON.parse(localStorage.getItem('hr_dismissed')) || [];
+    resolvedRupturesHistory = JSON.parse(localStorage.getItem('hr_resolved_ruptures_history')) || [];
 } catch(e) {
     console.warn("localStorage indisponível", e);
 }
@@ -75,6 +192,7 @@ function saveAppStateLocally() {
         localStorage.setItem('hr_visits', JSON.stringify(visits));
         localStorage.setItem('hr_validated_ruptures', JSON.stringify(validatedRuptures));
         localStorage.setItem('hr_dismissed', JSON.stringify(dismissedNotifications));
+        localStorage.setItem('hr_resolved_ruptures_history', JSON.stringify(resolvedRupturesHistory));
     } catch (e) {
         console.warn('Falha ao salvar estado local:', e);
     }
@@ -90,7 +208,7 @@ async function syncAppStateServer() {
     });
 
     try {
-        await Storage.syncAll(visits, updatesMap, validatedRuptures, dismissedNotifications);
+        await Storage.syncAll(visits, updatesMap, validatedRuptures, dismissedNotifications, resolvedRupturesHistory);
     } catch (err) {
         console.warn('[Storage] Falha ao sincronizar com servidor:', err);
     }
@@ -101,9 +219,9 @@ async function persistAppState() {
     await syncAppStateServer();
 }
 
-// Inicializa stores mesclando STORES_DATA com atualizações salvas
+// Inicializa stores mesclando os dados base com overrides persistidos e atualizações salvas
 const _storeUpdates = loadStoreUpdates();
-let stores = (STORES_DATA || []).map(s => {
+let stores = (initialData.stores || []).map(s => {
     const upd = _storeUpdates[s.id];
     return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s };
 });
@@ -200,6 +318,10 @@ let globalFilterDateEnd = '';
 let globalFilterNetworks = []; // Vazio = Todas as Redes
 let currentPage = 'dashboard';
 let reportFilterOnlyRuptures = false; // Filtro "Em Ruptura" na aba de Relatórios
+let reportFilterOnlyObservation = false; // Filtro de visitas com observações na aba de Relatórios
+let reportFilterOnlyExtraPoints = false; // Filtro de visitas com pontos extras na aba de Relatórios
+let historyFilterOnlyObservation = false; // Filtro de visitas com observações
+let historyFilterOnlyExtraPoints = false; // Filtro de visitas com pontos extras
 let editingVisitId = null; // null = nova visita | number = ID da visita sendo editada
 
 
@@ -255,6 +377,97 @@ function updateGlobalNetworkText(spanEl) {
     }
 }
 
+function hydrateResolvedHistoryFromVisits() {
+    if (!Array.isArray(visits) || visits.length === 0) return false;
+
+    const activeKeys = new Set(
+        validatedRuptures.map(r => `${r.productId}:${r.storeId}`)
+    );
+
+    const sortedVisits = [...visits]
+        .filter(v => Array.isArray(v.ruptures) && v.ruptures.length > 0)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    let addedToResolved = 0;
+    let addedToActive = 0;
+
+    sortedVisits.forEach(visit => {
+        const store = stores.find(s => s.id === visit.storeId);
+        (visit.ruptures || []).forEach(productId => {
+            const key = `${productId}:${visit.storeId}`;
+            if (activeKeys.has(key)) return;
+
+            const alreadyExists = resolvedRupturesHistory.some(item =>
+                item.visitId === visit.id && item.productId === productId && item.storeId === visit.storeId
+            );
+            if (alreadyExists) return;
+            
+            // Check if this is from the absolute latest visit for this store
+            const absoluteLaterVisit = visits
+                .filter(v => v.storeId === visit.storeId && v.date > visit.date)
+                .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+                
+            const product = products.find(p => p.id === productId);
+
+            // Se no h visita posterior, esta ruptura est ativa e no foi resolvida
+            if (!absoluteLaterVisit) {
+                validatedRuptures.push({
+                    id: Date.now() + Math.random(),
+                    productId,
+                    productName: product ? product.name : 'Produto',
+                    storeId: visit.storeId,
+                    storeName: store ? store.name : 'Loja',
+                    network: store ? store.network : '',
+                    visitId: visit.id,
+                    visitDate: visit.date,
+                    timestamp: new Date().getTime()
+                });
+                activeKeys.add(key);
+                addedToActive += 1;
+                return;
+            }
+
+            // Caso contrrio, foi resolvida em alguma visita posterior ou backfill
+            const resolvedAt = absoluteLaterVisit ? absoluteLaterVisit.date : visit.date;
+            const resolvedAtTime = absoluteLaterVisit
+                ? new Date(`${absoluteLaterVisit.date}T12:00:00`).toLocaleString('pt-BR')
+                : new Date(`${visit.date}T12:00:00`).toLocaleString('pt-BR');
+
+            resolvedRupturesHistory.unshift({
+                id: `backfill-${visit.id}-${productId}`,
+                productId,
+                productName: product ? product.name : 'Produto',
+                storeId: visit.storeId,
+                storeName: store ? store.name : 'Loja',
+                network: store ? store.network : '',
+                visitId: visit.id,
+                visitDate: visit.date,
+                resolvedAt,
+                resolvedAtTime,
+                timestamp: new Date(`${resolvedAt}T12:00:00`).getTime()
+            });
+            addedToResolved += 1;
+        });
+    });
+
+    if (addedToResolved > 0 || addedToActive > 0) {
+        if (addedToActive > 0) {
+            saveAppStateLocally(); // Save the new validated ruptures
+        }
+        if (addedToResolved > 0) {
+            resolvedRupturesHistory = resolvedRupturesHistory.slice(0, 500);
+            historyBackfillNotice = `Histórico antigo carregado: ${addedToResolved} rupturas enviadas para histórico resolvido.`;
+        }
+        saveAppStateLocally();
+        if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
+        if (typeof renderHistoryViewData === 'function') {
+            try { renderHistoryViewData(); } catch(e) {}
+        }
+        return true;
+    }
+    return false;
+}
+
 // Initialize App
 async function init() {
     setupEventListeners();
@@ -262,7 +475,7 @@ async function init() {
     populateGlobalNetworkFilter();
     checkLoginStatus();
     
-    // ?? Sincronizaï¿½ï¿½o com o Servidor HostGator (se disponível)
+    // Sincronizacao com o Servidor HostGator (se disponível)
     if (typeof Storage !== 'undefined' && Storage.isServer) {
         console.log("[Storage] Sincronizando com Servidor...");
         const serverData = await Storage.loadFromServer();
@@ -270,6 +483,7 @@ async function init() {
             if (serverData.visits) visits = serverData.visits;
             if (serverData.validated_ruptures) validatedRuptures = serverData.validated_ruptures;
             if (serverData.dismissed) dismissedNotifications = serverData.dismissed;
+            if (serverData.resolved_history) resolvedRupturesHistory = serverData.resolved_history;
             
             const sUpdates = serverData.store_updates || {};
             stores = STORES_DATA.map(s => {
@@ -284,6 +498,8 @@ async function init() {
             }
         }
     }
+
+    hydrateResolvedHistoryFromVisits();
 
     checkOverdueStores();
     renderPage('dashboard');
@@ -645,42 +861,48 @@ function processCSV(csvText) {
         const productName = cols[colItem]?.trim();
         const networkName = colRede !== -1 ? cols[colRede]?.trim() : 'Geral';
         const productStatus = colStatus !== -1 ? cols[colStatus]?.trim() : 'Ativo';
+        const storeKey = normalizeText(storeName);
+        const productKey = normalizeText(productName);
 
-        if (storeName && !storeMap.has(storeName.toLowerCase())) {
+        if (storeName && !storeMap.has(storeKey)) {
             const id = newStores.length + 1;
-            const storeObj = { id, name: storeName, network: networkName, lastVisit: null, status: 'pending', productIds: [] };
+            const storeObj = { id, name: storeName, network: networkName, lastVisit: null, status: 'pending', productNames: [] };
             newStores.push(storeObj);
-            storeMap.set(storeName.toLowerCase(), storeObj);
+            storeMap.set(storeKey, storeObj);
         }
 
-        if (productName && !productMap.has(productName.toLowerCase())) {
+        if (productName && !productMap.has(productKey)) {
             const id = 100 + newProducts.length + 1;
             const prodObj = { id, name: productName, network: networkName, status: productStatus };
             newProducts.push(prodObj);
-            productMap.set(productName.toLowerCase(), prodObj);
+            productMap.set(productKey, prodObj);
         }
         
         // Link product to store (case insensitive)
         if (storeName && productName) {
-            const sObj = storeMap.get(storeName.toLowerCase());
-            const pObj = productMap.get(productName.toLowerCase());
-            if (sObj && pObj && !sObj.productIds.includes(pObj.id)) {
-                sObj.productIds.push(pObj.id);
+            const sObj = storeMap.get(storeKey);
+            const pObj = productMap.get(productKey);
+            if (sObj && pObj && !sObj.productNames.includes(productName)) {
+                sObj.productNames.push(productName);
             }
         }
     }
 
     if (newStores.length > 0 || newProducts.length > 0) {
-        stores = newStores;
-        products = newProducts;
-        visits = [];
-        
-        // Salva apenas os dados leves; hr_stores Nï¿½O é mais persistido
+        const mergedData = mergeDataCollections(products, stores, newProducts, newStores);
+        products = mergedData.products;
+        stores = mergedData.stores.map(s => {
+            const updates = loadStoreUpdates();
+            const upd = updates[s.id];
+            return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s };
+        });
+
+        persistDataOverrides(stores, products);
         saveStoreUpdates();
         localStorage.setItem('hr_visits', JSON.stringify(visits));
         
         init();
-        alert(`Sucesso! ${newStores.length} lojas e ${newProducts.length} produtos importados.`);
+        showToast(`Importação concluída. ${newStores.length} lojas e ${newProducts.length} produtos adicionados sem apagar o cadastro atual.`, 'success');
     }
 }
 
@@ -701,6 +923,8 @@ function renderPage(page) {
         renderDashboardView();
     } else if (page === 'reports') {
         renderReportsView();
+    } else if (page === 'history') {
+        renderHistoryView();
     } else if (page === 'stores') {
         renderStoresListView();
     } else if (page === 'products') {
@@ -717,12 +941,14 @@ function renderDashboard() {
 
     filteredStores.forEach(store => {
         const card = document.createElement('div');
-        card.className = 'store-card';
+        const eps = typeof getStoreLatestExtraPoints === 'function' ? getStoreLatestExtraPoints(store.id) : [];
+        card.className = 'store-card' + (eps.length > 0 ? ' has-extra-point' : '');
         card.innerHTML = `
             <div class="status-indicator ${store.currentStatus || store.status}"></div>
             <div class="store-info">
                 <p class="store-name">${store.name} <span class="network-tag">${store.network}</span></p>
                 <p class="store-date">${store.lastVisit ? 'última visita: ' + formatDate(store.lastVisit) : 'Nunca visitada'}</p>
+                ${eps.length > 0 ? `<div style="margin-top: 6px;">${eps.map(ep => `<span class="badge-extra-point">${ep}</span>`).join('')}</div>` : ''}
             </div>
             <div class="store-badge">
                 ${renderStatusBadge(store)}
@@ -731,6 +957,124 @@ function renderDashboard() {
         `;
         list.appendChild(card);
     });
+}
+
+function renderHistoryView() {
+    contentArea.innerHTML = `
+        <div class="panel">
+            <div class="panel-header" style="display: block; margin-bottom: 20px;">
+                <h2 style="margin-bottom: 8px;">Histórico Completo</h2>
+                <p style="margin: 0 0 12px; color: var(--text-light);">Visitas registradas e rupturas já resolvidas para acompanhamento e compra futura.</p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+                    <div class="header-filters" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; flex: 1; min-width: 0;">
+                        <div class="search-bar" style="width: 220px;">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="historySearch" placeholder="Buscar loja ou item..." oninput="renderHistoryViewData()">
+                        </div>
+                        <div class="filter-select" style="display: flex; gap: 8px; align-items: center; padding: 0 15px; height: 42px; background: white; border: 1px solid #eee; border-radius: 12px;">
+                            <i class="fa-regular fa-calendar" style="color: var(--text-light); font-size: 0.9rem;"></i>
+                            <input type="date" id="historyStartDate" class="hide-calendar-icon" onchange="renderHistoryViewData()" title="Data Inicial" style="border: none; padding: 0; outline: none; background: transparent; cursor: pointer; color: var(--text-dark); font-family: 'Outfit', sans-serif; font-size: 0.9rem;" onclick="this.showPicker()">
+                            <span style="color: var(--text-light); font-size: 0.85rem;">até</span>
+                            <input type="date" id="historyEndDate" class="hide-calendar-icon" onchange="renderHistoryViewData()" title="Data Final" style="border: none; padding: 0; outline: none; background: transparent; cursor: pointer; color: var(--text-dark); font-family: 'Outfit', sans-serif; font-size: 0.9rem;" onclick="this.showPicker()">
+                        </div>
+                        <div class="custom-multiselect" style="position: relative; min-width: 220px;">
+                            <button id="historyNetworkFilterBtn" class="filter-select" onclick="toggleDropdown('historyNetworkDropdown')" style="width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; background: white; cursor: pointer; height: 42px; padding: 0 15px;">
+                                <span id="historyNetworkFilterLabel" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Todas as Redes</span>
+                                <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: var(--text-light); margin-left: 10px;"></i>
+                            </button>
+                            <div id="historyNetworkDropdown" style="display: none; position: absolute; top: calc(100% + 5px); left: 0; right: 0; background: white; border: 1px solid var(--border); border-radius: 6px; z-index: 100; max-height: 280px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 8px;">
+                                <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid #eee; margin-bottom: 4px;">
+                                    <input type="checkbox" id="historySelectAllNetworks" checked onchange="toggleAllHistoryNetworks(this);" style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer;">
+                                    <strong style="color: var(--text-dark);">Todas as Redes</strong>
+                                </label>
+                                ${[...new Set(stores.map(s => s.network).filter(Boolean))].sort().map(net => `
+                                    <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-radius: 4px;">
+                                        <input type="checkbox" class="history-network-checkbox" value="${net}" checked onchange="toggleHistoryNetworkSelection('${net}'); renderHistoryViewData();" style="margin-right: 8px; width: 15px; height: 15px; cursor: pointer;">
+                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dark); font-size: 0.9rem;">${net}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="custom-multiselect" style="position: relative; min-width: 220px;">
+                            <button id="historyProductFilterBtn" class="filter-select" onclick="toggleDropdown('historyProductDropdown')" style="width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; background: white; cursor: pointer; height: 42px; padding: 0 15px;">
+                                <span id="historyProductFilterLabel" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Todos os Produtos</span>
+                                <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: var(--text-light); margin-left: 10px;"></i>
+                            </button>
+                            <div id="historyProductDropdown" style="display: none; position: absolute; top: calc(100% + 5px); left: 0; right: 0; background: white; border: 1px solid var(--border); border-radius: 6px; z-index: 100; max-height: 280px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 8px;">
+                                <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid #eee; margin-bottom: 4px;">
+                                    <input type="checkbox" id="historySelectAllProducts" checked onchange="toggleAllHistoryProducts(this);" style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer;">
+                                    <strong style="color: var(--text-dark);">Todos os Produtos</strong>
+                                </label>
+                                ${products.map(prod => `
+                                    <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-radius: 4px;">
+                                        <input type="checkbox" class="history-product-checkbox" value="${prod.id}" checked onchange="toggleHistoryProductSelection('${prod.id}'); renderHistoryViewData();" style="margin-right: 8px; width: 15px; height: 15px; cursor: pointer;">
+                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dark); font-size: 0.9rem;">${prod.name}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <button id="historyExtraPointsFilterBtn" onclick="toggleHistoryExtraPointsFilter()" class="filter-select" title="Mostrar apenas visitas com pontos extras" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; border: 1px solid #eee; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; color: var(--text-dark); transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;">
+                            <i class="fa-solid fa-star"></i>
+                            <span>Com ponto extra</span>
+                        </button>
+                        <button id="historyObservationFilterBtn" onclick="toggleHistoryObservationFilter()" class="filter-select" title="Mostrar apenas visitas com observações" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; border: 1px solid #eee; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; color: var(--text-dark); transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;">
+                            <i class="fa-solid fa-comment-dots"></i>
+                            <span>Com observação</span>
+                        </button>
+                        <div class="filter-select" style="padding: 0 15px; height: 42px; background: white; border: 1px solid #eee; border-radius: 12px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-filter"></i>
+                            <select id="historyStatusFilter" onchange="renderHistoryViewData()" style="border: none; background: transparent; outline: none; cursor: pointer;">
+                                <option value="all">Todos</option>
+                                <option value="resolved">Só resolvidos</option>
+                                <option value="active">Só ativos</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="header-actions" style="display: flex; gap: 15px; align-items: center; flex-shrink: 0; justify-content: flex-end;">
+                        <button class="btn btn-secondary" onclick="exportHistoryCSV()"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+                        <button class="btn btn-primary" onclick="exportHistoryPDF()"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
+                    </div>
+                </div>
+            </div>
+            <div class="reports-container" style="display: grid; gap: 24px;">
+                <div id="historyBackfillNotice" style="display: none; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #eefbf2; color: #1f6f3f; border: 1px solid #c8e6c9; font-size: 0.9rem;"></div>
+                <div>
+                    <h3 style="margin-bottom: 10px;">Histórico de Visitas</h3>
+                    <table class="reports-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Loja</th>
+                                <th>Rede</th>
+                                <th>Rupturas</th>
+                                <th>Status da visita</th>
+                                <th>Pontos Extras</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyVisitsTableBody"></tbody>
+                    </table>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 10px;">Rupturas Resolvidas</h3>
+                    <table class="reports-table">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Loja</th>
+                                <th>Visita</th>
+                                <th>Resolvido em</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyResolvedTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    updateHistoryFilterLabels();
+    renderHistoryViewData();
 }
 
 function renderReportsView() {
@@ -768,6 +1112,14 @@ function renderReportsView() {
                                 `).join('')}
                             </div>
                         </div>
+                        <button id="reportExtraPointsFilterBtn" onclick="toggleReportExtraPointsFilter()" class="filter-select" title="Mostrar apenas visitas com pontos extras" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; border: 1px solid #eee; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; color: var(--text-dark); transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;">
+                            <i class="fa-solid fa-star"></i>
+                            <span>Com ponto extra</span>
+                        </button>
+                        <button id="reportObservationFilterBtn" onclick="toggleReportObservationFilter()" class="filter-select" title="Mostrar apenas visitas com observações" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; border: 1px solid #eee; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; color: var(--text-dark); transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;">
+                            <i class="fa-solid fa-comment-dots"></i>
+                            <span>Com observação</span>
+                        </button>
                         <button
                             id="reportRuptureFilterBtn"
                             onclick="toggleRuptureFilter()"
@@ -802,6 +1154,7 @@ function renderReportsView() {
                             <th>Rede</th>
                             <th>Rupturas</th>
                             <th>Fotos</th>
+                            <th>Pontos Extras</th>
                             <th>Observações</th>
                             <th>Ações</th>
                         </tr>
@@ -1118,6 +1471,14 @@ function renderStoresListView() {
     renderStorePageItems();
 }
 
+function getStoreLatestExtraPoints(storeId) {
+    const storeVisits = visits.filter(v => v.storeId === storeId).sort((a, b) => new Date(b.date) - new Date(a.date));
+    if (storeVisits.length > 0) {
+        return storeVisits[0].extraPoints || [];
+    }
+    return [];
+}
+
 function renderStorePageItems(filter = '') {
     const container = document.getElementById('storePageList');
     if (!container) return;
@@ -1130,12 +1491,14 @@ function renderStorePageItems(filter = '') {
 
     filtered.forEach(store => {
         const item = document.createElement('div');
-        item.className = 'store-card-full';
+        const eps = getStoreLatestExtraPoints(store.id);
+        item.className = 'store-card-full' + (eps.length > 0 ? ' has-extra-point' : '');
         item.innerHTML = `
             <div class="store-main-info">
                 <span class="status-indicator ${store.currentStatus || 'pending'}"></span>
                 <strong>${store.name}</strong>
                 <span class="network-tag">${store.network}</span>
+                ${eps.map(ep => `<span class="badge-extra-point">${ep}</span>`).join('')}
             </div>
             <div class="store-meta">
                 <span>Frequência: ${store.frequency || 1}x/sem</span>
@@ -1234,6 +1597,250 @@ window.showProductDetails = function(productId) {
     `;
 };
 
+function getHistoryFilterState() {
+    const searchTerm = document.getElementById('historySearch')?.value.toLowerCase() || '';
+    const startDate = document.getElementById('historyStartDate')?.value || '';
+    const endDate = document.getElementById('historyEndDate')?.value || '';
+    const statusFilter = document.getElementById('historyStatusFilter')?.value || 'all';
+    const selectedNetworks = Array.from(document.querySelectorAll('#historyNetworkDropdown .history-network-checkbox:checked')).map(cb => cb.value);
+    const selectedProductIds = Array.from(document.querySelectorAll('#historyProductDropdown .history-product-checkbox:checked')).map(cb => parseInt(cb.value, 10));
+    const onlyWithObservation = historyFilterOnlyObservation;
+
+    return {
+        searchTerm,
+        startDate,
+        endDate,
+        statusFilter,
+        selectedNetworks,
+        selectedProductIds,
+        onlyWithObservation,
+        onlyWithExtraPoints: historyFilterOnlyExtraPoints
+    };
+}
+
+function updateHistoryFilterLabels() {
+    const networkLabel = document.getElementById('historyNetworkFilterLabel');
+    if (networkLabel) {
+        const selectedNetworks = Array.from(document.querySelectorAll('#historyNetworkDropdown .history-network-checkbox:checked')).map(cb => cb.value);
+        if (selectedNetworks.length === 0) {
+            networkLabel.textContent = 'Nenhuma rede';
+        } else if (selectedNetworks.length === 1) {
+            networkLabel.textContent = selectedNetworks[0];
+        } else {
+            networkLabel.textContent = `${selectedNetworks.length} redes`;
+        }
+    }
+
+    const productLabel = document.getElementById('historyProductFilterLabel');
+    if (productLabel) {
+        const selectedProducts = Array.from(document.querySelectorAll('#historyProductDropdown .history-product-checkbox:checked')).map(cb => cb.value);
+        if (selectedProducts.length === 0) {
+            productLabel.textContent = 'Nenhum produto';
+        } else if (selectedProducts.length === 1) {
+            const product = products.find(p => String(p.id) === selectedProducts[0]);
+            productLabel.textContent = product ? product.name : '1 produto';
+        } else {
+            productLabel.textContent = `${selectedProducts.length} produtos`;
+        }
+    }
+}
+
+window.toggleAllHistoryNetworks = function(master) {
+    document.querySelectorAll('#historyNetworkDropdown .history-network-checkbox').forEach(cb => cb.checked = master.checked);
+    document.getElementById('historySelectAllNetworks').checked = master.checked;
+    updateHistoryFilterLabels();
+    renderHistoryViewData();
+};
+
+window.toggleHistoryNetworkSelection = function(net) {
+    const allBoxes = document.querySelectorAll('#historyNetworkDropdown .history-network-checkbox');
+    const checkedBoxes = Array.from(allBoxes).filter(cb => cb.checked);
+    document.getElementById('historySelectAllNetworks').checked = checkedBoxes.length === allBoxes.length;
+    updateHistoryFilterLabels();
+    renderHistoryViewData();
+};
+
+window.toggleAllHistoryProducts = function(master) {
+    document.querySelectorAll('#historyProductDropdown .history-product-checkbox').forEach(cb => cb.checked = master.checked);
+    document.getElementById('historySelectAllProducts').checked = master.checked;
+    updateHistoryFilterLabels();
+    renderHistoryViewData();
+};
+
+window.toggleHistoryObservationFilter = function() {
+    historyFilterOnlyObservation = !historyFilterOnlyObservation;
+    const btn = document.getElementById('historyObservationFilterBtn');
+    if (btn) {
+        btn.style.background = historyFilterOnlyObservation ? 'var(--primary-red)' : 'white';
+        btn.style.color = historyFilterOnlyObservation ? 'white' : 'var(--text-dark)';
+        btn.style.borderColor = historyFilterOnlyObservation ? 'var(--primary-red)' : '#eee';
+    }
+    renderHistoryViewData();
+};
+
+window.toggleHistoryExtraPointsFilter = function() {
+    historyFilterOnlyExtraPoints = !historyFilterOnlyExtraPoints;
+    const btn = document.getElementById('historyExtraPointsFilterBtn');
+    if (btn) {
+        btn.style.background = historyFilterOnlyExtraPoints ? 'var(--primary-red)' : 'white';
+        btn.style.color = historyFilterOnlyExtraPoints ? 'white' : 'var(--text-dark)';
+        btn.style.borderColor = historyFilterOnlyExtraPoints ? 'var(--primary-red)' : '#eee';
+    }
+    renderHistoryViewData();
+};
+
+window.toggleHistoryProductSelection = function(productId) {
+    const allBoxes = document.querySelectorAll('#historyProductDropdown .history-product-checkbox');
+    const checkedBoxes = Array.from(allBoxes).filter(cb => cb.checked);
+    document.getElementById('historySelectAllProducts').checked = checkedBoxes.length === allBoxes.length;
+    updateHistoryFilterLabels();
+    renderHistoryViewData();
+};
+
+function getFilteredHistoryData() {
+    const filters = getHistoryFilterState();
+    const statusFilter = filters.statusFilter;
+
+    const filteredVisits = [...visits].filter(v => {
+        const store = stores.find(s => s.id === v.storeId);
+        if (!store) return false;
+
+        const matchesText = !filters.searchTerm || (store?.name || '').toLowerCase().includes(filters.searchTerm) || (store?.network || '').toLowerCase().includes(filters.searchTerm) || (v.notes || '').toLowerCase().includes(filters.searchTerm) || (v.ruptures || []).some(r => {
+            const p = products.find(prod => prod.id === r);
+            return (p?.name || '').toLowerCase().includes(filters.searchTerm);
+        });
+        const matchesDate = (!filters.startDate || v.date >= filters.startDate) && (!filters.endDate || v.date <= filters.endDate);
+        const matchesNetwork = filters.selectedNetworks.length === 0 ? false : filters.selectedNetworks.includes(store.network);
+        const matchesProduct = filters.selectedProductIds.length === 0 ? true : (v.ruptures || []).some(r => filters.selectedProductIds.includes(r));
+        const matchesObservation = !filters.onlyWithObservation || (v.notes || '').trim().length > 0;
+        const matchesExtraPoints = !filters.onlyWithExtraPoints || (v.extraPoints && v.extraPoints.length > 0);
+        const includeVisit = statusFilter !== 'resolved';
+
+        return includeVisit && matchesText && matchesDate && matchesNetwork && matchesProduct && matchesObservation && matchesExtraPoints;
+    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const filteredResolved = resolvedRupturesHistory.filter(item => {
+        const store = stores.find(s => s.id === item.storeId);
+        const itemNetwork = item.network || store?.network || '';
+        const matchesText = !filters.searchTerm || (item.productName || '').toLowerCase().includes(filters.searchTerm) || (item.storeName || '').toLowerCase().includes(filters.searchTerm);
+        const matchesDate = (!filters.startDate || (item.resolvedAt || '') >= filters.startDate) && (!filters.endDate || (item.resolvedAt || '') <= filters.endDate);
+        const matchesNetwork = filters.selectedNetworks.length === 0 ? false : (itemNetwork || '').length > 0 ? filters.selectedNetworks.includes(itemNetwork) : false;
+        const matchesProduct = filters.selectedProductIds.length === 0 ? true : (item.productId ? filters.selectedProductIds.includes(item.productId) : false);
+        const includeResolved = statusFilter !== 'active';
+
+        return includeResolved && matchesText && matchesDate && matchesNetwork && matchesProduct;
+    }).slice().reverse();
+
+    return { filters, filteredVisits, filteredResolved };
+}
+
+function getResolvedItemStatus(productId, storeId) {
+    const isStillActive = validatedRuptures.some(r => r.productId === productId && r.storeId === storeId);
+    if (isStillActive) {
+        return { isResolved: false, resolvedAt: null };
+    }
+
+    const matchingHistory = [...resolvedRupturesHistory]
+        .filter(item => item.productId === productId && item.storeId === storeId)
+        .sort((a, b) => (b.resolvedAt || '').localeCompare(a.resolvedAt || ''));
+
+    return {
+        isResolved: true,
+        resolvedAt: matchingHistory[0]?.resolvedAt || null,
+        resolvedAtTime: matchingHistory[0]?.resolvedAtTime || null
+    };
+}
+
+function getVisitResolutionSummary(visit) {
+    const totalItems = (visit.ruptures || []).length;
+    if (totalItems === 0) {
+        return { totalItems, resolvedCount: 0, label: 'Sem rupturas', tone: 'neutral' };
+    }
+
+    const resolvedCount = (visit.ruptures || []).filter(productId => {
+        const status = getResolvedItemStatus(productId, visit.storeId);
+        return status.isResolved;
+    }).length;
+
+    if (resolvedCount === 0) {
+        return { totalItems, resolvedCount, label: `0/${totalItems} resolvidos`, tone: 'warning' };
+    }
+    if (resolvedCount === totalItems) {
+        return { totalItems, resolvedCount, label: 'Todos resolvidos', tone: 'ok' };
+    }
+    return { totalItems, resolvedCount, label: `${resolvedCount}/${totalItems} resolvidos`, tone: 'warning' };
+}
+
+function getVisitResolutionBadge(visit) {
+    const summary = getVisitResolutionSummary(visit);
+    if (summary.totalItems === 0) {
+        return '<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#f3f4f6; color:#4b5563; font-size:0.8rem; font-weight:700;">Sem rupturas</span>';
+    }
+
+    if (summary.tone === 'ok') {
+        return `<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#e8f5e9; color:#2e7d32; font-size:0.8rem; font-weight:700;">${summary.label}</span>`;
+    }
+
+    return `<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#fff4e5; color:#c2410c; font-size:0.8rem; font-weight:700;">${summary.label}</span>`;
+}
+
+function renderHistoryViewData() {
+    const { filteredVisits, filteredResolved } = getFilteredHistoryData();
+
+    const noticeEl = document.getElementById('historyBackfillNotice');
+    if (noticeEl) {
+        noticeEl.style.display = historyBackfillNotice ? 'flex' : 'none';
+        noticeEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> <span>${historyBackfillNotice}</span>`;
+    }
+
+    const tbodyVisits = document.getElementById('historyVisitsTableBody');
+    if (tbodyVisits) {
+        if (filteredVisits.length === 0) {
+            tbodyVisits.innerHTML = '<tr><td colspan="6" class="empty-state">Nenhuma visita encontrada para os filtros aplicados.</td></tr>';
+        } else {
+            tbodyVisits.innerHTML = '';
+            filteredVisits.forEach(visit => {
+                const store = stores.find(s => s.id === visit.storeId);
+                const summary = getVisitResolutionSummary(visit);
+                const row = document.createElement('tr');
+                row.style.background = summary.totalItems > 0 && summary.resolvedCount === summary.totalItems ? '#f4fff5' : '';
+                row.innerHTML = `
+                    <td>${formatDate(visit.date)}</td>
+                    <td><strong>${store ? store.name : 'Loja Removida'}</strong></td>
+                    <td>${store ? store.network : '-'}</td>
+                    <td><span class="badge-rupture">${(visit.ruptures || []).length} Itens</span></td>
+                    <td>${getVisitResolutionBadge(visit)}</td>
+                    <td>${(visit.extraPoints || []).map(ep => `<span class="badge-extra-point">${ep}</span>`).join('') || '-'}</td>
+                    <td>${visit.notes || '-'}</td>
+                `;
+                tbodyVisits.appendChild(row);
+            });
+        }
+    }
+
+    const tbodyResolved = document.getElementById('historyResolvedTableBody');
+    if (tbodyResolved) {
+        if (filteredResolved.length === 0) {
+            tbodyResolved.innerHTML = '<tr><td colspan="5" class="empty-state">Nenhuma ruptura resolvida encontrada para os filtros aplicados.</td></tr>';
+        } else {
+            tbodyResolved.innerHTML = '';
+            filteredResolved.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${item.productName || 'Produto'}</strong></td>
+                    <td>${item.storeName || 'Loja'}</td>
+                    <td>${item.visitDate ? formatDate(item.visitDate) : '-'}</td>
+                    <td>${item.resolvedAt ? formatDate(item.resolvedAt) : '-'}</td>
+                    <td><span class="status-tag ok">Resolvido</span></td>
+                `;
+                tbodyResolved.appendChild(row);
+            });
+        }
+    }
+
+    updateHistoryFilterLabels();
+}
+
 function renderReportsTable() {
     const tbody = document.getElementById('reportsTableBody');
     const searchTerm = document.getElementById('reportSearch')?.value.toLowerCase() || '';
@@ -1276,7 +1883,7 @@ function renderReportsTable() {
             </td>
             <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="showVisitDetails(${visit.id})" title="Ver detalhes da visita">${store ? store.name : 'Loja Removida'}</strong></td>
             <td><span class="network-tag">${store ? store.network : '-'}</span></td>
-            <td><span class="badge-rupture">${visit.ruptures.length} itens</span></td>
+            <td><span class="badge-rupture">${visit.ruptures.length} Itens</span></td>
             <td>
                 <div class="history-photos">
                     ${(photoCache[visit.id] && photoCache[visit.id].length > 0) ? photoCache[visit.id].map(p => `
@@ -1284,6 +1891,7 @@ function renderReportsTable() {
                     `).join('') : '<span style="color:#ccc; font-size: 0.7rem;">Sem fotos</span>'}
                 </div>
             </td>
+            <td>${(visit.extraPoints || []).map(ep => `<span class="badge-extra-point">${ep}</span>`).join('') || '-'}</td>
             <td class="notes-cell" title="${visit.notes || ''}">${visit.notes || '-'}</td>
             <td>
                 <div style="display: flex; gap: 8px; flex-wrap: nowrap; align-items: center;">
@@ -1415,11 +2023,17 @@ window.viewPhoto = function(src) {
 };
 
 function calculateRuptureRate() {
-    const fVisits = typeof getGlobalFilteredVisits === 'function' ? getGlobalFilteredVisits() : visits;
-    if (fVisits.length === 0) return "0.0";
-    const totalPossible = fVisits.length * products.length; 
-    const totalRuptures = fVisits.reduce((acc, v) => acc + (v.ruptures ? v.ruptures.length : 0), 0);
-    return ((totalRuptures / totalPossible) * 100).toFixed(1);
+    const fStores = typeof getGlobalFilteredStores === 'function' ? getGlobalFilteredStores() : stores;
+    if (fStores.length === 0) return "0.0";
+    
+    // Calcula o total de produtos esperados nas lojas filtradas
+    const totalPossible = fStores.reduce((acc, s) => acc + (s.productIds && s.productIds.length > 0 ? s.productIds.length : products.length), 0);
+    if (totalPossible === 0) return "0.0";
+
+    // Pega as rupturas ativas das lojas filtradas
+    const activeRups = validatedRuptures.filter(r => fStores.some(s => s.id === r.storeId)).length;
+    
+    return ((activeRups / totalPossible) * 100).toFixed(1);
 }
 
 function updateStats() {
@@ -1431,7 +2045,17 @@ function updateStats() {
     const fVisits = typeof getGlobalFilteredVisits === 'function' ? getGlobalFilteredVisits() : visits;
 
     if (totalStoresEl) totalStoresEl.textContent = fStores.length;
-    if (totalVisitsEl) totalVisitsEl.textContent = fVisits.length;
+    
+    if (totalVisitsEl) {
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const visitsThisMonth = fVisits.filter(v => {
+            const vDate = new Date(v.date + 'T12:00:00');
+            return vDate.getMonth() === currentMonth && vDate.getFullYear() === currentYear;
+        });
+        totalVisitsEl.textContent = visitsThisMonth.length;
+    }
+    
     if (ruptureRateEl) ruptureRateEl.textContent = calculateRuptureRate() + '%';
     
     // Atualizar alertas de produtos se estiver na dashboard
@@ -1465,7 +2089,7 @@ window.exportVisitsCSV = function() {
         return;
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,Data;Loja;Rede;Qtd Rupturas;Itens em Ruptura;Observações\n";
+    let csvContent = "data:text/csv;charset=utf-8,Data;Loja;Rede;Qtd Rupturas;Itens em Ruptura;Pontos Extras;Observações\n";
     
     filtered.forEach(v => {
         const store = stores.find(s => s.id === v.storeId);
@@ -1473,6 +2097,7 @@ window.exportVisitsCSV = function() {
             const p = products.find(prod => prod.id === id);
             return p ? p.name : id;
         }).join(" | ");
+        const extraPointsNames = (v.extraPoints || []).join(" | ");
         
         const row = [
             formatDate(v.date),
@@ -1480,6 +2105,7 @@ window.exportVisitsCSV = function() {
             store ? store.network : 'N/A',
             v.ruptures.length,
             ruptureNames,
+            extraPointsNames,
             v.notes || ''
         ].join(";");
         csvContent += row + "\n";
@@ -1517,8 +2143,10 @@ function getFilteredReportVisits() {
                              (v.notes && v.notes.toLowerCase().includes(searchTerm));
         const matchesDate = (!startDate || v.date >= startDate) && (!endDate || v.date <= endDate);
         const matchesRupture = !reportFilterOnlyRuptures || (v.ruptures && v.ruptures.length > 0);
+        const matchesObservation = !reportFilterOnlyObservation || (v.notes && v.notes.trim().length > 0);
+        const matchesExtraPoints = !reportFilterOnlyExtraPoints || (v.extraPoints && v.extraPoints.length > 0);
 
-        return matchesNetwork && matchesSearch && matchesDate && matchesRupture;
+        return matchesNetwork && matchesSearch && matchesDate && matchesRupture && matchesObservation && matchesExtraPoints;
     });
 }
 
@@ -1601,7 +2229,7 @@ function buildReportInsightsHTML(filteredVisits) {
     sentences.push(`Total de visitas no relatório: <strong>${filteredVisits.length}</strong>.`);
     sentences.push(`Lojas diferentes no recorte: <strong>${storeMap.size}</strong>.`);
     sentences.push(`Rede mais registrada: <strong>${topNetwork[0]}</strong> (${topNetwork[1]} visitas).`);
-    sentences.push(`Taxa Geral de Ruptura: <strong style="color: #E53935;">${generalRuptureRate}%</strong> (Média de ${(totalRuptureItems / Math.max(1, filteredVisits.length)).toFixed(1)} itens/visita).`);
+    sentences.push(`Taxa Geral de Ruptura: <strong style="color: #E53935;">${generalRuptureRate}%</strong> (Média de ${(totalRuptureItems / Math.max(1, filteredVisits.length)).toFixed(1)} Itens/visita).`);
     sentences.push(improvedText);
     sentences.push(worsenedText);
 
@@ -1613,10 +2241,10 @@ function buildReportInsightsHTML(filteredVisits) {
     }
 
     if (highlightImprov) {
-        details += `<li><strong>${highlightImprov.store.name}</strong> apresentou a maior melhora: de ${highlightImprov.firstCount} para ${highlightImprov.lastCount} itens (${highlightImprov.percent}% de melhoria).</li>`;
+        details += `<li><strong>${highlightImprov.store.name}</strong> apresentou a maior melhora: de ${highlightImprov.firstCount} para ${highlightImprov.lastCount} Itens (${highlightImprov.percent}% de melhoria).</li>`;
     }
     if (highlightWorse) {
-        details += `<li><strong>${highlightWorse.store.name}</strong> teve a maior piora: de ${highlightWorse.firstCount} para ${highlightWorse.lastCount} itens.</li>`;
+        details += `<li><strong>${highlightWorse.store.name}</strong> teve a maior piora: de ${highlightWorse.firstCount} para ${highlightWorse.lastCount} Itens.</li>`;
     }
     if (mostVisitedStore) {
         details += `<li><strong>${mostVisitedStore.store.name}</strong> foi a loja com mais visitas no período (${mostVisitedStore.visits}).</li>`;
@@ -1638,6 +2266,7 @@ function buildReportTableHTML(filteredVisits) {
         const store = stores.find(s => s.id === v.storeId) || { name: 'Loja Removida', network: 'N/A' };
         const ruptureCount = (v.ruptures || []).length;
         const notesText = v.notes ? v.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '-';
+        const extraPts = (v.extraPoints || []).map(ep => `<span style="display:inline-block; padding: 2px 6px; border-radius: 5px; background:#f3e5f5; color:#8e44ad; font-weight:600; font-size:10px; margin-right:3px;">${ep}</span>`).join('') || '-';
 
         return `
             <tr style="border-bottom: 1px solid #ececec; page-break-inside: avoid; break-inside: avoid;">
@@ -1645,6 +2274,7 @@ function buildReportTableHTML(filteredVisits) {
                 <td style="padding: 10px; color: #2b3a55;">${store.name}</td>
                 <td style="padding: 10px; color: #0c5db8; font-weight: 700;">${store.network}</td>
                 <td style="padding: 10px; color: #333;">${ruptureCount}</td>
+                <td style="padding: 10px; white-space: normal; word-break: break-word;">${extraPts}</td>
                 <td style="padding: 10px; color: #555;">${notesText}</td>
             </tr>
         `;
@@ -1660,6 +2290,7 @@ function buildReportTableHTML(filteredVisits) {
                         <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Loja</th>
                         <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Rede</th>
                         <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Rupturas</th>
+                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Pontos Extras</th>
                         <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Observações</th>
                     </tr>
                 </thead>
@@ -1697,6 +2328,216 @@ function generateChartImage(config, width = 500, height = 300) {
         }, 150);
     });
 }
+
+function exportHtmlToPdf(container, options) {
+    if (!container || !container.innerHTML.trim()) {
+        alert('Não há conteúdo para exportar em PDF.');
+        return;
+    }
+
+    if (typeof window.html2pdf !== 'function') {
+        alert('A biblioteca de PDF não está disponível no momento.');
+        return;
+    }
+
+    const source = container;
+    const clone = source.cloneNode(true);
+    clone.style.position = 'relative';
+    clone.style.left = '0';
+    clone.style.top = '0';
+    clone.style.width = '1000px';
+    clone.style.maxWidth = '1000px';
+    clone.style.margin = '0 auto';
+    clone.style.padding = '16px';
+    clone.style.background = 'white';
+    clone.style.boxSizing = 'border-box';
+    clone.style.display = 'block';
+    clone.style.zIndex = '1';
+    clone.style.overflow = 'visible';
+    clone.style.fontFamily = 'Outfit, Arial, sans-serif';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-9999px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '1000px';
+    wrapper.style.maxWidth = '1000px';
+    wrapper.style.background = 'white';
+    wrapper.style.zIndex = '-1';
+    wrapper.style.overflow = 'visible';
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    const cleanup = () => {
+        if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
+    };
+
+    const renderPdf = () => {
+        const safeOptions = {
+            ...options,
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                letterRendering: true,
+                scrollX: 0,
+                scrollY: 0,
+                ...(options?.html2canvas || {})
+            },
+            pagebreak: {
+                mode: ['avoid', 'css', 'legacy'],
+                ...(options?.pagebreak || {})
+            }
+        };
+
+        window.html2pdf()
+            .set(safeOptions)
+            .from(clone)
+            .save()
+            .then(() => cleanup())
+            .catch(err => {
+                console.error('Erro ao gerar PDF:', err);
+                cleanup();
+                alert('Não foi possível gerar o PDF. Verifique o conteúdo e tente novamente.');
+            });
+    };
+
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') {
+        document.fonts.ready.then(renderPdf).catch(renderPdf);
+    } else {
+        requestAnimationFrame(() => setTimeout(renderPdf, 250));
+    }
+}
+
+window.exportHistoryCSV = function() {
+    const { filteredVisits, filteredResolved } = getFilteredHistoryData();
+
+    if (filteredVisits.length === 0 && filteredResolved.length === 0) {
+        alert('Não há dados para exportar no histórico com os filtros atuais.');
+        return;
+    }
+
+    let csvContent = 'data:text/csv;charset=utf-8,Tipo;Data;Loja;Rede;Produto;Status;Visita;Pontos Extras;Observações\n';
+    filteredVisits.forEach(v => {
+        const store = stores.find(s => s.id === v.storeId);
+        const ruptureNames = (v.ruptures || []).map(r => {
+            const p = products.find(prod => prod.id === r);
+            return p ? p.name : String(r);
+        }).join(' | ');
+        const extraPointsNames = (v.extraPoints || []).join(" | ");
+        const summary = getVisitResolutionSummary(v);
+        csvContent += [
+            'Visita',
+            formatDate(v.date),
+            store ? store.name : 'N/A',
+            store ? store.network : 'N/A',
+            ruptureNames,
+            summary.label,
+            summary.totalItems === 0 ? 'Sem rupturas' : `${summary.resolvedCount}/${summary.totalItems}`,
+            extraPointsNames,
+            v.notes || ''
+        ].join(';') + '\n';
+    });
+
+    filteredResolved.forEach(item => {
+        csvContent += [
+            'Resolvido',
+            item.resolvedAt ? formatDate(item.resolvedAt) : '-',
+            item.storeName || 'N/A',
+            '-',
+            item.productName || 'N/A',
+            'Resolvido',
+            item.visitDate ? formatDate(item.visitDate) : '-',
+            ''
+        ].join(';') + '\n';
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `historico_hiperroll_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+window.exportHistoryPDF = async function() {
+    const { filteredVisits, filteredResolved } = getFilteredHistoryData();
+
+    if (filteredVisits.length === 0 && filteredResolved.length === 0) {
+        alert('Não há dados para exportar no histórico com os filtros atuais.');
+        return;
+    }
+
+    const opt = {
+        margin: [6, 6],
+        filename: `Historico_Hiperroll_${new Date().toLocaleDateString()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak: { mode: ['avoid', 'css', 'legacy'] }
+    };
+
+    const visitsRows = filteredVisits.map(v => {
+        const store = stores.find(s => s.id === v.storeId) || { name: 'N/A', network: 'N/A' };
+        const summary = getVisitResolutionSummary(v);
+        const badgeColor = summary.tone === 'ok' ? '#e8f5e9' : '#fff4e5';
+        const badgeText = summary.tone === 'ok' ? '#2e7d32' : '#c2410c';
+        const extraPts = (v.extraPoints || []).map(ep => `<span style="display:inline-block; padding: 2px 5px; border-radius: 5px; background:#f3e5f5; color:#8e44ad; font-weight:600; font-size:9px; margin-right:2px;">${ep}</span>`).join('') || '-';
+        return `
+            <tr>
+                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${formatDate(v.date)}</td>
+                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${store.name}</td>
+                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${store.network}</td>
+                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${(v.ruptures || []).length}</td>
+                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;"><span style="display:inline-block; padding: 3px 7px; border-radius: 999px; background:${badgeColor}; color:${badgeText}; font-weight:700;">${summary.label}</span></td>
+                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${extraPts}</td>
+                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${(v.notes || '-').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+            </tr>`;
+    }).join('');
+
+    const resolvedRows = filteredResolved.map(item => `
+        <tr>
+            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${item.productName || 'Produto'}</td>
+            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${item.storeName || 'Loja'}</td>
+            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${item.visitDate ? formatDate(item.visitDate) : '-'}</td>
+            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${item.resolvedAt ? formatDate(item.resolvedAt) : '-'}</td>
+            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">Resolvido</td>
+        </tr>`).join('');
+
+    const container = document.createElement('div');
+    container.innerHTML = `
+        <div style="width: 100%; max-width: 1000px; margin: 0 auto; box-sizing: border-box; font-family: 'Outfit', sans-serif; color: #24305e; overflow: visible;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                <div style="flex: 1; min-width: 0;">
+                    <h1 style="color: #0047AB; margin: 0 0 4px; font-size: 20px;">Histórico Hiperroll</h1>
+                    <p style="margin: 0; color: #666; font-size: 11px;">Gerado em ${new Date().toLocaleString()}</p>
+                </div>
+                <div style="text-align: right; min-width: 220px; max-width: 260px; color: #0047AB; font-weight: 700; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">
+                    <div style="font-size: 13px;">Nicole Portela</div>
+                    <div style="font-size: 10px; color: #666; font-weight: 600; margin-top: 4px;">Trade Marketing</div>
+                </div>
+            </div>
+            <div style="margin-bottom: 18px; page-break-inside: avoid; break-inside: avoid;">
+                <h3 style="margin: 0 0 8px; font-size: 13px;">Rupturas não resolvidas</h3>
+                <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px; margin-bottom: 0;">
+                    <thead><tr style="background: #f3f6ff;"><th style="padding: 6px 7px; text-align: left; width: 11%;">Data</th><th style="padding: 6px 7px; text-align: left; width: 18%;">Loja</th><th style="padding: 6px 7px; text-align: left; width: 10%;">Rede</th><th style="padding: 6px 7px; text-align: left; width: 8%;">Rupturas</th><th style="padding: 6px 7px; text-align: left; width: 15%;">Status</th><th style="padding: 6px 7px; text-align: left; width: 16%;">Pontos Extras</th><th style="padding: 6px 7px; text-align: left; width: 22%;">Observações</th></tr></thead>
+                    <tbody>${visitsRows || '<tr><td colspan="7" style="padding: 8px;">Nenhuma visita no filtro</td></tr>'}</tbody>
+                </table>
+            </div>
+            <div style="page-break-inside: avoid; break-inside: avoid; margin-top: 12px;">
+                <h3 style="margin: 0 0 8px; font-size: 13px;">Rupturas resolvidas</h3>
+                <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px;">
+                    <thead><tr style="background: #f3f6ff;"><th style="padding: 6px 7px; text-align: left; width: 22%;">Produto</th><th style="padding: 6px 7px; text-align: left; width: 22%;">Loja</th><th style="padding: 6px 7px; text-align: left; width: 18%;">Visita</th><th style="padding: 6px 7px; text-align: left; width: 18%;">Resolvido em</th><th style="padding: 6px 7px; text-align: left; width: 20%;">Status</th></tr></thead>
+                    <tbody>${resolvedRows || '<tr><td colspan="5" style="padding: 8px;">Nenhuma ruptura resolvida no filtro</td></tr>'}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    exportHtmlToPdf(container, opt);
+};
 
 window.exportVisitsPDF = async function() {
     const element = document.querySelector('.reports-container');
@@ -1859,13 +2700,13 @@ window.exportVisitsPDF = async function() {
                 <h1 style="color: #0047AB; margin: 0; font-size: 24px; font-weight: 700;">Hiperroll Embalagens</h1>
                 <h3 style="color: #E53935; margin: 6px 0 0; font-size: 16px; font-weight: 600;">Relatório de Visitas Trade Marketing</h3>
                 <p style="font-size: 10px; color: #666; margin: 6px 0 0; font-weight: 400;">Gerado em: ${new Date().toLocaleString()}</p>
-                <p style="font-size: 11px; color: #333; margin: 4px 0 0; font-weight: 600;">Responsável: Nicole Portela - Trade Marketing</p>
+                <p style="font-size: 11px; color: #333; margin: 4px 0 0; font-weight: 600; white-space: normal; overflow-wrap: anywhere;">Responsável: Nicole Portela - Trade Marketing</p>
             </div>
-            <div style="text-align: center; min-width: 160px;">
+            <div style="text-align: center; min-width: 220px; max-width: 260px;">
                 <div style="background: #0047AB; color: white; padding: 14px 20px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; display: inline-block; margin-bottom: 8px;">
                     HIPERROLL
                 </div>
-                <p style="font-size: 11px; color: #0047AB; margin: 0; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;">INTELIGÊNCIA EM TRADE</p>
+                <p style="font-size: 11px; color: #0047AB; margin: 0; font-weight: 700; letter-spacing: 0.3px; white-space: normal; overflow-wrap: anywhere; line-height: 1.35;">INTELIGÊNCIA EM TRADE</p>
             </div>
         </div>
     `;
@@ -1915,7 +2756,7 @@ window.exportVisitsPDF = async function() {
     const container = document.createElement('div');
     container.innerHTML = header + filtersSummary + chartsSection + insightsSection + tableSection;
 
-    html2pdf().set(opt).from(container).save();
+    exportHtmlToPdf(container, opt);
 };
 
 function buildPendingStoresInsightsHTML(pendingStores) {
@@ -1970,13 +2811,13 @@ window.exportDashboardPDF = function() {
                 <h1 style="color: #0047AB; margin: 0; font-size: 24px; font-weight: 700;">Hiperroll Embalagens</h1>
                 <h3 style="color: #E53935; margin: 5px 0 0; font-size: 16px; font-weight: 600;">Relatório de Lojas Pendentes / Em Atraso</h3>
                 <p style="font-size: 11px; color: #666; margin: 6px 0 0; font-weight: 400;">Gerado em: ${new Date().toLocaleString()}</p>
-                <p style="font-size: 12px; color: #333; margin-top: 5px; font-weight: 600;">Responsável: Nicole Portela - Trade Marketing</p>
+                <p style="font-size: 12px; color: #333; margin-top: 5px; font-weight: 600; white-space: normal; overflow-wrap: anywhere;">Responsável: Nicole Portela - Trade Marketing</p>
             </div>
-            <div style="text-align: center; min-width: 160px;">
+            <div style="text-align: center; min-width: 220px; max-width: 260px;">
                 <div style="background: #0047AB; color: white; padding: 14px 20px; border-radius: 10px; font-weight: 700; font-size: 18px; letter-spacing: 0.5px; display: inline-block; margin-bottom: 8px;">
                     HIPERROLL
                 </div>
-                <p style="font-size: 11px; color: #0047AB; margin: 0; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;">INTELIGÊNCIA EM TRADE</p>
+                <p style="font-size: 11px; color: #0047AB; margin: 0; font-weight: 700; letter-spacing: 0.3px; white-space: normal; overflow-wrap: anywhere; line-height: 1.35;">INTELIGÊNCIA EM TRADE</p>
             </div>
         </div>
     `;
@@ -2027,7 +2868,7 @@ window.exportDashboardPDF = function() {
     const container = document.createElement('div');
     container.innerHTML = header + insightsHtml + tableHtml;
 
-    html2pdf().set(opt).from(container).save();
+    exportHtmlToPdf(container, opt);
 };
 
 window.toggleRuptureFilter = function() {
@@ -2035,6 +2876,40 @@ window.toggleRuptureFilter = function() {
     const btn = document.getElementById('reportRuptureFilterBtn');
     if (btn) {
         if (reportFilterOnlyRuptures) {
+            btn.style.background = 'var(--primary-red, #E53935)';
+            btn.style.color = 'white';
+            btn.style.borderColor = 'var(--primary-red, #E53935)';
+        } else {
+            btn.style.background = 'white';
+            btn.style.color = 'var(--text-dark)';
+            btn.style.borderColor = '#eee';
+        }
+    }
+    renderReportsTable();
+};
+
+window.toggleReportObservationFilter = function() {
+    reportFilterOnlyObservation = !reportFilterOnlyObservation;
+    const btn = document.getElementById('reportObservationFilterBtn');
+    if (btn) {
+        if (reportFilterOnlyObservation) {
+            btn.style.background = 'var(--primary-red, #E53935)';
+            btn.style.color = 'white';
+            btn.style.borderColor = 'var(--primary-red, #E53935)';
+        } else {
+            btn.style.background = 'white';
+            btn.style.color = 'var(--text-dark)';
+            btn.style.borderColor = '#eee';
+        }
+    }
+    renderReportsTable();
+};
+
+window.toggleReportExtraPointsFilter = function() {
+    reportFilterOnlyExtraPoints = !reportFilterOnlyExtraPoints;
+    const btn = document.getElementById('reportExtraPointsFilterBtn');
+    if (btn) {
+        if (reportFilterOnlyExtraPoints) {
             btn.style.background = 'var(--primary-red, #E53935)';
             btn.style.color = 'white';
             btn.style.borderColor = 'var(--primary-red, #E53935)';
@@ -2217,6 +3092,8 @@ async function handleVisitSubmit(e) {
     const notes     = document.getElementById('visitNotes').value;
     const checkedProducts = Array.from(document.querySelectorAll('.rupture-check:checked'))
                                  .map(cb => parseInt(cb.value));
+    const checkedExtraPoints = Array.from(document.querySelectorAll('.extra-point-check:checked'))
+                                    .map(cb => cb.value);
     const visitDate = document.getElementById('visitDate').value;
 
     // ============================================================
@@ -2234,6 +3111,7 @@ async function handleVisitSubmit(e) {
                 storeId,
                 date: visitDate,
                 ruptures: checkedProducts,
+                extraPoints: checkedExtraPoints,
                 notes,
             };
 
@@ -2266,14 +3144,23 @@ async function handleVisitSubmit(e) {
                 if (!exists) {
                     const product = products.find(p => p.id === pId);
                     const store   = stores.find(s => s.id === storeId);
-                    validatedRuptures.push({
-                        id: Date.now() + Math.random(),
-                        productId: pId,
-                        productName: product ? product.name : 'Produto',
-                        storeId,
-                        storeName: store ? store.name : 'Loja',
-                        timestamp: new Date().getTime()
-                    });
+                    const existingRupture = validatedRuptures.find(r => r.productId === pId && r.storeId === storeId);
+                    if (existingRupture) {
+                        existingRupture.visitId = editingVisitId;
+                        existingRupture.visitDate = visitDate;
+                        existingRupture.timestamp = new Date().getTime();
+                    } else {
+                        validatedRuptures.push({
+                            id: Date.now() + Math.random(),
+                            productId: pId,
+                            productName: product ? product.name : 'Produto',
+                            storeId,
+                            storeName: store ? store.name : 'Loja',
+                            visitId: editingVisitId,
+                            visitDate,
+                            timestamp: new Date().getTime()
+                        });
+                    }
                 }
             });
 
@@ -2292,7 +3179,7 @@ async function handleVisitSubmit(e) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalBtnText;
                 checkOverdueStores();
-                if (currentPage === 'reports') renderPage('reports');
+                renderPage(currentPage || 'dashboard');
                 updateStats();
                 updateNotifications();
                 showToast('Visita atualizada com sucesso!');
@@ -2314,6 +3201,7 @@ async function handleVisitSubmit(e) {
         storeId,
         date: visitDate,
         ruptures: checkedProducts,
+        extraPoints: checkedExtraPoints,
         notes,
         photos: []  // fotos ficam apenas em memória (photoCache), não no localStorage
     };
@@ -2344,14 +3232,23 @@ async function handleVisitSubmit(e) {
         if (!exists) {
             const product = products.find(p => p.id === pId);
             const store = stores.find(s => s.id === storeId);
-            validatedRuptures.push({
-                id: Date.now() + Math.random(),
-                productId: pId,
-                productName: product ? product.name : 'Produto',
-                storeId,
-                storeName: store ? store.name : 'Loja',
-                timestamp: new Date().getTime()
-            });
+            const existingRupture = validatedRuptures.find(r => r.productId === pId && r.storeId === storeId);
+            if (existingRupture) {
+                existingRupture.visitId = newVisit.id;
+                existingRupture.visitDate = visitDate;
+                existingRupture.timestamp = new Date().getTime();
+            } else {
+                validatedRuptures.push({
+                    id: Date.now() + Math.random(),
+                    productId: pId,
+                    productName: product ? product.name : 'Produto',
+                    storeId,
+                    storeName: store ? store.name : 'Loja',
+                    visitId: newVisit.id,
+                    visitDate,
+                    timestamp: new Date().getTime()
+                });
+            }
         }
     });
 
@@ -2370,7 +3267,7 @@ async function handleVisitSubmit(e) {
         submitBtn.innerHTML = originalBtnText;
 
         checkOverdueStores();
-        renderDashboard();
+        renderPage(currentPage || 'dashboard');
         updateStats();
         updateNotifications();
         
@@ -2535,10 +3432,30 @@ function getTimeDiff(timestamp) {
 }
 
 window.resolveRupture = function(id) {
+    const rupture = validatedRuptures.find(r => r.id === id);
+    if (rupture) {
+        const store = stores.find(s => s.id === rupture.storeId);
+        resolvedRupturesHistory = [{
+            ...rupture,
+            network: store?.network || rupture.network || '',
+            resolvedAt: new Date().toISOString().slice(0, 10),
+            resolvedAtTime: new Date().toLocaleString('pt-BR'),
+            visitId: rupture.visitId || null,
+            visitDate: rupture.visitDate || null
+        }, ...resolvedRupturesHistory].slice(0, 300);
+    }
+
     validatedRuptures = validatedRuptures.filter(r => r.id !== id);
     saveAppStateLocally();
     if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
-    renderValidatedRuptures();
+    if (currentPage === 'dashboard') {
+        renderValidatedRuptures();
+        renderProductAlerts();
+    } else if (currentPage === 'history') {
+        renderHistoryViewData();
+    } else {
+        renderValidatedRuptures();
+    }
     updateStats();
 };
 
@@ -2695,6 +3612,10 @@ window.openEditVisit = function(visitId) {
         checkboxes.forEach(cb => {
             cb.checked = visit.ruptures && visit.ruptures.includes(parseInt(cb.value));
         });
+        const extraCheckboxes = document.querySelectorAll('.extra-point-check');
+        extraCheckboxes.forEach(cb => {
+            cb.checked = visit.extraPoints && visit.extraPoints.includes(cb.value);
+        });
     });
 
     // Garante que ao fechar o modal (pelo X ou fundo) a loja seja desbloqueada
@@ -2769,6 +3690,20 @@ window.showVisitDetails = function(visitId) {
         const prod = products.find(p => p.id === pId);
         return prod ? prod.name : 'Produto Desconhecido';
     });
+
+    const itemDetailsHtml = (visit.ruptures || []).map(pId => {
+        const prod = products.find(p => p.id === pId);
+        const name = prod ? prod.name : 'Produto Desconhecido';
+        const status = getResolvedItemStatus(pId, visit.storeId);
+        const resolvedLabel = status.isResolved
+            ? `<span style="font-size: 0.72rem; background: #e8f5e9; color: #2e7d32; padding: 3px 6px; border-radius: 999px; font-weight: 700;"><i class="fa-solid fa-check"></i> Resolvido${status.resolvedAt ? ` · ${formatDate(status.resolvedAt)}` : ''}</span>`
+            : `<span style="font-size: 0.72rem; background: #ffebee; color: var(--primary-red); padding: 3px 6px; border-radius: 999px; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation"></i> Pendente</span>`;
+        return `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:8px; padding:8px 10px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:8px;">
+                <span style="font-weight:600; color: var(--text-dark);">${name}</span>
+                ${resolvedLabel}
+            </div>`;
+    }).join('');
     
     // Busca outras visitas para a mesma loja
     const otherVisits = visits.filter(v => v.storeId === visit.storeId && v.id !== visitId)
@@ -2827,19 +3762,39 @@ window.showVisitDetails = function(visitId) {
         `;
     }
 
+    const summary = getVisitResolutionSummary(visit);
+    const resolvedCount = summary.resolvedCount;
+    const pendingCount = Math.max(0, summary.totalItems - resolvedCount);
+
     body.innerHTML = `
         <div style="margin-bottom: 15px;">
             <strong style="font-size: 1.1rem; color: var(--primary-blue);">${store ? store.name : 'Removida'}</strong><br>
             <span style="color: var(--text-muted); font-size: 0.9rem;">Data da Visita: ${formatDate(visit.date)}</span>
         </div>
-        <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--primary-red);">Itens em Ruptura (${ruptureNames.length}):</h3>
-        ${ruptureNames.length > 0 
-            ? `<ul class="detail-list">${ruptureNames.map(name => `<li><div class="detail-item">${name}</div></li>`).join('')}</ul>` 
+        <div style="margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: ${summary.totalItems > 0 && resolvedCount === summary.totalItems ? '#f4fff5' : '#f8fafc'}; border: 1px solid ${summary.totalItems > 0 && resolvedCount === summary.totalItems ? '#c8e6c9' : '#e5e7eb'};">
+            <strong style="display:block; margin-bottom: 4px; color: var(--primary-blue);">Progresso de resolução</strong>
+            <span style="font-size: 0.92rem; color: var(--text-muted);">${summary.label}</span>
+        </div>
+        <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--primary-red);">Evolução dos Itens</h3>
+        ${ruptureNames.length > 0
+            ? `<div style="display:grid; gap:8px;">${itemDetailsHtml}</div>`
             : '<p class="empty-state">Nenhuma ruptura registrada nesta visita.</p>'}
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color); display:grid; gap:8px;">
+            <div style="font-size: 0.9rem; color: #2e7d32;"><i class="fa-solid fa-check"></i> Resolvidos: ${resolvedCount}</div>
+            <div style="font-size: 0.9rem; color: var(--primary-red);"><i class="fa-solid fa-triangle-exclamation"></i> Pendentes: ${pendingCount}</div>
+        </div>
         ${visit.notes ? `
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
                 <strong>Observações:</strong>
                 <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-muted);">${visit.notes}</p>
+            </div>
+        ` : ''}
+        ${(visit.extraPoints && visit.extraPoints.length > 0) ? `
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                <strong style="color: #8e44ad;"><i class="fa-solid fa-star"></i> Pontos Extras:</strong>
+                <div style="margin-top: 8px;">
+                    ${visit.extraPoints.map(ep => `<span class="badge-extra-point">${ep}</span>`).join('')}
+                </div>
             </div>
         ` : ''}
         ${historyHtml}

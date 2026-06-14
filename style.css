@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --primary-red: #E53935;
     --primary-blue: #0D47A1;
     --bg-light: #F8F9FE;
@@ -1247,7 +1247,25 @@ body.logged-in .app-container {
  
 .hide-calendar-icon::-webkit-calendar-picker-indicator { display: none; -webkit-appearance: none; }
 
+/* Pontos Extras */
+.badge-extra-point {
+    background: #f3e5f5;
+    color: #8e44ad;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 4px;
+    display: inline-block;
+}
 
+.store-card-full.has-extra-point, .store-card.has-extra-point {
+    border-left: 4px solid #8e44ad;
+}
 
-
-
+.extra-points-checklist {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow-y: auto;
+    background: #fafafa;
+}

@@ -74,6 +74,7 @@ switch ($action) {
             'store_updates'      => readData('store_updates.json', new stdClass()),
             'validated_ruptures' => readData('ruptures.json', []),
             'dismissed'          => readData('dismissed.json', []),
+            'resolved_history'   => readData('resolved_history.json', []),
             'photo_map'          => readData('photo_map.json', new stdClass()),
         ]);
         break;
@@ -103,6 +104,13 @@ switch ($action) {
     case 'save_dismissed':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
         $ok = writeData('dismissed.json', $body['dismissed'] ?? []);
+        echo json_encode(['ok' => $ok]);
+        break;
+
+    // ── Salva histórico de rupturas resolvidas ───────────────
+    case 'save_resolved_history':
+        if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
+        $ok = writeData('resolved_history.json', $body['resolved_history'] ?? []);
         echo json_encode(['ok' => $ok]);
         break;
 
