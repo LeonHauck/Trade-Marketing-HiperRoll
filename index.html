@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-br">
 
 <head>
@@ -90,8 +90,12 @@
                     <span>Produtos</span>
                 </a>
                 <a href="#" class="nav-item" data-page="reports">
-                    <i class="fa-solid fa-clipboard-check"></i>
-                    <span>Relatórios</span>
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Histórico de Visitas</span>
+                </a>
+                <a href="#" class="nav-item" data-page="history">
+                    <i class="fa-solid fa-exclamation-triangle"></i>
+                    <span>Rupturas</span>
                 </a>
             </nav>
 
@@ -268,6 +272,27 @@
                         </div>
                         <div id="productListChecklist" class="product-checklist">
                             <!-- Injected by JS -->
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Pontos Extras (Marque os itens presentes na loja)</label>
+                        <div class="product-checklist extra-points-checklist" style="max-height: 150px;">
+                            <div class="checklist-item">
+                                <input type="checkbox" id="ep-display" value="Display" class="extra-point-check">
+                                <label for="ep-display">Display</label>
+                            </div>
+                            <div class="checklist-item">
+                                <input type="checkbox" id="ep-clips" value="Clips Strips" class="extra-point-check">
+                                <label for="ep-clips">Clips Strips</label>
+                            </div>
+                            <div class="checklist-item">
+                                <input type="checkbox" id="ep-blacklight" value="Blacklight" class="extra-point-check">
+                                <label for="ep-blacklight">Blacklight</label>
+                            </div>
+                            <div class="checklist-item">
+                                <input type="checkbox" id="ep-outros" value="Outros" class="extra-point-check">
+                                <label for="ep-outros">Outros</label>
+                            </div>
                         </div>
                     </div>
                     <div class="form-group">
