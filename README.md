@@ -245,10 +245,4 @@ Data: Junho 2026
 
 ---
 
-## 📞 Suporte
-
-Para suporte, abra uma issue ou entre em contato com a equipe de Trade Marketing da HiperRoll.
-
----
-
 **Made with ❤️ for HiperRoll Embalagens**
