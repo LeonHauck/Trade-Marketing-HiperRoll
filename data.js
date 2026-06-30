@@ -1,3 +1,2909 @@
-﻿const PRODUCTS_DATA = [{"status":"ATIVO","name":"ECONOMICO 30L","id":101,"network":"BAHAMAS"},{"status":"ATIVO","name":"ECONOMICO 50L","id":102,"network":"BAHAMAS"},{"status":"ATIVO","name":"BOBINA 20X30","id":103,"network":"BAHAMAS"},{"status":"ATIVO","name":"ECONOMICO 100L","id":104,"network":"BAHAMAS"},{"status":"ATIVO","name":"BOBINA 25X35","id":105,"network":"BAHAMAS"},{"status":"ATIVO","name":"SACOLA 29X39","id":106,"network":"BAHAMAS"},{"status":"ATIVO","name":"SACOLA 38X48","id":107,"network":"BAHAMAS"},{"status":"ATIVO","name":"BOBINA 30X40","id":108,"network":"BAHAMAS"},{"status":"ATIVO","name":"ECONOMICO 15L","id":109,"network":"BARCELOS ATACADISTA"},{"status":"ATIVO","name":"REFORCADO 100L","id":110,"network":"BARCELOS ATACADISTA"},{"status":"ATIVO","name":"REFORCADO 200L","id":111,"network":"BARCELOS ATACADISTA"},{"status":"ATIVO","name":"BRAMIL LIXO 15L","id":112,"network":"BRAMIL"},{"status":"ATIVO","name":"BRAMIL LIXO 30L","id":113,"network":"BRAMIL"},{"status":"ATIVO","name":"BRAMIL LIXO 50L","id":114,"network":"BRAMIL"},{"status":"ATIVO","name":"BRAMIL LIXO 100L","id":115,"network":"BRAMIL"},{"status":"ATIVO","name":"BRAMIL LIXO 100L REF","id":116,"network":"BRAMIL"},{"status":"ATIVO","name":"BRAMIL LIXO 200L REF","id":117,"network":"BRAMIL"},{"status":"ATIVO","name":"HIPERROLL 15L","id":118,"network":"ATACADAO BA"},{"status":"ATIVO","name":"HIPERROLL 30L","id":119,"network":"ATACADAO BA"},{"status":"ATIVO","name":"HIPERROLL 50L","id":120,"network":"ATACADAO BA"},{"status":"ATIVO","name":"HIPERROLL 100L","id":121,"network":"ATACADAO BA"},{"status":"ATIVO","name":"SACOLA VERDE 38X50","id":122,"network":"ATACADAO BA"},{"status":"ATIVO","name":"SACOLA VERDE 40X50","id":123,"network":"ATACADAO BA"}];
+﻿const PRODUCTS_DATA = [
+    {
+        "status":  "ATIVO",
+        "name":  "ECONOMICO 30L",
+        "id":  "economico-30l",
+        "network":  "BAHAMAS"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "ECONOMICO 50L",
+        "id":  "economico-50l",
+        "network":  "BAHAMAS"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BOBINA 20X30",
+        "id":  "bobina-20x30",
+        "network":  "BAHAMAS"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "ECONOMICO 100L",
+        "id":  "economico-100l",
+        "network":  "BAHAMAS"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BOBINA 25X35",
+        "id":  "bobina-25x35",
+        "network":  "BAHAMAS JF"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "SACOLA 29X39",
+        "id":  "sacola-29x39",
+        "network":  "BAHAMAS JF"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "SACOLA 38X48",
+        "id":  "sacola-38x48",
+        "network":  "BAHAMAS JF"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BOBINA 30X40",
+        "id":  "bobina-30x40",
+        "network":  "BAHAMAS JF"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "ECONOMICO 15L",
+        "id":  "economico-15l",
+        "network":  "BARCELOS ATACADISTA"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "REFORCADO 100L",
+        "id":  "reforcado-100l",
+        "network":  "BARCELOS ATACADISTA"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "REFORCADO 200L",
+        "id":  "reforcado-200l",
+        "network":  "BARCELOS ATACADISTA"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BRAMIL LIXO 15L",
+        "id":  "bramil-lixo-15l",
+        "network":  "BRAMIL"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BRAMIL LIXO 30L",
+        "id":  "bramil-lixo-30l",
+        "network":  "BRAMIL"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BRAMIL LIXO 50L",
+        "id":  "bramil-lixo-50l",
+        "network":  "BRAMIL"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BRAMIL LIXO 100L",
+        "id":  "bramil-lixo-100l",
+        "network":  "BRAMIL"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BRAMIL LIXO 100L REF",
+        "id":  "bramil-lixo-100l-ref",
+        "network":  "BRAMIL"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BRAMIL LIXO 200L REF",
+        "id":  "bramil-lixo-200l-ref",
+        "network":  "BRAMIL"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "HIPERROLL 15L",
+        "id":  "hiperroll-15l",
+        "network":  "ATACADAO BA"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "HIPERROLL 30L",
+        "id":  "hiperroll-30l",
+        "network":  "ATACADAO BA"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "HIPERROLL 50L",
+        "id":  "hiperroll-50l",
+        "network":  "ATACADAO BA"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "HIPERROLL 100L",
+        "id":  "hiperroll-100l",
+        "network":  "ATACADAO BA"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "SACOLA VERDE 38X50",
+        "id":  "sacola-verde-38x50",
+        "network":  "ATACADAO BA"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "SACOLA VERDE 40X50",
+        "id":  "sacola-verde-40x50",
+        "network":  "ATACADAO BA"
+    }
+];
 
-const STORES_DATA = [{"id":1,"name":"10 - SUPERMERCADO BAHAMAS VICOSA.","network":"BAHAMAS","productIds":[101,102,103,104],"status":"pending","lastVisit":null},{"id":2,"name":"11 - SUPERMERCADO BAHAMAS PONTE NOVA.","network":"BAHAMAS","productIds":[101,103,104,102],"status":"pending","lastVisit":null},{"id":3,"name":"12 - BAHAMAS MIX JF FABRICA.","network":"BAHAMAS","productIds":[102,104,103,105,101,106,107,108],"status":"pending","lastVisit":null},{"id":4,"name":"13 - MERCADO BAHAMAS JF POCO RICO.","network":"BAHAMAS","productIds":[103],"status":"pending","lastVisit":null},{"id":5,"name":"14 - BAHAMAS MIX CATAGUASES.","network":"BAHAMAS","productIds":[101,105,103,108,107,102,106,104],"status":"pending","lastVisit":null},{"id":6,"name":"15 - SUPERMERCADO BAHAMAS JF INDEPENDENCIA.","network":"BAHAMAS","productIds":[102,101,104,103],"status":"pending","lastVisit":null},{"id":7,"name":"17 - BAHAMAS MIX UBA AVENIDA","network":"BAHAMAS","productIds":[103,108,104,101,106,105,102,107],"status":"pending","lastVisit":null},{"id":8,"name":"18 - MERCADO BAHAMAS JF GRAMA.","network":"BAHAMAS","productIds":[103],"status":"pending","lastVisit":null},{"id":9,"name":"19 - BAHAMAS MIX FERREIRA GUIMARAES","network":"BAHAMAS","productIds":[102,101,103,104,108,105,106,107],"status":"pending","lastVisit":null},{"id":10,"name":"02 - HIPER BAHAMAS SAO PEDRO","network":"BAHAMAS","productIds":[102,104,101,103],"status":"pending","lastVisit":null},{"id":11,"name":"20 - BAHAMAS MIX BENFICA.","network":"BAHAMAS","productIds":[102,104,105,101,103,108,106,107],"status":"pending","lastVisit":null},{"id":12,"name":"21 - HIPER BAHAMAS GETULIO VARGAS","network":"BAHAMAS","productIds":[102,101,104,103],"status":"pending","lastVisit":null},{"id":13,"name":"23 - SUPERMERCADO BAHAMAS ALEM PARAIBA.","network":"BAHAMAS","productIds":[102,101,104,103],"status":"pending","lastVisit":null},{"id":14,"name":"25 - SUPERMERCADO BAHAMAS JF TEIXEIRAS.","network":"BAHAMAS","productIds":[102,104,101,103],"status":"pending","lastVisit":null},{"id":15,"name":"26 - BAHAMAS MIX JF SALVATERRA","network":"BAHAMAS","productIds":[102,104,101,105,103,108,106,107],"status":"pending","lastVisit":null},{"id":16,"name":"27 - SUPERMERCADO BAHAMAS SAO JOAO DEL REI.","network":"BAHAMAS","productIds":[104,102,103,101],"status":"pending","lastVisit":null},{"id":17,"name":"28 - BAHAMAS MIX BARB.","network":"BAHAMAS","productIds":[101,104,102,108,103,105,107,106],"status":"pending","lastVisit":null},{"id":18,"name":"3 - SUPERMERCADO BAHAMAS BARBACENA.","network":"BAHAMAS","productIds":[102,103,101,104,105,108],"status":"pending","lastVisit":null},{"id":19,"name":"30 - SUPERMERCADO BAHAMAS CATAGUASES 2.","network":"BAHAMAS","productIds":[102,101,104,103],"status":"pending","lastVisit":null},{"id":20,"name":"32 - BAHAMAS MIX UBERLANDIA J. PINHEIRO","network":"BAHAMAS","productIds":[108,103,107,106,105],"status":"pending","lastVisit":null},{"id":21,"name":"33 - SUPERMERCADO BAHAMAS UBERLANDIA STA ROSA.","network":"BAHAMAS","productIds":[103],"status":"pending","lastVisit":null},{"id":22,"name":"34 - BAHAMAS MIX MURIAE.","network":"BAHAMAS","productIds":[105,103,102,108,101,107,104,106],"status":"pending","lastVisit":null},{"id":23,"name":"35 - BAHAMAS MIX LEOPOLDINA.","network":"BAHAMAS","productIds":[103,105,102,107,104,108,101,106],"status":"pending","lastVisit":null},{"id":24,"name":"38 - SUPERMERCADO BAHAMAS UBERLANDIA GRANADA","network":"BAHAMAS","productIds":[104,103],"status":"pending","lastVisit":null},{"id":25,"name":"39 - BAHAMAS MIX UBERLANDIA AEROPORTO","network":"BAHAMAS","productIds":[105,106,108,103,107],"status":"pending","lastVisit":null},{"id":26,"name":"4 - MERCADO BAHAMAS JF STA LUZIA.","network":"BAHAMAS","productIds":[103],"status":"pending","lastVisit":null},{"id":27,"name":"40 - BAHAMAS MIX UBA","network":"BAHAMAS","productIds":[105,103,108,102,104,101,107,106],"status":"pending","lastVisit":null},{"id":28,"name":"42 - BAHAMAS MIX ALEM PARAIBA","network":"BAHAMAS","productIds":[105,101,104,108,103,102,106,107],"status":"pending","lastVisit":null},{"id":29,"name":"43 - BAHAMAS MIX SAO JOAO DEL REI","network":"BAHAMAS","productIds":[105,103,101,108,104,107,102,106],"status":"pending","lastVisit":null},{"id":30,"name":"44 - BAHAMAS MIX UBERABA NSRA DO DESTERRO","network":"BAHAMAS","productIds":[103,105,108,106,107],"status":"pending","lastVisit":null},{"id":31,"name":"45 - BAHAMAS MIX JF GRAMA","network":"BAHAMAS","productIds":[102,101,104,103,105,107,108,106],"status":"pending","lastVisit":null},{"id":32,"name":"46 - BAHAMAS MIX VICOSA","network":"BAHAMAS","productIds":[102,103,101,105,104,108,107,106],"status":"pending","lastVisit":null},{"id":33,"name":"47 - BAHAMAS MIX UBERLANDIA PLANALTO","network":"BAHAMAS","productIds":[103,105,108,106,107],"status":"pending","lastVisit":null},{"id":34,"name":"48 - BAHAMAS MIX JF SAO PEDRO","network":"BAHAMAS","productIds":[104,103,102,101,105,108,107,106],"status":"pending","lastVisit":null},{"id":35,"name":"49 - BAHAMAS MIX UBERABA CHEREN","network":"BAHAMAS","productIds":[105,108,107,106,103],"status":"pending","lastVisit":null},{"id":36,"name":"5 - SUPERMERCADO BAHAMAS JF AV.BRASIL.","network":"BAHAMAS","productIds":[104,102,101,103],"status":"pending","lastVisit":null},{"id":37,"name":"50 - BAHAMAS MIX PATROCINIO","network":"BAHAMAS","productIds":[105,103,108,106,107],"status":"pending","lastVisit":null},{"id":38,"name":"52 - BAHAMAS MIX ARAGUARI","network":"BAHAMAS","productIds":[108,105,103,106,107],"status":"pending","lastVisit":null},{"id":39,"name":"53 - BAHAMAS MIX UBERABA SANTANA BORGES","network":"BAHAMAS","productIds":[108,106,107,103,105],"status":"pending","lastVisit":null},{"id":40,"name":"55 - BAHAMAS MIX ITUIUTABA","network":"BAHAMAS","productIds":[105,108,103,107,106],"status":"pending","lastVisit":null},{"id":41,"name":"58 - BAHAMAS MIX MONTE CARMELO","network":"BAHAMAS","productIds":[105,103,106,108,107],"status":"pending","lastVisit":null},{"id":42,"name":"59 - SUPERMERCADO BAHAMAS JF STA TEREZINHA","network":"BAHAMAS","productIds":[102,104,103,101],"status":"pending","lastVisit":null},{"id":43,"name":"61 - BAHAMAS MIX JF JK","network":"BAHAMAS","productIds":[102,101,104,103,107,105,108,106],"status":"pending","lastVisit":null},{"id":44,"name":"62 - SUPERMERCADO BAHAMAS UBERLANDIA MARTINS","network":"BAHAMAS","productIds":[103],"status":"pending","lastVisit":null},{"id":45,"name":"64 - BAHAMAS MIX UBERLANDIA JOAO NAVES","network":"BAHAMAS","productIds":[108,106,105,103,107],"status":"pending","lastVisit":null},{"id":46,"name":"65 - BAHAMAS MIX ARAXA","network":"BAHAMAS","productIds":[103,105,108,107,106],"status":"pending","lastVisit":null},{"id":47,"name":"66 - BAHAMAS MIX PATOS DE MINAS","network":"BAHAMAS","productIds":[105,103,107,106,108],"status":"pending","lastVisit":null},{"id":48,"name":"68 - SUPERMERCADO BAHAMAS MURIAE","network":"BAHAMAS","productIds":[102,104,101,103],"status":"pending","lastVisit":null},{"id":49,"name":"7 - BAHAMAS MIX J.CLUBE.","network":"BAHAMAS","productIds":[102,104,101,107,108,103,105,106],"status":"pending","lastVisit":null},{"id":50,"name":"72 - BAHAMAS MIX FRUTAL","network":"BAHAMAS","productIds":[108,105,103,106,107],"status":"pending","lastVisit":null},{"id":51,"name":"74 - BAHAMAS MIX UBERLANDIA ZONA SUL","network":"BAHAMAS","productIds":[108,105,107,103,106],"status":"pending","lastVisit":null},{"id":52,"name":"75 - BAHAMAS MIX VISCONDE DO RIO BRANCO","network":"BAHAMAS","productIds":[103,105,104,101,102,108,106,107],"status":"pending","lastVisit":null},{"id":53,"name":"79 - BAHAMAS MIX RIO POMBA","network":"BAHAMAS","productIds":[101,105,102,104,103,106,107,108],"status":"pending","lastVisit":null},{"id":54,"name":"8 - HIPER BAHAMAS SAO VICENTE","network":"BAHAMAS","productIds":[102,103,104,101],"status":"pending","lastVisit":null},{"id":55,"name":"80 - BAHAMAS MIX ITURAMA","network":"BAHAMAS","productIds":[108,103,106,105,107],"status":"pending","lastVisit":null},{"id":56,"name":"82 - BAHAMAS MIX ARAXA SANTO ANTONIO","network":"BAHAMAS","productIds":[108,103,105,107,106],"status":"pending","lastVisit":null},{"id":57,"name":"85 - BAHAMAS MIX EDILSON LAMARTINE","network":"BAHAMAS","productIds":[105,103,108,106,107],"status":"pending","lastVisit":null},{"id":58,"name":"86 - BAHAMAS MIX JF RETIRO","network":"BAHAMAS","productIds":[105,103,102,104,101,107,108,106],"status":"pending","lastVisit":null},{"id":59,"name":"87 - BAHAMAS MIX PONTE NOVA","network":"BAHAMAS","productIds":[102,101,105,103,104,108,107,106],"status":"pending","lastVisit":null},{"id":60,"name":"9 - HIPER BAHAMAS MANOEL HONORIO","network":"BAHAMAS","productIds":[102,104,101,103,106],"status":"pending","lastVisit":null},{"id":61,"name":"90 - BAHAMAS MIX SAO JOAO NEPOMUCENO","network":"BAHAMAS","productIds":[104,101,105,108,103,102,107,106],"status":"pending","lastVisit":null},{"id":62,"name":"91 - BAHAMAS MIX - ITUIUTABA II","network":"BAHAMAS","productIds":[108,103,105,106,107],"status":"pending","lastVisit":null},{"id":63,"name":"92 - SUPERMERCADO BAHAMAS JF LINHARES","network":"BAHAMAS","productIds":[104,102,101,103],"status":"pending","lastVisit":null},{"id":64,"name":"95 - BAHAMAS MIX UBE SEGISMUNDO","network":"BAHAMAS","productIds":[108,103,105,106,107],"status":"pending","lastVisit":null},{"id":65,"name":"239 ATACADAO - PARELHEIROS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":66,"name":"248 ATACADAO - SANTO AMARO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":67,"name":"263 ATACADAO - HORTOLANDIA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":68,"name":"267 ATACADAO - COTIA CENTRO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":69,"name":"269 ATACADAO - JANDIRA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":70,"name":"270 ATACADAO - LIMEIRA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":71,"name":"271 ATACADAO - LIMEIRA CENTRO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":72,"name":"272 ATACADAO - OSASCO YOLANDA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":73,"name":"286 ATACADAO - PACAEMBU","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":74,"name":"293 ATACADAO - BARUERI","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":75,"name":"295 ATACADAO - CARAPICUIBA GOPIUVA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":76,"name":"296 ATACADAO - CARAPICUIBA KM21","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":77,"name":"306 ATACADAO - ITAPEVI","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":78,"name":"323 ATACADAO - TAMBORE","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":79,"name":"326 ATACADAO - SUMARE","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":80,"name":"337 ATACADAO - JUNDIAI","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":81,"name":"364 ATACADAO - AMERICANA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":82,"name":"389 ATACADAO - ITU","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":83,"name":"425 ATACADAO - VARZEA PAULISTA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":84,"name":"264 ATACADAO - CAMPINAS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":85,"name":"265 ATACADAO - CAMPINAS DOM PEDRO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":86,"name":"266 ATACADAO - CAMPINAS DUNLOP","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":87,"name":"292 ATACADAO - ANCHIETA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":88,"name":"297 ATACADAO - COTIA RAPOSO KM21","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":89,"name":"298 ATACADAO - DIADEMA CANHEMA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":90,"name":"299 ATACADAO - DIADEMA SERRARIA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":91,"name":"302 ATACADAO - INAJAR DE SOUZA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":92,"name":"303 ATACADAO - INDIANOPOLIS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":93,"name":"304 ATACADAO - INTERLAGOS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":94,"name":"305 ATACADAO - ITAPECERICA DA SERRA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":95,"name":"309 ATACADAO - OSASCO BONANCA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":96,"name":"310 ATACADAO - OSASCO CENTRO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":97,"name":"312 ATACADAO - PIRITUBA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":98,"name":"320 ATACADAO - TABOAO DA SERRA CENTRO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":99,"name":"321 ATACADAO - TABOAO DA SERRA RUA DO TESOURO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":100,"name":"322 ATACADAO - TAIPAS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":101,"name":"325 ATACADAO - VILA LOBOS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":102,"name":"240 ATACADAO - FERRAZ DE VASCONCELOS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":103,"name":"241 ATACADAO - SAO MIGUEL","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":104,"name":"242 ATACADAO - SUZANO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":105,"name":"243 ATACADAO - MAUA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":106,"name":"244 ATACADAO - MAUA JOAO RAMALHO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":107,"name":"245 ATACADAO - RIBEIRAO PIRES","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":108,"name":"246 ATACADAO - GUARULHOS AEROPORTO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":109,"name":"247 ATACADAO - VILA MARIA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":110,"name":"249 ATACADAO - ITAQUERA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":111,"name":"250 ATACADAO - PRAIA GRANDE","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":112,"name":"251 ATACADAO - SANTOS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":113,"name":"252 ATACADAO - GUARUJA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":114,"name":"253 ATACADAO - ARICANDUVA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":115,"name":"254 ATACADAO - IPIRANGA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":116,"name":"255 ATACADAO - VILA JACUI","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":117,"name":"256 ATACADAO - AQUARIOS DULTRA SAO JOSE DOS CAMPOS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":118,"name":"257 ATACADAO - ATIBAIA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":119,"name":"261 ATACADAO - SAO JOSE CAMPOS JK","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":120,"name":"262 ATACADAO - TAUBATE","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":121,"name":"274 ATACADAO - SANTA BARBARA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":122,"name":"282 ATACADAO - DIADEMA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":123,"name":"283 ATACADAO - GUARULHOS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":124,"name":"285 ATACADAO - ITANHAEM","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":125,"name":"287 ATACADAO - POA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":126,"name":"288 ATACADAO - SANTO ANDRE 1","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":127,"name":"289 ATACADAO - SANTO ANDRE 2","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":128,"name":"290 ATACADAO - TATUAPE","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":129,"name":"294 ATACADAO - CAMBUCI","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":130,"name":"300 ATACADAO - GUARULHOS BONSUCESSO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":131,"name":"301 ATACADAO - GUARULHOS CENTRO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":132,"name":"307 ATACADAO - ITAQUAQUECETUBA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":133,"name":"308 ATACADAO - MOGI DAS CRUZES","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":134,"name":"311 ATACADAO - PENHA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":135,"name":"313 ATACADAO - SANTO ANDRE CENTRO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":136,"name":"314 ATACADAO - SAO BERNARDO CENTRO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":137,"name":"315 ATACADAO - SAO BERNARDO DEMARCHI","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":138,"name":"316 ATACADAO - SAO BERNARDO PIRAPORINHA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":139,"name":"317 ATACADAO - SAO CAETANO DO SUL","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":140,"name":"318 ATACADAO - SAO VICENTE","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":141,"name":"324 ATACADAO - VILA GUILHERME","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":142,"name":"327 ATACADAO - SAO JOSE DOS CAMPOS SHOPPING","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":143,"name":"365 ATACADAO - ARACATUBA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":144,"name":"366 ATACADAO - ARARAS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":145,"name":"367 ATACADAO - ASSIS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":146,"name":"370 ATACADAO - BARRETOS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":147,"name":"371 ATACADAO - BAURU","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":148,"name":"376 ATACADAO - CATANDUVA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":149,"name":"386 ATACADAO - FRANCA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":150,"name":"391 ATACADAO - JACAREI","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":151,"name":"398 ATACADAO - MARILIA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":152,"name":"399 ATACADAO - MOGI GUACU","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":153,"name":"401 ATACADAO - OURINHOS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":154,"name":"407 ATACADAO - RIO CLARO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":155,"name":"258 ATACADAO - CARAGUATATUBA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":156,"name":"259 ATACADAO - JACAREI","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":157,"name":"260 ATACADAO - MOGI MIRIM","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":158,"name":"268 ATACADAO - INDAIATUBA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":159,"name":"319 ATACADAO - SOROCABA CAMPOLIM","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":160,"name":"328 ATACADAO - PRESIDENTE PRUDENTE","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":161,"name":"329 ATACADAO - PRESIDENTE PRUDENTE II - MONTE ALTO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":162,"name":"330 ATACADAO - ARARAQUARA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":163,"name":"331 ATACADAO - RIBEIRAO PRETO VIA NORTE","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":164,"name":"388 ATACADAO - GUARATINGUETA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":165,"name":"402 ATACADAO - PIRACICABA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":166,"name":"406 ATACADAO - RIBEIRAO PRETO","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":167,"name":"412 ATACADAO - SAO CARLOS","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":168,"name":"414 ATACADAO - SAO JOSE DO RIO PRETO AMERICA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":169,"name":"BARCELOS ATACADISTA - GUARUS PLAZA","network":"BARCELOS ATACADISTA","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":170,"name":"BARCELOS ATACADISTA - ITABORAI","network":"BARCELOS ATACADISTA","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":171,"name":"BARCELOS ATACADISTA - SAO GONCALO","network":"BARCELOS ATACADISTA","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":172,"name":"SUPER BOM - 13 DE MAIO","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":173,"name":"SUPER BOM - CAMPO GRANDE","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":174,"name":"SUPER BOM - COLUBANDE","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":175,"name":"SUPER BOM - CURICICA","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":176,"name":"SUPER BOM - GOYTACAZES","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":177,"name":"SUPER BOM - GUARUS PLAZA","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":178,"name":"SUPER BOM - IPS","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":179,"name":"SUPER BOM - NOVA IGUACU","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":180,"name":"SUPER BOM - PARTAGE SHOPPING","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":181,"name":"SUPER BOM - SAO PEDRO DA ALDEIA","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":182,"name":"SUPER BOM - 28 DE MARCO","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":183,"name":"SUPER BOM - TARCISIO MIRANDA","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":184,"name":"SUPER BOM - CAMPISTA","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":185,"name":"SUPER BOM - BARTOLOMEU","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":186,"name":"SUPER BOM - ALBERTO TORRES","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":187,"name":"SUPER BOM - VISCONDE JOSE ALVES DE AZEVEDO","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":188,"name":"SUPER BOM - UEBE TURF","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":189,"name":"SUPER BOM - ALBERTO LAMEGO","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":190,"name":"SUPER BOM - SAO JOAO DA BARRA","network":"SUPER BOM","productIds":[109,101,102,104,110,111],"status":"pending","lastVisit":null},{"id":191,"name":"ATACADAO MG - UBERLANDIA","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":192,"name":"ATACADAO MG - JUIZ DE FORA","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":193,"name":"ATACADAO MG - CONTAGEM","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":194,"name":"ATACADAO MG - UBERABA","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":195,"name":"ATACADAO MG - SETE LAGOAS","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":196,"name":"ATACADAO MG - PATOS DE MINAS","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":197,"name":"ATACADAO MG - BELO HORIZONTE","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":198,"name":"ATACADAO MG - BETIM","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":199,"name":"ATACADAO MG - GOVERNADOR VALADARES","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":200,"name":"ATACADAO MG - PAMPULHA","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":201,"name":"ATACADAO MG - CONTAGEM SHOPPING","network":"ATACADAO MG","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":202,"name":"Bramil - Areal","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":203,"name":"Bramil - Nova Friburgo","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":204,"name":"Bramil - Pinheiral I","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":205,"name":"Bramil - Pinheiral II","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":206,"name":"Bramil Barra do Pirai","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":207,"name":"Bramil - Paraiba do Sul I","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":208,"name":"Bramil - Paraiba do Sul II","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":209,"name":"Bramil - Paraiba do Sul III","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":210,"name":"Bramil - Tres Rios I","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":211,"name":"Bramil - Tres Rios II","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":212,"name":"Bramil - Tres Rios III","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":213,"name":"Bramil - Levy Gasparian","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":214,"name":"Bramil - Paty dos Alferes I","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":215,"name":"Bramil - Paty dos Alferes II","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":216,"name":"Bramil - Valenca","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":217,"name":"Bramil - Matias Barbosa","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":218,"name":"Bramil - Petropolis I","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":219,"name":"Bramil - Petropolis II","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":220,"name":"Bramil - Petropolis III","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":221,"name":"Bramil - Petropolis IV","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":222,"name":"Bramil - Vassouras","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":223,"name":"Bramil - Miguel Pereira","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":224,"name":"Bramil - Volta Redonda","network":"BRAMIL","productIds":[112,113,114,115,116,117],"status":"pending","lastVisit":null},{"id":225,"name":"415 ATACADAO - SAO JOSE DO RIO PRETO II FALAVINA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":226,"name":"418 ATACADAO - SOROCABA","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":227,"name":"420 ATACADAO - SOROCABA ITAVUVU","network":"ATACADAO SP","productIds":[103,105,108],"status":"pending","lastVisit":null},{"id":228,"name":"924 ATACADAO - ALAGOINHAS","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":229,"name":"68 ATACADAO - ARACAJU BR","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":230,"name":"109 ATACADAO - ARACAJU CD","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":231,"name":"862 ATACADAO - ARACAJU GON�ALO PRADO","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":232,"name":"274 ATACADAO - ARACAJU TANCREDO NEVES","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":233,"name":"926 ATACADAO - BARREIRAS","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":234,"name":"845 ATACADAO - CAMA�ARI CENTRO","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":235,"name":"915 ATACADAO - CAMA�ARI VIA PARAFUSO","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":236,"name":"911 ATACADAO - EUNAPOLIS","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":237,"name":"124 ATACADAO - FEIRA DE SANTANA CD","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":238,"name":"914 ATACADAO - FEIRA MORADA DAS ARVORES","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":239,"name":"830 ATACADAO - FEIRA PEDRA DESCANSO","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":240,"name":"908 ATACADAO - FEIRA SUBAE","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":241,"name":"906 ATACADAO - ILHEUS BR","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":242,"name":"932 ATACADAO - ILHEUS PRAIA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":243,"name":"913 ATACADAO - IRECE","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":244,"name":"741 ATACADAO - ITAPARICA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":245,"name":"887 ATACADAO - JUAZEIRO","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":246,"name":"824 ATACADAO - LAURO DE FREITAS CAJI","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":247,"name":"907 ATACADAO - LAURO DE FREITAS PORTAO","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":248,"name":"902 ATACADAO - SANTO ANTONIO DE JESUS","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":249,"name":"909 ATACADAO - SIMOES FILHO","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":250,"name":"916 ATACADAO - SSA ACM","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":251,"name":"695 ATACADAO - SSA BARRA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":252,"name":"919 ATACADAO - SSA BARROS REIS","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":253,"name":"918 ATACADAO - SSA BONOCO","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":254,"name":"835 ATACADAO - SSA CABULA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":255,"name":"917 ATACADAO - SSA CAJAZEIRAS","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":256,"name":"942 ATACADAO - SSA CAMPINAS BROTAS","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":257,"name":"618 ATACADAO - SSA GARIBALDI","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":258,"name":"920 ATACADAO - SSA IGUATEMI","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":259,"name":"742 ATACADAO - SSA ITAPUA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":260,"name":"851 ATACADAO - SSA MARES","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":261,"name":"921 ATACADAO - SSA MATA ESCURA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":262,"name":"841 ATACADAO - SSA PAU DA LIMA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":263,"name":"925 ATACADAO - SSA PIRAJA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":264,"name":"341 ATACADAO - SSA PIRAJA CD","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":265,"name":"696 ATACADAO - SSA PITUBA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":266,"name":"923 ATACADAO - SSA TROBOGY","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":267,"name":"910 ATACADAO - TEXEIRA DE FREITAS","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":268,"name":"896 ATACADAO - VALENCA","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":269,"name":"94 ATACADAO - VITORIA CONQUISTA CD","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":270,"name":"894 ATACADAO - VITORIA CONQUISTA AV PRES DUTRA - BR","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":271,"name":"820 ATACADAO - VITORIA DA CONQUISTA BRUMADO","network":"ATACADAO BA","productIds":[103,105,108,106,107,118,119,120,121,110,111,122,123],"status":"pending","lastVisit":null},{"id":272,"name":"69 - EMPORIO BAHAMAS UBERLANDIA CENTER SHOPPING","network":"BAHAMAS","productIds":[103,105,108,104],"status":"pending","lastVisit":null}];
+const STORES_DATA = [
+    {
+        "id":  "bahamas-36-emporio-bahamas-rondon-pacheco",
+        "name":  "36 - EMPORIO BAHAMAS RONDON PACHECO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "economico-100l"
+                       ],
+        "status":  "pending",
+        "currentStatus":  "pending"
+    },
+    {
+        "id":  "atacadao-ba-16-atacadao-rotula",
+        "name":  "16 ATACADAO - ROTULA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50",
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "currentStatus":  "pending"
+    },
+    {
+        "id":  "bahamas-10-supermercado-bahamas-vicosa",
+        "name":  "10 - SUPERMERCADO BAHAMAS VICOSA.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-30l",
+                           "economico-50l",
+                           "bobina-20x30",
+                           "economico-100l",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-11-supermercado-bahamas-ponte-nova",
+        "name":  "11 - SUPERMERCADO BAHAMAS PONTE NOVA.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-30l",
+                           "bobina-20x30",
+                           "economico-100l",
+                           "economico-50l",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-12-bahamas-mix-jf-fabrica",
+        "name":  "12 - BAHAMAS MIX JF FABRICA.",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "economico-30l",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-13-mercado-bahamas-jf-poco-rico",
+        "name":  "13 - MERCADO BAHAMAS JF POCO RICO.",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-14-bahamas-mix-cataguases",
+        "name":  "14 - BAHAMAS MIX CATAGUASES.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-30l",
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "bobina-30x40",
+                           "sacola-38x48",
+                           "economico-50l",
+                           "sacola-29x39",
+                           "economico-100l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-15-supermercado-bahamas-jf-independencia",
+        "name":  "15 - SUPERMERCADO BAHAMAS JF INDEPENDENCIA.",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-30l",
+                           "economico-100l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-17-bahamas-mix-uba-avenida",
+        "name":  "17 - BAHAMAS MIX UBA AVENIDA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-30x40",
+                           "economico-100l",
+                           "economico-30l",
+                           "sacola-29x39",
+                           "bobina-25x35",
+                           "economico-50l",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-18-mercado-bahamas-jf-grama",
+        "name":  "18 - MERCADO BAHAMAS JF GRAMA.",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "bobina-20x30"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-19-bahamas-mix-ferreira-guimaraes",
+        "name":  "19 - BAHAMAS MIX FERREIRA GUIMARAES",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-30l",
+                           "bobina-20x30",
+                           "economico-100l",
+                           "bobina-30x40",
+                           "bobina-25x35",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-02-hiper-bahamas-sao-pedro",
+        "name":  "02 - HIPER BAHAMAS SAO PEDRO",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-20-bahamas-mix-benfica",
+        "name":  "20 - BAHAMAS MIX BENFICA.",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "bobina-25x35",
+                           "economico-30l",
+                           "bobina-20x30",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-21-hiper-bahamas-getulio-vargas",
+        "name":  "21 - HIPER BAHAMAS GETULIO VARGAS",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-30l",
+                           "economico-100l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-23-supermercado-bahamas-alem-paraiba",
+        "name":  "23 - SUPERMERCADO BAHAMAS ALEM PARAIBA.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-30l",
+                           "economico-100l",
+                           "bobina-20x30",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-25-supermercado-bahamas-jf-teixeiras",
+        "name":  "25 - SUPERMERCADO BAHAMAS JF TEIXEIRAS.",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-26-bahamas-mix-jf-salvaterra",
+        "name":  "26 - BAHAMAS MIX JF SALVATERRA",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-27-supermercado-bahamas-sao-joao-del-rei",
+        "name":  "27 - SUPERMERCADO BAHAMAS SAO JOAO DEL REI.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-100l",
+                           "economico-50l",
+                           "bobina-20x30",
+                           "economico-30l",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-28-bahamas-mix-barb",
+        "name":  "28 - BAHAMAS MIX BARB.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-30l",
+                           "economico-100l",
+                           "economico-50l",
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "sacola-38x48",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-3-supermercado-bahamas-barbacena",
+        "name":  "3 - SUPERMERCADO BAHAMAS BARBACENA.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-50l",
+                           "bobina-20x30",
+                           "economico-30l",
+                           "economico-100l",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-30-supermercado-bahamas-cataguases-2",
+        "name":  "30 - SUPERMERCADO BAHAMAS CATAGUASES 2.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-30l",
+                           "economico-100l",
+                           "bobina-20x30",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-32-bahamas-mix-uberlandia-j-pinheiro",
+        "name":  "32 - BAHAMAS MIX UBERLANDIA J. PINHEIRO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "sacola-38x48",
+                           "sacola-29x39",
+                           "bobina-25x35"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-33-supermercado-bahamas-uberlandia-sta-rosa",
+        "name":  "33 - SUPERMERCADO BAHAMAS UBERLANDIA STA ROSA.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "economico-100l",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-34-bahamas-mix-muriae",
+        "name":  "34 - BAHAMAS MIX MURIAE.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "economico-50l",
+                           "bobina-30x40",
+                           "economico-30l",
+                           "sacola-38x48",
+                           "economico-100l",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-35-bahamas-mix-leopoldina",
+        "name":  "35 - BAHAMAS MIX LEOPOLDINA.",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "economico-50l",
+                           "sacola-38x48",
+                           "economico-100l",
+                           "bobina-30x40",
+                           "economico-30l",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-38-supermercado-bahamas-uberlandia-granada",
+        "name":  "38 - SUPERMERCADO BAHAMAS UBERLANDIA GRANADA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-100l",
+                           "bobina-20x30",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-39-bahamas-mix-uberlandia-aeroporto",
+        "name":  "39 - BAHAMAS MIX UBERLANDIA AEROPORTO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "sacola-29x39",
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-4-mercado-bahamas-jf-sta-luzia",
+        "name":  "4 - MERCADO BAHAMAS JF STA LUZIA.",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-40-bahamas-mix-uba",
+        "name":  "40 - BAHAMAS MIX UBA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "bobina-30x40",
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "sacola-38x48",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-42-bahamas-mix-alem-paraiba",
+        "name":  "42 - BAHAMAS MIX ALEM PARAIBA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "economico-30l",
+                           "economico-100l",
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "economico-50l",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-43-bahamas-mix-sao-joao-del-rei",
+        "name":  "43 - BAHAMAS MIX SAO JOAO DEL REI",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "economico-30l",
+                           "bobina-30x40",
+                           "economico-100l",
+                           "sacola-38x48",
+                           "economico-50l",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-44-bahamas-mix-uberaba-nsra-do-desterro",
+        "name":  "44 - BAHAMAS MIX UBERABA NSRA DO DESTERRO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-45-bahamas-mix-jf-grama",
+        "name":  "45 - BAHAMAS MIX JF GRAMA",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-30l",
+                           "economico-100l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "sacola-38x48",
+                           "bobina-30x40",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-46-bahamas-mix-vicosa",
+        "name":  "46 - BAHAMAS MIX VICOSA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-50l",
+                           "bobina-20x30",
+                           "economico-30l",
+                           "bobina-25x35",
+                           "economico-100l",
+                           "bobina-30x40",
+                           "sacola-38x48",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-47-bahamas-mix-uberlandia-planalto",
+        "name":  "47 - BAHAMAS MIX UBERLANDIA PLANALTO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-48-bahamas-mix-jf-sao-pedro",
+        "name":  "48 - BAHAMAS MIX JF SAO PEDRO",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-100l",
+                           "bobina-20x30",
+                           "economico-50l",
+                           "economico-30l",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-38x48",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-49-bahamas-mix-uberaba-cheren",
+        "name":  "49 - BAHAMAS MIX UBERABA CHEREN",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-38x48",
+                           "sacola-29x39",
+                           "bobina-20x30"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-5-supermercado-bahamas-jf-av-brasil",
+        "name":  "5 - SUPERMERCADO BAHAMAS JF AV.BRASIL.",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-100l",
+                           "economico-50l",
+                           "economico-30l",
+                           "bobina-20x30",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-50-bahamas-mix-patrocinio",
+        "name":  "50 - BAHAMAS MIX PATROCINIO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-52-bahamas-mix-araguari",
+        "name":  "52 - BAHAMAS MIX ARAGUARI",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-53-bahamas-mix-uberaba-santana-borges",
+        "name":  "53 - BAHAMAS MIX UBERABA SANTANA BORGES",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "bobina-20x30",
+                           "bobina-25x35"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-55-bahamas-mix-ituiutaba",
+        "name":  "55 - BAHAMAS MIX ITUIUTABA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "sacola-38x48",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-58-bahamas-mix-monte-carmelo",
+        "name":  "58 - BAHAMAS MIX MONTE CARMELO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "sacola-29x39",
+                           "bobina-30x40",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-59-supermercado-bahamas-jf-sta-terezinha",
+        "name":  "59 - SUPERMERCADO BAHAMAS JF STA TEREZINHA",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "bobina-20x30",
+                           "economico-30l",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-61-bahamas-mix-jf-jk",
+        "name":  "61 - BAHAMAS MIX JF JK",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-30l",
+                           "economico-100l",
+                           "bobina-20x30",
+                           "sacola-38x48",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-62-supermercado-bahamas-uberlandia-martins",
+        "name":  "62 - SUPERMERCADO BAHAMAS UBERLANDIA MARTINS",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "economico-100l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-64-bahamas-mix-uberlandia-joao-naves",
+        "name":  "64 - BAHAMAS MIX UBERLANDIA JOAO NAVES",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-65-bahamas-mix-araxa",
+        "name":  "65 - BAHAMAS MIX ARAXA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-38x48",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-66-bahamas-mix-patos-de-minas",
+        "name":  "66 - BAHAMAS MIX PATOS DE MINAS",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "sacola-38x48",
+                           "sacola-29x39",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-68-supermercado-bahamas-muriae",
+        "name":  "68 - SUPERMERCADO BAHAMAS MURIAE",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-20x30",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-7-bahamas-mix-j-clube",
+        "name":  "7 - BAHAMAS MIX J.CLUBE.",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "sacola-38x48",
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-72-bahamas-mix-frutal",
+        "name":  "72 - BAHAMAS MIX FRUTAL",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-74-bahamas-mix-uberlandia-zona-sul",
+        "name":  "74 - BAHAMAS MIX UBERLANDIA ZONA SUL",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "bobina-25x35",
+                           "sacola-38x48",
+                           "bobina-20x30",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-75-bahamas-mix-visconde-do-rio-branco",
+        "name":  "75 - BAHAMAS MIX VISCONDE DO RIO BRANCO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "economico-100l",
+                           "economico-30l",
+                           "economico-50l",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-79-bahamas-mix-rio-pomba",
+        "name":  "79 - BAHAMAS MIX RIO POMBA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-30l",
+                           "bobina-25x35",
+                           "economico-50l",
+                           "economico-100l",
+                           "bobina-20x30",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-8-hiper-bahamas-sao-vicente",
+        "name":  "8 - HIPER BAHAMAS SAO VICENTE",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "bobina-20x30",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-25x35"
+                       ,
+                           "bobina-25x35"],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-80-bahamas-mix-iturama",
+        "name":  "80 - BAHAMAS MIX ITURAMA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "sacola-29x39",
+                           "bobina-25x35",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-82-bahamas-mix-araxa-santo-antonio",
+        "name":  "82 - BAHAMAS MIX ARAXA SANTO ANTONIO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "sacola-38x48",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-85-bahamas-mix-edilson-lamartine",
+        "name":  "85 - BAHAMAS MIX EDILSON LAMARTINE",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-86-bahamas-mix-jf-retiro",
+        "name":  "86 - BAHAMAS MIX JF RETIRO",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "sacola-38x48",
+                           "bobina-30x40",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-87-bahamas-mix-ponte-nova",
+        "name":  "87 - BAHAMAS MIX PONTE NOVA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-30l",
+                           "bobina-25x35",
+                           "bobina-20x30",
+                           "economico-100l",
+                           "bobina-30x40",
+                           "sacola-38x48",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-9-hiper-bahamas-manoel-honorio",
+        "name":  "9 - HIPER BAHAMAS MANOEL HONORIO",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-20x30",
+                           "sacola-29x39",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-90-bahamas-mix-sao-joao-nepomuceno",
+        "name":  "90 - BAHAMAS MIX SAO JOAO NEPOMUCENO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "economico-50l",
+                           "sacola-38x48",
+                           "sacola-29x39"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-91-bahamas-mix-ituiutaba-ii",
+        "name":  "91 - BAHAMAS MIX - ITUIUTABA II",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-92-supermercado-bahamas-jf-linhares",
+        "name":  "92 - SUPERMERCADO BAHAMAS JF LINHARES",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-100l",
+                           "economico-50l",
+                           "economico-30l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-95-bahamas-mix-ube-segismundo",
+        "name":  "95 - BAHAMAS MIX UBE SEGISMUNDO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-30x40",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "sacola-29x39",
+                           "sacola-38x48"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "barcelos-atacadista-barcelos-atacadista-guarus-plaza",
+        "name":  "BARCELOS ATACADISTA - GUARUS PLAZA",
+        "network":  "BARCELOS ATACADISTA",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "barcelos-atacadista-barcelos-atacadista-itaborai",
+        "name":  "BARCELOS ATACADISTA - ITABORAI",
+        "network":  "BARCELOS ATACADISTA",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "barcelos-atacadista-barcelos-atacadista-sao-goncalo",
+        "name":  "BARCELOS ATACADISTA - SAO GONCALO",
+        "network":  "BARCELOS ATACADISTA",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-13-de-maio",
+        "name":  "SUPER BOM - 13 DE MAIO",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-campo-grande",
+        "name":  "SUPER BOM - CAMPO GRANDE",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-colubande",
+        "name":  "SUPER BOM - COLUBANDE",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-curicica",
+        "name":  "SUPER BOM - CURICICA",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-goytacazes",
+        "name":  "SUPER BOM - GOYTACAZES",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-guarus-plaza",
+        "name":  "SUPER BOM - GUARUS PLAZA",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-ips",
+        "name":  "SUPER BOM - IPS",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-nova-iguacu",
+        "name":  "SUPER BOM - NOVA IGUACU",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-partage-shopping",
+        "name":  "SUPER BOM - PARTAGE SHOPPING",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-sao-pedro-da-aldeia",
+        "name":  "SUPER BOM - SAO PEDRO DA ALDEIA",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-28-de-marco",
+        "name":  "SUPER BOM - 28 DE MARCO",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-tarcisio-miranda",
+        "name":  "SUPER BOM - TARCISIO MIRANDA",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-campista",
+        "name":  "SUPER BOM - CAMPISTA",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-bartolomeu",
+        "name":  "SUPER BOM - BARTOLOMEU",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-alberto-torres",
+        "name":  "SUPER BOM - ALBERTO TORRES",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-visconde-jose-alves-de-azevedo",
+        "name":  "SUPER BOM - VISCONDE JOSE ALVES DE AZEVEDO",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-uebe-turf",
+        "name":  "SUPER BOM - UEBE TURF",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-alberto-lamego",
+        "name":  "SUPER BOM - ALBERTO LAMEGO",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "super-bom-super-bom-sao-joao-da-barra",
+        "name":  "SUPER BOM - SAO JOAO DA BARRA",
+        "network":  "SUPER BOM",
+        "productIds":  [
+                           "economico-15l",
+                           "economico-30l",
+                           "economico-50l",
+                           "economico-100l",
+                           "reforcado-100l",
+                           "reforcado-200l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-uberlandia",
+        "name":  "ATACADAO MG - UBERLANDIA",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-juiz-de-fora",
+        "name":  "ATACADAO MG - JUIZ DE FORA",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-contagem",
+        "name":  "ATACADAO MG - CONTAGEM",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-uberaba",
+        "name":  "ATACADAO MG - UBERABA",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-sete-lagoas",
+        "name":  "ATACADAO MG - SETE LAGOAS",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-patos-de-minas",
+        "name":  "ATACADAO MG - PATOS DE MINAS",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-betim",
+        "name":  "ATACADAO MG - BETIM",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-governador-valadares",
+        "name":  "ATACADAO MG - GOVERNADOR VALADARES",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-pampulha",
+        "name":  "ATACADAO MG - PAMPULHA",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-mg-atacadao-mg-contagem-shopping",
+        "name":  "ATACADAO MG - CONTAGEM SHOPPING",
+        "network":  "ATACADAO MG",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-areal",
+        "name":  "Bramil - Areal",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-nova-friburgo",
+        "name":  "Bramil - Nova Friburgo",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-pinheiral-i",
+        "name":  "Bramil - Pinheiral I",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-pinheiral-ii",
+        "name":  "Bramil - Pinheiral II",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-barra-do-pirai",
+        "name":  "Bramil Barra do Pirai",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-paraiba-do-sul-i",
+        "name":  "Bramil - Paraiba do Sul I",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-paraiba-do-sul-ii",
+        "name":  "Bramil - Paraiba do Sul II",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-paraiba-do-sul-iii",
+        "name":  "Bramil - Paraiba do Sul III",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-tres-rios-i",
+        "name":  "Bramil - Tres Rios I",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-tres-rios-ii",
+        "name":  "Bramil - Tres Rios II",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-tres-rios-iii",
+        "name":  "Bramil - Tres Rios III",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-levy-gasparian",
+        "name":  "Bramil - Levy Gasparian",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-paty-dos-alferes-i",
+        "name":  "Bramil - Paty dos Alferes I",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-paty-dos-alferes-ii",
+        "name":  "Bramil - Paty dos Alferes II",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-valenca",
+        "name":  "Bramil - Valenca",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-matias-barbosa",
+        "name":  "Bramil - Matias Barbosa",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-petropolis-i",
+        "name":  "Bramil - Petropolis I",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-petropolis-ii",
+        "name":  "Bramil - Petropolis II",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-petropolis-iii",
+        "name":  "Bramil - Petropolis III",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-petropolis-iv",
+        "name":  "Bramil - Petropolis IV",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-vassouras",
+        "name":  "Bramil - Vassouras",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-miguel-pereira",
+        "name":  "Bramil - Miguel Pereira",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bramil-bramil-volta-redonda",
+        "name":  "Bramil - Volta Redonda",
+        "network":  "BRAMIL",
+        "productIds":  [
+                           "bramil-lixo-15l",
+                           "bramil-lixo-30l",
+                           "bramil-lixo-50l",
+                           "bramil-lixo-100l",
+                           "bramil-lixo-100l-ref",
+                           "bramil-lixo-200l-ref"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-924-atacadao-alagoinhas",
+        "name":  "924 ATACADAO - ALAGOINHAS",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-68-atacadao-aracaju-br",
+        "name":  "68 ATACADAO - ARACAJU BR",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-109-atacadao-aracaju-cd",
+        "name":  "109 ATACADAO - ARACAJU CD",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-862-atacadao-aracaju-goni-alo-prado",
+        "name":  "862 ATACADAO - ARACAJU GON�ALO PRADO",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-274-atacadao-aracaju-tancredo-neves",
+        "name":  "274 ATACADAO - ARACAJU TANCREDO NEVES",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-926-atacadao-barreiras",
+        "name":  "926 ATACADAO - BARREIRAS",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-845-atacadao-camai-ari-centro",
+        "name":  "845 ATACADAO - CAMA�ARI CENTRO",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-915-atacadao-camai-ari-via-parafuso",
+        "name":  "915 ATACADAO - CAMA�ARI VIA PARAFUSO",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-911-atacadao-eunapolis",
+        "name":  "911 ATACADAO - EUNAPOLIS",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-124-atacadao-feira-de-santana-cd",
+        "name":  "124 ATACADAO - FEIRA DE SANTANA CD",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-914-atacadao-feira-morada-das-arvores",
+        "name":  "914 ATACADAO - FEIRA MORADA DAS ARVORES",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-830-atacadao-feira-pedra-descanso",
+        "name":  "830 ATACADAO - FEIRA PEDRA DESCANSO",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-908-atacadao-feira-subae",
+        "name":  "908 ATACADAO - FEIRA SUBAE",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-906-atacadao-ilheus-br",
+        "name":  "906 ATACADAO - ILHEUS BR",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-932-atacadao-ilheus-praia",
+        "name":  "932 ATACADAO - ILHEUS PRAIA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-913-atacadao-irece",
+        "name":  "913 ATACADAO - IRECE",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-741-atacadao-itaparica",
+        "name":  "741 ATACADAO - ITAPARICA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-887-atacadao-juazeiro",
+        "name":  "887 ATACADAO - JUAZEIRO",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-824-atacadao-lauro-de-freitas-caji",
+        "name":  "824 ATACADAO - LAURO DE FREITAS CAJI",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-907-atacadao-lauro-de-freitas-portao",
+        "name":  "907 ATACADAO - LAURO DE FREITAS PORTAO",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-902-atacadao-santo-antonio-de-jesus",
+        "name":  "902 ATACADAO - SANTO ANTONIO DE JESUS",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-909-atacadao-simoes-filho",
+        "name":  "909 ATACADAO - SIMOES FILHO",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-916-atacadao-ssa-acm",
+        "name":  "916 ATACADAO - SSA ACM",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-695-atacadao-ssa-barra",
+        "name":  "695 ATACADAO - SSA BARRA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-919-atacadao-ssa-barros-reis",
+        "name":  "919 ATACADAO - SSA BARROS REIS",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-918-atacadao-ssa-bonoco",
+        "name":  "918 ATACADAO - SSA BONOCO",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-835-atacadao-ssa-cabula",
+        "name":  "835 ATACADAO - SSA CABULA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-917-atacadao-ssa-cajazeiras",
+        "name":  "917 ATACADAO - SSA CAJAZEIRAS",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-942-atacadao-ssa-campinas-brotas",
+        "name":  "942 ATACADAO - SSA CAMPINAS BROTAS",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-618-atacadao-ssa-garibaldi",
+        "name":  "618 ATACADAO - SSA GARIBALDI",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-920-atacadao-ssa-iguatemi",
+        "name":  "920 ATACADAO - SSA IGUATEMI",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-742-atacadao-ssa-itapua",
+        "name":  "742 ATACADAO - SSA ITAPUA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-851-atacadao-ssa-mares",
+        "name":  "851 ATACADAO - SSA MARES",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-921-atacadao-ssa-mata-escura",
+        "name":  "921 ATACADAO - SSA MATA ESCURA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-841-atacadao-ssa-pau-da-lima",
+        "name":  "841 ATACADAO - SSA PAU DA LIMA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-925-atacadao-ssa-piraja",
+        "name":  "925 ATACADAO - SSA PIRAJA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-341-atacadao-ssa-piraja-cd",
+        "name":  "341 ATACADAO - SSA PIRAJA CD",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-696-atacadao-ssa-pituba",
+        "name":  "696 ATACADAO - SSA PITUBA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-923-atacadao-ssa-trobogy",
+        "name":  "923 ATACADAO - SSA TROBOGY",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-910-atacadao-texeira-de-freitas",
+        "name":  "910 ATACADAO - TEXEIRA DE FREITAS",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-896-atacadao-valenca",
+        "name":  "896 ATACADAO - VALENCA",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-94-atacadao-vitoria-conquista-cd",
+        "name":  "94 ATACADAO - VITORIA CONQUISTA CD",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-894-atacadao-vitoria-conquista-av-pres-dutra-br",
+        "name":  "894 ATACADAO - VITORIA CONQUISTA AV PRES DUTRA - BR",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-820-atacadao-vitoria-da-conquista-brumado",
+        "name":  "820 ATACADAO - VITORIA DA CONQUISTA BRUMADO",
+        "network":  "ATACADAO BA",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "sacola-29x39",
+                           "sacola-38x48",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-69-emporio-bahamas-uberlandia-center-shopping",
+        "name":  "69 - EMPORIO BAHAMAS UBERLANDIA CENTER SHOPPING",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "economico-100l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-06-emporio-sao-mateus",
+        "name":  "06 - EMPORIO SAO MATEUS",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-22-emporio-rio-branco",
+        "name":  "22 - EMPORIO RIO BRANCO",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-20x30"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-24-emporio-cascatinha",
+        "name":  "24 - EMPORIO CASCATINHA",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-20x30"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-29-emporio-santo-antonio",
+        "name":  "29 - EMPORIO SANTO ANTONIO",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "economico-50l",
+                           "economico-100l",
+                           "economico-30l",
+                           "bobina-20x30"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    }
+];
+
+
+
+
+
+
+
