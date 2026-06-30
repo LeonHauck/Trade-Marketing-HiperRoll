@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 
 <head>
@@ -264,6 +264,18 @@
                         <label for="visitDate">Data da Visita</label>
                         <input type="date" id="visitDate" required>
                     </div>
+                                    <div class="form-group">
+                                        <label>Visita Extra</label>
+                                        <div style="display:flex; align-items:flex-start; gap:12px; margin-top:6px;">
+                                            <div style="display:flex; flex-direction:column; align-items:flex-start;">
+                                                <input type="checkbox" id="visitIsExtra" value="1" style="width:18px; height:18px;">
+                                            </div>
+                                            <div style="display:flex; align-items:center; gap:8px;">
+                                                <i class="fa-solid fa-star" style="color:#f2c94c; font-size:1.05rem;"></i>
+                                                <label for="visitIsExtra" style="cursor:pointer; font-weight:700; color:var(--text-dark);">Marcar como Visita Extra</label>
+                                            </div>
+                                        </div>
+                                    </div>
                     <div class="form-group">
                         <label>Status de Ruptura (Marque os itens FALTANDO)</label>
                         <div class="checklist-search">
@@ -310,6 +322,7 @@
                         <label for="visitNotes">Observações</label>
                         <textarea id="visitNotes" rows="3" placeholder="Adicione detalhes sobre a visita..."></textarea>
                     </div>
+                    
                     <div class="form-actions">
                         <button type="submit" class="btn btn-success">Salvar Visita</button>
                     </div>
@@ -320,12 +333,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="data.js"></script>
-    <script src="storage.js"></script>
-    <script src="app.js"></script>
+    <script src="data.js?v=20260629162042"></script>
+    <script src="storage.js?v=20260629162042"></script>
+    <script src="app.js?v=20260629162042"></script>
 </body>
 
 </html>
+
+
 
 
 

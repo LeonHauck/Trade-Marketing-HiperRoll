@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --primary-red: #E53935;
     --primary-blue: #0D47A1;
     --bg-light: #F8F9FE;
@@ -1257,6 +1257,19 @@ body.logged-in .app-container {
     font-weight: 600;
     margin-right: 4px;
     display: inline-block;
+}
+
+/* Visita Extra badge */
+.badge-visit-extra {
+    background: #fff8e1; /* soft yellow */
+    color: #7a5a00; /* dark yellow/brownish text */
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-left: 6px;
+    display: inline-block;
+    border: 1px solid rgba(250, 210, 0, 0.12);
 }
 
 .store-card-full.has-extra-point, .store-card.has-extra-point {

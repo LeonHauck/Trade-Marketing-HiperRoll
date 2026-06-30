@@ -1,4 +1,4 @@
-$csvPath = "Dados.csv"
+﻿$csvPath = "Dados.csv"
 $jsPath = "data.js"
 
 $lines = Get-Content $csvPath -Raw -Encoding Default
@@ -36,14 +36,49 @@ for ($i = 1; $i -lt $lines.Length; $i++) {
 
     # Fix the encoding issue forcefully
     if ($productName -match "REFOR.*ADO") {
-        $productName = $productName -replace "REFOR.*ADO", "REFORÇADO"
+        $productName = $productName -replace "REFOR.*ADO", "REFORÃ‡ADO"
     }
     if ($productName -match "REFOR") {
-        $productName = $productName.Replace("REFORADO", "REFORÇADO")
+        $productName = $productName.Replace("REFORADO", "REFORÃ‡ADO")
     }
 
     if ($storeName -ne "" -and (-not $storeMap.ContainsKey($storeName.ToLower()))) {
-        $id = $stores.Count + 1
+        $id = ($networkName + '-' + $storeName).Normalize('FormD') -replace '[\p{M}]', '' -replace '[^a-zA-Z0-9-]', '-' -replace '-+', '-' -replace '^-|-
+        $storeObj = @{ id = $id; name = $storeName; network = $networkName; lastVisit = $null; status = 'pending'; productIds = @() }
+        $stores += $storeObj
+        $storeMap[$storeName.ToLower()] = $storeObj
+    }
+
+    if ($productName -ne "" -and (-not $productMap.ContainsKey($productName.ToLower()))) {
+        $id = $productName.Normalize('FormD') -replace '[\p{M}]', '' -replace '[^a-zA-Z0-9-]', '-' -replace '-+', '-' -replace '^-|-
+        $prodObj = @{ id = $id; name = $productName; network = $networkName; status = $status }
+        $products += $prodObj
+        $productMap[$productName.ToLower()] = $prodObj
+    }
+
+    if ($storeName -ne "" -and $productName -ne "") {
+        $sObj = $storeMap[$storeName.ToLower()]
+        $pObj = $productMap[$productName.ToLower()]
+        if (-not $sObj.productIds.Contains($pObj.id)) {
+            $sObj.productIds += @($pObj.id)
+        }
+    }
+}
+
+function ConvertArrayToJson($arr) {
+    if ($arr.Count -eq 1) {
+        return "[" + ($arr[0] | ConvertTo-Json -Depth 5 -Compress) + "]"
+    }
+    return $arr | ConvertTo-Json -Depth 5 -Compress
+}
+
+$storesJson = ConvertArrayToJson $stores
+$productsJson = ConvertArrayToJson $products
+
+$output = "const PRODUCTS_DATA = $productsJson;`r`n`r`nconst STORES_DATA = $storesJson;"
+Set-Content -Path $jsPath -Value $output -Encoding UTF8
+Write-Output "Regenerated perfectly with UTF-8."
+, ''; $id = $id.ToLower()
         $storeObj = @{ id = $id; name = $storeName; network = $networkName; lastVisit = $null; status = 'pending'; productIds = @() }
         $stores += $storeObj
         $storeMap[$storeName.ToLower()] = $storeObj
@@ -78,3 +113,95 @@ $productsJson = ConvertArrayToJson $products
 $output = "const PRODUCTS_DATA = $productsJson;`r`n`r`nconst STORES_DATA = $storesJson;"
 Set-Content -Path $jsPath -Value $output -Encoding UTF8
 Write-Output "Regenerated perfectly with UTF-8."
+, ''; $id = $id.ToLower()
+        $prodObj = @{ id = $id; name = $productName; network = $networkName; status = $status }
+        $products += $prodObj
+        $productMap[$productName.ToLower()] = $prodObj
+    }
+
+    if ($storeName -ne "" -and $productName -ne "") {
+        $sObj = $storeMap[$storeName.ToLower()]
+        $pObj = $productMap[$productName.ToLower()]
+        if (-not $sObj.productIds.Contains($pObj.id)) {
+            $sObj.productIds += @($pObj.id)
+        }
+    }
+}
+
+function ConvertArrayToJson($arr) {
+    if ($arr.Count -eq 1) {
+        return "[" + ($arr[0] | ConvertTo-Json -Depth 5 -Compress) + "]"
+    }
+    return $arr | ConvertTo-Json -Depth 5 -Compress
+}
+
+$storesJson = ConvertArrayToJson $stores
+$productsJson = ConvertArrayToJson $products
+
+$output = "const PRODUCTS_DATA = $productsJson;`r`n`r`nconst STORES_DATA = $storesJson;"
+Set-Content -Path $jsPath -Value $output -Encoding UTF8
+Write-Output "Regenerated perfectly with UTF-8."
+, ''; $id = $id.ToLower()
+        $storeObj = @{ id = $id; name = $storeName; network = $networkName; lastVisit = $null; status = 'pending'; productIds = @() }
+        $stores += $storeObj
+        $storeMap[$storeName.ToLower()] = $storeObj
+    }
+
+    if ($productName -ne "" -and (-not $productMap.ContainsKey($productName.ToLower()))) {
+        $id = $productName.Normalize('FormD') -replace '[\p{M}]', '' -replace '[^a-zA-Z0-9-]', '-' -replace '-+', '-' -replace '^-|-
+        $prodObj = @{ id = $id; name = $productName; network = $networkName; status = $status }
+        $products += $prodObj
+        $productMap[$productName.ToLower()] = $prodObj
+    }
+
+    if ($storeName -ne "" -and $productName -ne "") {
+        $sObj = $storeMap[$storeName.ToLower()]
+        $pObj = $productMap[$productName.ToLower()]
+        if (-not $sObj.productIds.Contains($pObj.id)) {
+            $sObj.productIds += @($pObj.id)
+        }
+    }
+}
+
+function ConvertArrayToJson($arr) {
+    if ($arr.Count -eq 1) {
+        return "[" + ($arr[0] | ConvertTo-Json -Depth 5 -Compress) + "]"
+    }
+    return $arr | ConvertTo-Json -Depth 5 -Compress
+}
+
+$storesJson = ConvertArrayToJson $stores
+$productsJson = ConvertArrayToJson $products
+
+$output = "const PRODUCTS_DATA = $productsJson;`r`n`r`nconst STORES_DATA = $storesJson;"
+Set-Content -Path $jsPath -Value $output -Encoding UTF8
+Write-Output "Regenerated perfectly with UTF-8."
+, ''; $id = $id.ToLower()
+        $prodObj = @{ id = $id; name = $productName; network = $networkName; status = $status }
+        $products += $prodObj
+        $productMap[$productName.ToLower()] = $prodObj
+    }
+
+    if ($storeName -ne "" -and $productName -ne "") {
+        $sObj = $storeMap[$storeName.ToLower()]
+        $pObj = $productMap[$productName.ToLower()]
+        if (-not $sObj.productIds.Contains($pObj.id)) {
+            $sObj.productIds += @($pObj.id)
+        }
+    }
+}
+
+function ConvertArrayToJson($arr) {
+    if ($arr.Count -eq 1) {
+        return "[" + ($arr[0] | ConvertTo-Json -Depth 5 -Compress) + "]"
+    }
+    return $arr | ConvertTo-Json -Depth 5 -Compress
+}
+
+$storesJson = ConvertArrayToJson $stores
+$productsJson = ConvertArrayToJson $products
+
+$output = "const PRODUCTS_DATA = $productsJson;`r`n`r`nconst STORES_DATA = $storesJson;"
+Set-Content -Path $jsPath -Value $output -Encoding UTF8
+Write-Output "Regenerated perfectly with UTF-8."
+
