@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-br">
 
 <head>
@@ -12,8 +12,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            // Ignorar erros de CORS (como os disparados pelo Chart.js ao redimensionar/destruir)
-            if (msg.toLowerCase().includes('script error') && line === 0) return true;
+            // Em file:// o Chrome reporta erros de scripts externos como "Script error." com linha 0
+            // Nesses casos NÃO devemos ignorar — precisamos mostrar o erro
+            if (window.location.protocol === 'file:') {
+                if (msg.toLowerCase().includes('script error') && line === 0) {
+                    console.warn("Erro detectado em script externo (file://). Abra o DevTools (F12) > Console para ver detalhes. Use um servidor local em vez de abrir diretamente do arquivo.");
+                    return true;
+                }
+            } else {
+                // No servidor, ignorar erros genéricos de CORS (Chart.js etc)
+                if (msg.toLowerCase().includes('script error') && line === 0) return true;
+            }
             
             alert("Erro de Script Detectado:\n" + msg + "\nLinha: " + line + "\nVerifique se você limpou o cache (Ctrl+F5) ou se todos os arquivos estão na mesma pasta.");
             return false;
@@ -188,7 +197,7 @@
                     <div class="stat-card">
                         <div class="stat-icon blue"><i class="fa-solid fa-calendar-check"></i></div>
                         <div class="stat-details">
-                            <h3>Visitas este Mês</h3>
+                            <h3>Visitas no Período</h3>
                             <p id="totalVisits">--</p>
                         </div>
                     </div>
@@ -220,7 +229,7 @@
                         </div>
                         <div class="rupture-search-bar">
                             <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="ruptureStoreSearch" placeholder="Pesquisar por loja..." oninput="filterRupturesByStore()">
+                            <input type="text" id="ruptureStoreSearch" placeholder="Pesquisar por loja..." oninput="debouncedFilterRupturesByStore()">
                         </div>
                         <div class="rupture-management-list" id="dashboardProductAlerts">
                             <!-- Lista de rupturas validadas pela chefe -->
@@ -282,6 +291,9 @@
                             <i class="fa-solid fa-magnifying-glass"></i>
                             <input type="text" id="productSearch" placeholder="Filtrar produtos...">
                         </div>
+                        <div id="lastVisitRuptures" style="margin-bottom:8px; color:var(--text-muted); font-size:0.95rem;">
+                            <!-- Últimas rupturas da loja serão exibidas aqui -->
+                        </div>
                         <div id="productListChecklist" class="product-checklist">
                             <!-- Injected by JS -->
                         </div>
@@ -333,14 +345,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="data.js?v=20260629162042"></script>
-    <script src="storage.js?v=20260629162042"></script>
-    <script src="app.js?v=20260629162042"></script>
+    <script defer src="data.js?v=20260713"></script>
+    <script defer src="storage.js?v=20260713"></script>
+    <script defer src="db.js?v=20260713"></script>
+    <script defer src="app.js?v=20260713"></script>
 </body>
 
 </html>
-
-
-
-
-
