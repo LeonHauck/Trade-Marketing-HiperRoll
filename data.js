@@ -89,19 +89,7 @@
         "id":  "bramil-lixo-100l",
         "network":  "BRAMIL"
     },
-    {
-        "status":  "ATIVO",
-        "name":  "BRAMIL LIXO 100L REF",
-        "id":  "bramil-lixo-100l-ref",
-        "network":  "BRAMIL"
-    },
-    {
-        "status":  "ATIVO",
-        "name":  "BRAMIL LIXO 200L REF",
-        "id":  "bramil-lixo-200l-ref",
-        "network":  "BRAMIL"
-    },
-    {
+            {
         "status":  "ATIVO",
         "name":  "HIPERROLL 15L",
         "id":  "hiperroll-15l",
@@ -182,7 +170,8 @@ const STORES_DATA = [
                            "economico-50l",
                            "bobina-20x30",
                            "economico-100l",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ,
                            "bobina-25x35"],
         "status":  "pending",
@@ -286,7 +275,9 @@ const STORES_DATA = [
         "name":  "18 - MERCADO BAHAMAS JF GRAMA.",
         "network":  "BAHAMAS JF",
         "productIds":  [
-                           "bobina-20x30"
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ],
         "status":  "pending",
         "lastVisit":  null
@@ -364,7 +355,8 @@ const STORES_DATA = [
                            "economico-30l",
                            "economico-100l",
                            "bobina-20x30",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ,
                            "bobina-25x35"],
         "status":  "pending",
@@ -411,7 +403,8 @@ const STORES_DATA = [
                            "economico-50l",
                            "bobina-20x30",
                            "economico-30l",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ,
                            "bobina-25x35"],
         "status":  "pending",
@@ -458,7 +451,8 @@ const STORES_DATA = [
                            "economico-30l",
                            "economico-100l",
                            "bobina-20x30",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ,
                            "bobina-25x35"],
         "status":  "pending",
@@ -532,7 +526,8 @@ const STORES_DATA = [
         "productIds":  [
                            "economico-100l",
                            "bobina-20x30",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ,
                            "bobina-25x35"],
         "status":  "pending",
@@ -717,7 +712,8 @@ const STORES_DATA = [
                            "economico-50l",
                            "economico-30l",
                            "bobina-20x30",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ,
                            "bobina-25x35"],
         "status":  "pending",
@@ -889,7 +885,8 @@ const STORES_DATA = [
                            "economico-100l",
                            "economico-30l",
                            "bobina-20x30",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ,
                            "bobina-25x35"],
         "status":  "pending",
@@ -983,7 +980,8 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "economico-100l",
                            "economico-30l",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ,
                            "bobina-25x35"],
         "status":  "pending",
@@ -1593,346 +1591,169 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-areal",
-        "name":  "Bramil - Areal",
+        "name":  "Bramil de Areial",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
-        "id":  "bramil-bramil-nova-friburgo",
-        "name":  "Bramil - Nova Friburgo",
+        "id":  "bramil-bramil-arcozelo",
+        "name":  "Bramil de Arcozelo",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-pinheiral-i",
-        "name":  "Bramil - Pinheiral I",
-        "network":  "BRAMIL",
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-pinheiral-ii",
-        "name":  "Bramil - Pinheiral II",
-        "network":  "BRAMIL",
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
         "id":  "bramil-bramil-barra-do-pirai",
-        "name":  "Bramil Barra do Pirai",
+        "name":  "Bramil de Barra do Piraí",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
         "id":  "bramil-bramil-paraiba-do-sul-i",
-        "name":  "Bramil - Paraiba do Sul I",
+        "name":  "Bramil de Paraíba do Sul PV05",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
         "id":  "bramil-bramil-paraiba-do-sul-ii",
-        "name":  "Bramil - Paraiba do Sul II",
+        "name":  "Bramil de Paraíba do Sul PV20",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
         "id":  "bramil-bramil-paraiba-do-sul-iii",
-        "name":  "Bramil - Paraiba do Sul III",
+        "name":  "Bramil de Paraíba do Sul PV43",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
         "id":  "bramil-bramil-tres-rios-i",
-        "name":  "Bramil - Tres Rios I",
+        "name":  "Bramil de Três Rios PV2",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
         "id":  "bramil-bramil-tres-rios-ii",
-        "name":  "Bramil - Tres Rios II",
+        "name":  "Bramil de Tres Rios PV27",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
         "id":  "bramil-bramil-tres-rios-iii",
-        "name":  "Bramil - Tres Rios III",
+        "name":  "Bramil de Tres Rios PV26",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
-        "id":  "bramil-bramil-levy-gasparian",
-        "name":  "Bramil - Levy Gasparian",
+        "id":  "bramil-bramil-posse",
+        "name":  "Bramil da Pósse",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
-        "id":  "bramil-bramil-paty-dos-alferes-i",
-        "name":  "Bramil - Paty dos Alferes I",
+        "id":  "bramil-bramil-itaipava",
+        "name":  "Bramil Itaipava",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
-        "id":  "bramil-bramil-paty-dos-alferes-ii",
-        "name":  "Bramil - Paty dos Alferes II",
+        "id":  "bramil-bramil-itamarati",
+        "name":  "Bramil Itamarati",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-valenca",
-        "name":  "Bramil - Valenca",
-        "network":  "BRAMIL",
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-matias-barbosa",
-        "name":  "Bramil - Matias Barbosa",
-        "network":  "BRAMIL",
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-petropolis-i",
-        "name":  "Bramil - Petropolis I",
-        "network":  "BRAMIL",
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-petropolis-ii",
-        "name":  "Bramil - Petropolis II",
-        "network":  "BRAMIL",
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-petropolis-iii",
-        "name":  "Bramil - Petropolis III",
-        "network":  "BRAMIL",
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-petropolis-iv",
-        "name":  "Bramil - Petropolis IV",
-        "network":  "BRAMIL",
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-vassouras",
-        "name":  "Bramil - Vassouras",
-        "network":  "BRAMIL",
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
         "id":  "bramil-bramil-miguel-pereira",
-        "name":  "Bramil - Miguel Pereira",
+        "name":  "Bramil de Miguel Pereira",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
     {
-        "id":  "bramil-bramil-volta-redonda",
-        "name":  "Bramil - Volta Redonda",
+        "id":  "bramil-bramil-vassouras",
+        "name":  "Bramil de Vassoura",
         "network":  "BRAMIL",
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
-                           "bramil-lixo-100l",
-                           "bramil-lixo-100l-ref",
-                           "bramil-lixo-200l-ref"
-                       ],
+                           "bramil-lixo-100l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -1951,8 +1772,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -1971,8 +1791,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2013,8 +1832,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2055,8 +1873,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2075,8 +1892,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2095,8 +1911,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2115,8 +1930,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2157,8 +1971,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2177,8 +1990,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2197,8 +2009,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2217,8 +2028,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2237,8 +2047,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2257,8 +2066,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2277,8 +2085,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2297,8 +2104,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2317,8 +2123,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2359,8 +2164,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2379,8 +2183,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2745,8 +2548,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2765,8 +2567,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2807,8 +2608,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2827,8 +2627,7 @@ const STORES_DATA = [
                            "hiperroll-50l",
                            "hiperroll-100l",
                            "reforcado-100l",
-                           "reforcado-200l",
-                       ],
+                           "reforcado-200l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2844,62 +2643,7 @@ const STORES_DATA = [
                        ],
         "status":  "pending",
         "lastVisit":  null
-    },
-    {
-        "id":  "bahamas-jf-06-emporio-sao-mateus",
-        "name":  "06 - EMPORIO SAO MATEUS",
-        "network":  "BAHAMAS JF",
-        "productIds":  [
-                           "economico-50l",
-                           "economico-100l",
-                           "economico-30l",
-                           "bobina-20x30",
-                           "bobina-25x35",
-                           "bobina-30x40"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bahamas-jf-22-emporio-rio-branco",
-        "name":  "22 - EMPORIO RIO BRANCO",
-        "network":  "BAHAMAS JF",
-        "productIds":  [
-                           "economico-50l",
-                           "economico-100l",
-                           "economico-30l",
-                           "bobina-20x30"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bahamas-jf-24-emporio-cascatinha",
-        "name":  "24 - EMPORIO CASCATINHA",
-        "network":  "BAHAMAS JF",
-        "productIds":  [
-                           "economico-50l",
-                           "economico-100l",
-                           "economico-30l",
-                           "bobina-20x30"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bahamas-jf-29-emporio-santo-antonio",
-        "name":  "29 - EMPORIO SANTO ANTONIO",
-        "network":  "BAHAMAS JF",
-        "productIds":  [
-                           "economico-50l",
-                           "economico-100l",
-                           "economico-30l",
-                           "bobina-20x30"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    }
-];
+    }];
 
 
 

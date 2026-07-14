@@ -1,4 +1,5 @@
-﻿// App State â€” STORES_DATA sempre vem do data.js (nunca salvo completo no localStorage)
+
+// App State â€” STORES_DATA sempre vem do data.js (nunca salvo completo no localStorage)
 // Apenas atualizações leves (lastVisit, currentStatus) são persistidas em hr_store_updates
 // Fallbacks seguros caso o data.js falhe ao carregar
 if (typeof PRODUCTS_DATA === 'undefined') {
@@ -9,6 +10,25 @@ if (typeof STORES_DATA === 'undefined') {
     window.STORES_DATA = [];
     console.warn("STORES_DATA não encontrado. data.js falhou ao carregar?");
 }
+
+// Debounce utils
+let debounceTimeout_renderReportsTable;
+window.debouncedRenderReportsTable = function() {
+    clearTimeout(debounceTimeout_renderReportsTable);
+    debounceTimeout_renderReportsTable = setTimeout(renderReportsTable, 300);
+};
+
+let debounceTimeout_renderHistoryViewData;
+window.debouncedRenderHistoryViewData = function() {
+    clearTimeout(debounceTimeout_renderHistoryViewData);
+    debounceTimeout_renderHistoryViewData = setTimeout(renderHistoryViewData, 300);
+};
+
+let debounceTimeout_filterRupturesByStore;
+window.debouncedFilterRupturesByStore = function() {
+    clearTimeout(debounceTimeout_filterRupturesByStore);
+    debounceTimeout_filterRupturesByStore = setTimeout(filterRupturesByStore, 300);
+};
 
 function generateStableId(network, name) {
     const raw = (network || 'Geral') + '-' + (name || '');
@@ -38,10 +58,10 @@ function loadDataOverrides() {
 
 function persistDataOverrides(mergedStores, mergedProducts) {
     try {
-        localStorage.setItem('hr_data_overrides', JSON.stringify({
+        IndexedDBHelper.set('hr_data_overrides', {
             stores: mergedStores,
             products: mergedProducts
-        }));
+        });
     } catch (e) {
         console.warn('Falha ao salvar overrides de dados:', e);
     }
@@ -140,49 +160,20 @@ let products = initialData.products;
 // Mapa: { [visitId]: [base64, base64, ...] }
 const photoCache = {};
 
-// Carrega visitas e STRIP fotos do localStorage legado (libera espaço imediatamente)
-let visits = (function() {
-    try {
-        const raw = JSON.parse(localStorage.getItem('hr_visits')) || [];
-        let dirty = false;
-        const cleaned = raw.map(v => {
-            if (v.photos && v.photos.length > 0) {
-                photoCache[v.id] = v.photos; // mantém fotos em memória
-                dirty = true;
-                return { ...v, photos: [] };  // remove do objeto persistido
-            }
-            return v;
-        });
-        if (dirty) {
-            // Resalva versão sem fotos para liberar o espaço legado
-            localStorage.setItem('hr_visits', JSON.stringify(cleaned));
-        }
-        return cleaned;
-    } catch(e) {
-        return [];
-    }
-})();
+let visits = [];
+let dbLoaded = false;
 
 let validatedRuptures = [];
 let dismissedNotifications = [];
 let resolvedRupturesHistory = [];
 let historyBackfillNotice = '';
-try {
-    validatedRuptures = JSON.parse(localStorage.getItem('hr_validated_ruptures')) || [];
-    dismissedNotifications = JSON.parse(localStorage.getItem('hr_dismissed')) || [];
-    resolvedRupturesHistory = JSON.parse(localStorage.getItem('hr_resolved_ruptures_history')) || [];
-} catch(e) {
-    console.warn("localStorage indisponível", e);
-}
 
 // Funções auxiliares para o padrão de atualizações leves de lojas
-function loadStoreUpdates() {
-    try { return JSON.parse(localStorage.getItem('hr_store_updates')) || {}; }
-    catch(e) { return {}; }
+async function loadStoreUpdates() {
+    return (await IndexedDBHelper.get('hr_store_updates')) || {};
 }
 
-function saveStoreUpdates() {
-    // Persiste apenas os campos voláteis (lastVisit, currentStatus) de cada loja
+async function saveStoreUpdates() {
     const updates = {};
     stores.forEach(s => {
         if (s.lastVisit || s.currentStatus) {
@@ -190,19 +181,19 @@ function saveStoreUpdates() {
         }
     });
     try {
-        localStorage.setItem('hr_store_updates', JSON.stringify(updates));
+        await IndexedDBHelper.set('hr_store_updates', updates);
     } catch(e) {
         console.warn('Falha ao salvar atualizações de lojas:', e);
     }
 }
 
-function saveAppStateLocally() {
-    saveStoreUpdates();
+async function saveAppStateLocally() {
+    await saveStoreUpdates();
     try {
-        localStorage.setItem('hr_visits', JSON.stringify(visits));
-        localStorage.setItem('hr_validated_ruptures', JSON.stringify(validatedRuptures));
-        localStorage.setItem('hr_dismissed', JSON.stringify(dismissedNotifications));
-        localStorage.setItem('hr_resolved_ruptures_history', JSON.stringify(resolvedRupturesHistory));
+        await IndexedDBHelper.set('hr_visits', visits);
+        await IndexedDBHelper.set('hr_validated_ruptures', validatedRuptures);
+        await IndexedDBHelper.set('hr_dismissed', dismissedNotifications);
+        await IndexedDBHelper.set('hr_resolved_ruptures_history', resolvedRupturesHistory);
     } catch (e) {
         console.warn('Falha ao salvar estado local:', e);
     }
@@ -225,48 +216,43 @@ async function syncAppStateServer() {
 }
 
 async function persistAppState() {
-    saveAppStateLocally();
+    saveAppStateLocally(); // fire and forget
     await syncAppStateServer();
 }
 
-// Inicializa stores mesclando os dados base com overrides persistidos e atualizações salvas
-const _storeUpdates = loadStoreUpdates();
-let stores = (initialData.stores || []).map(s => {
-    const upd = _storeUpdates[s.id];
-    return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s };
-});
+let stores = [];
 
-function persistLocalStorageJson(key, value) {
+async function persistLocalStorageJson(key, value) {
     try {
-        localStorage.setItem(key, JSON.stringify(value));
+        await IndexedDBHelper.set(key, value);
         return true;
     } catch (e) {
         return false;
     }
 }
 
-function cleanPersistedDataForRemovedStores() {
+async function cleanPersistedDataForRemovedStores() {
     const existingStoreIds = new Set(stores.map(s => s.id));
 
     const cleanedVisits = visits.filter(v => existingStoreIds.has(v.storeId));
     if (cleanedVisits.length !== visits.length) {
         visits = cleanedVisits;
-        persistLocalStorageJson('hr_visits', visits);
+        await persistLocalStorageJson('hr_visits', visits);
     }
 
     const cleanedValidatedRuptures = validatedRuptures.filter(r => existingStoreIds.has(r.storeId));
     if (cleanedValidatedRuptures.length !== validatedRuptures.length) {
         validatedRuptures = cleanedValidatedRuptures;
-        persistLocalStorageJson('hr_validated_ruptures', validatedRuptures);
+        await persistLocalStorageJson('hr_validated_ruptures', validatedRuptures);
     }
 
     const cleanedResolvedHistory = resolvedRupturesHistory.filter(item => existingStoreIds.has(item.storeId));
     if (cleanedResolvedHistory.length !== resolvedRupturesHistory.length) {
         resolvedRupturesHistory = cleanedResolvedHistory;
-        persistLocalStorageJson('hr_resolved_ruptures_history', resolvedRupturesHistory);
+        await persistLocalStorageJson('hr_resolved_ruptures_history', resolvedRupturesHistory);
     }
 
-    const storeUpdates = loadStoreUpdates();
+    const storeUpdates = await loadStoreUpdates();
     const cleanedUpdates = Object.entries(storeUpdates).reduce((acc, [storeId, value]) => {
         if (existingStoreIds.has(storeId) || existingStoreIds.has(Number(storeId))) {
             acc[storeId] = value;
@@ -275,11 +261,39 @@ function cleanPersistedDataForRemovedStores() {
     }, {});
 
     if (Object.keys(cleanedUpdates).length !== Object.keys(storeUpdates).length) {
-        persistLocalStorageJson('hr_store_updates', cleanedUpdates);
+        await persistLocalStorageJson('hr_store_updates', cleanedUpdates);
     }
 }
 
-cleanPersistedDataForRemovedStores();
+async function initializeAppDatabase() {
+    await IndexedDBHelper.init();
+    await IndexedDBHelper.migrateFromLocalStorage();
+    
+    const rawVisits = (await IndexedDBHelper.get('hr_visits')) || [];
+    let dirty = false;
+    visits = rawVisits.map(v => {
+        if (v.photos && v.photos.length > 0) {
+            photoCache[v.id] = v.photos;
+            dirty = true;
+            return { ...v, photos: [] };
+        }
+        return v;
+    });
+    if (dirty) await persistLocalStorageJson('hr_visits', visits);
+
+    validatedRuptures = (await IndexedDBHelper.get('hr_validated_ruptures')) || [];
+    dismissedNotifications = (await IndexedDBHelper.get('hr_dismissed')) || [];
+    resolvedRupturesHistory = (await IndexedDBHelper.get('hr_resolved_ruptures_history')) || [];
+
+    const _storeUpdates = await loadStoreUpdates();
+    stores = (initialData.stores || []).map(s => {
+        const upd = _storeUpdates[s.id];
+        return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s };
+    });
+
+    await cleanPersistedDataForRemovedStores();
+    dbLoaded = true;
+}
 
 function safeGetItem(key, def = null) {
     try { return localStorage.getItem(key) || def; } 
@@ -450,7 +464,7 @@ function updateGlobalNetworkText(spanEl) {
     }
 }
 
-function hydrateResolvedHistoryFromVisits() {
+async function hydrateResolvedHistoryFromVisits() {
     if (!Array.isArray(visits) || visits.length === 0) return false;
 
     // Rebuild the active rupture map from the latest visits.
@@ -553,17 +567,19 @@ function hydrateResolvedHistoryFromVisits() {
 
     if (addedToResolved > 0 || addedToActive > 0 || didCleanup) {
         if (addedToActive > 0 || didCleanup) {
-            saveAppStateLocally(); // Save the updated validated ruptures
+            saveAppStateLocally(); // fire and forget // Save the updated validated ruptures
         }
         if (addedToResolved > 0) {
             resolvedRupturesHistory = resolvedRupturesHistory.slice(0, 500);
             historyBackfillNotice = `Histórico antigo carregado: ${addedToResolved} rupturas enviadas para histórico resolvido.`;
         }
-        saveAppStateLocally();
-        if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
-        if (typeof renderHistoryViewData === 'function') {
-            try { renderHistoryViewData(); } catch(e) {}
-        }
+        persistAppState().then(() => {
+            if (typeof renderHistoryViewData === 'function') {
+                try { renderHistoryViewData(); } catch(e) {}
+            }
+        }).catch(err => {
+            console.warn('[hydrateResolvedHistoryFromVisits] Falha ao persistir estado:', err);
+        });
         return true;
     }
     return false;
@@ -571,6 +587,7 @@ function hydrateResolvedHistoryFromVisits() {
 
 // Initialize App
 async function init() {
+    await initializeAppDatabase();
     setupEventListeners();
     checkLoginStatus();
     populateGlobalNetworkFilter();
@@ -629,9 +646,9 @@ async function init() {
             }
 
             // Persist merged local state so reloads use the merged result
-            persistLocalStorageJson('hr_validated_ruptures', validatedRuptures);
-            persistLocalStorageJson('hr_resolved_ruptures_history', resolvedRupturesHistory);
-            persistLocalStorageJson('hr_visits', visits);
+            await persistLocalStorageJson('hr_validated_ruptures', validatedRuptures);
+            await persistLocalStorageJson('hr_resolved_ruptures_history', resolvedRupturesHistory);
+            await persistLocalStorageJson('hr_visits', visits);
         }
     }
 
@@ -822,7 +839,6 @@ function setupEventListeners() {
         updateStats();
         renderAttentionRanking();
         renderCriticalDelays();
-        renderVisitsChart();
         renderValidatedRuptures();
     };
 
@@ -1046,7 +1062,7 @@ function processCSV(csvText) {
 
         persistDataOverrides(stores, products);
         saveStoreUpdates();
-        localStorage.setItem('hr_visits', JSON.stringify(visits));
+        IndexedDBHelper.set('hr_visits', visits);
         
         
         init();
@@ -1121,7 +1137,7 @@ function renderHistoryView() {
                     <div class="header-filters" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; flex: 1; min-width: 0;">
                         <div class="search-bar" style="width: 220px;">
                             <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="historySearch" placeholder="Buscar loja ou item..." oninput="renderHistoryViewData()">
+                            <input type="text" id="historySearch" placeholder="Buscar loja ou item..." oninput="debouncedRenderHistoryViewData()">
                         </div>
                         <div class="filter-select" style="display: flex; gap: 8px; align-items: center; padding: 0 15px; height: 42px; background: white; border: 1px solid #eee; border-radius: 12px;">
                             <i class="fa-regular fa-calendar" style="color: var(--text-light); font-size: 0.9rem;"></i>
@@ -1242,7 +1258,7 @@ function renderReportsView() {
                     <div class="header-filters" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; flex: 1; min-width: 0;">
                         <div class="search-bar" style="width: 200px;">
                             <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="reportSearch" placeholder="Buscar loja ou item..." oninput="renderReportsTable()">
+                            <input type="text" id="reportSearch" placeholder="Buscar loja ou item..." oninput="debouncedRenderReportsTable()">
                         </div>
                         <div class="filter-select" style="display: flex; gap: 8px; align-items: center; padding: 0 15px; height: 42px; background: white; border: 1px solid #eee; border-radius: 12px; font-family: 'Outfit', sans-serif;">
                             <i class="fa-regular fa-calendar" style="color: var(--text-light); font-size: 0.9rem;"></i>
@@ -1342,8 +1358,8 @@ function renderDashboardView() {
             <div class="stat-card">
                 <div class="stat-icon blue"><i class="fa-solid fa-calendar-check"></i></div>
                 <div class="stat-details">
-                    <h3>Visitas este Mês</h3>
-                    <p id="totalVisits">${visits.length}</p>
+                    <h3>Visitas no Período</h3>
+                    <p id="totalVisits">${typeof getGlobalFilteredVisits === 'function' ? getGlobalFilteredVisits().length : visits.length}</p>
                 </div>
             </div>
             <div class="stat-card">
@@ -1373,24 +1389,14 @@ function renderDashboardView() {
                 </div>
                 <div class="rupture-search-bar">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="ruptureStoreSearch" placeholder="Pesquisar por loja..." oninput="filterRupturesByStore()">
+                    <input type="text" id="ruptureStoreSearch" placeholder="Pesquisar por loja..." oninput="debouncedFilterRupturesByStore()">
                 </div>
                 <div class="rupture-management-list" id="dashboardProductAlerts">
                     <!-- Injected by JS -->
                 </div>
             </div>
 
-            <!-- Linha 2: Analítico (Gráfico) -->
-            <div class="panel visits-chart-panel" style="grid-column: span 2;">
-                <div class="panel-header">
-                    <h2>Tendência de Visitas por Rede (Últimos 7 Dias)</h2>
-                </div>
-                <div class="chart-container" style="height: 250px; position: relative;">
-                    <canvas id="visitsChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Linha 3: Estratégico (Compacto) -->
+            <!-- Linha 2: Estratégico (Compacto) -->
             <div class="panel ranking-panel" style="max-height: 300px; overflow-y: auto;">
                 <div class="panel-header">
                     <h2>TOP 5: Atenção</h2>
@@ -1416,7 +1422,6 @@ function renderDashboardView() {
     // Re-link dynamic elements
     renderDashboard(); 
     renderValidatedRuptures();
-    renderVisitsChart();
     renderAttentionRanking();
     renderCriticalDelays();
 }
@@ -1505,105 +1510,6 @@ function renderCriticalDelays() {
             <i class="fa-solid fa-circle-exclamation" style="color: var(--primary-red);"></i>
         `;
         container.appendChild(item);
-    });
-}
-
-function renderVisitsChart() {
-    const ctx = document.getElementById('visitsChart');
-    if (!ctx) return;
-    
-    if (typeof Chart === 'undefined') {
-        const container = ctx.parentElement;
-        if (container) container.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">Gráfico indisponível (verifique sua conexão)</p>';
-        return;
-    }
-
-    const fVisits = typeof getGlobalFilteredVisits === 'function' ? getGlobalFilteredVisits() : visits;
-
-    // Determinar range de datas para o eixo X
-    let startDate, endDate;
-    const now = new Date();
-
-    if (globalFilterDateStart && globalFilterDateEnd) {
-        startDate = new Date(globalFilterDateStart + 'T12:00:00');
-        endDate = new Date(globalFilterDateEnd + 'T12:00:00');
-    } else if (globalFilterDateStart) {
-        startDate = new Date(globalFilterDateStart + 'T12:00:00');
-        endDate = now;
-    } else if (globalFilterDateEnd) {
-        endDate = new Date(globalFilterDateEnd + 'T12:00:00');
-        startDate = new Date(endDate);
-        startDate.setDate(startDate.getDate() - 29);
-    } else {
-        endDate = now;
-        startDate = new Date();
-        startDate.setDate(now.getDate() - 29);
-    }
-
-    // Limitar a no máximo 60 dias para não sobrecarregar o grï¿½fico
-    const diffDays = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
-    const totalDays = Math.min(diffDays, 60);
-    
-    const labels = [];
-    for (let i = totalDays; i >= 0; i--) {
-        const d = new Date(endDate);
-        d.setDate(endDate.getDate() - i);
-        labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
-    }
-
-    // Agrupar visitas por Rede e Data
-    const fStores = typeof getGlobalFilteredStores === 'function' ? getGlobalFilteredStores() : stores;
-    
-    // Cores por rede para o gráfico
-    const networkColors = {
-        'Bretas': '#E60000',     // Vermelho
-        'Bahamas': '#FF8C00',    // Laranja
-        'Supermercados BH': '#003366', // Azul Escuro
-        'Mart Minas': '#009933'  // Verde
-    };
-
-    const chartNetworks = (typeof globalFilterNetworks !== 'undefined' && globalFilterNetworks.length > 0)
-        ? globalFilterNetworks
-        : Array.from(new Set(fStores.map(s => s.network).filter(Boolean).filter(net => !EXCLUDED_NETWORKS.has(net))));
-
-    const datasets = chartNetworks.map((net, index) => {
-        const data = labels.map(label => {
-            const visitCount = fVisits.filter(v => {
-                const store = stores.find(s => s.id === v.storeId);
-                const vDateObj = new Date(v.date + 'T12:00:00');
-                const vDateStr = vDateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                return store && store.network === net && vDateStr === label;
-            }).length;
-            return visitCount;
-        });
-
-        // Cores variadas
-        const colors = ['#E53935', '#0047AB', '#FFC107', '#4CAF50', '#9C27B0', '#FF9800'];
-        return {
-            label: net,
-            data: data,
-            borderColor: colors[index % colors.length],
-            backgroundColor: 'transparent',
-            tension: 0.3,
-            borderWidth: 3,
-            pointRadius: 4
-        };
-    });
-
-    new Chart(ctx, {
-        type: 'line',
-        data: { labels, datasets },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } }
-            },
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 } },
-                x: { grid: { display: false } }
-            }
-        }
     });
 }
 
@@ -1895,12 +1801,24 @@ function getFilteredHistoryData() {
         return matchesText && matchesDate && matchesNetwork && matchesProduct && matchesObservation && matchesExtraPoints && matchesExtraVisits && includeVisit;
     });
 
+    // Mostrar apenas a última visita por loja no histórico
+    const latestVisitByStore = new Map();
+    filteredVisits.forEach(visit => {
+        const existing = latestVisitByStore.get(visit.storeId);
+        if (!existing || visit.date > existing.date) {
+            latestVisitByStore.set(visit.storeId, visit);
+        }
+    });
+    const latestVisits = Array.from(latestVisitByStore.values()).sort((a, b) => b.date.localeCompare(a.date));
+
     const filteredResolved = statusFilter === 'active' ? [] : [...resolvedRupturesHistory].filter(item => {
         const matchesText = !filters.searchTerm || (item.storeName || '').toLowerCase().includes(filters.searchTerm) || (item.productName || '').toLowerCase().includes(filters.searchTerm);
         const matchesDate = (!filters.startDate || item.resolvedAt >= filters.startDate) && (!filters.endDate || item.resolvedAt <= filters.endDate);
         const matchesProduct = filters.selectedProductIds.length === 0 || filters.selectedProductIds.includes(String(item.productId));
         return matchesText && matchesDate && matchesProduct;
     });
+
+    return { filteredVisits: latestVisits, filteredResolved };
 
     return { filteredVisits, filteredResolved };
 }
@@ -2064,7 +1982,7 @@ window.updateBulkDeleteButton = function() {
     }
 };
 
-window.deleteSelectedVisits = function() {
+window.deleteSelectedVisits = async function() {
     const selectedIds = Array.from(document.querySelectorAll('.visit-checkbox:checked'))
                             .map(cb => cb.value);
     
@@ -2076,8 +1994,7 @@ window.deleteSelectedVisits = function() {
         visits = visits.filter(v => !selectedIds.includes(v.id));
 
         // Persistência e sincronização
-        saveAppStateLocally();
-        if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
+        persistAppState();
 
         // Recalcula status das lojas afetadas e atualiza views
         affectedStoreIds.forEach(id => recomputeStoreStatus(id));
@@ -2096,7 +2013,7 @@ window.deleteVisit = async function(id) {
 
         // Remove a visita do histórico
         visits = visits.filter(v => v.id !== id);
-        saveAppStateLocally();
+        saveAppStateLocally(); // fire and forget
 
         // Se tiver Storage server
         if (typeof Storage !== 'undefined' && Storage.isServer) {
@@ -2147,7 +2064,7 @@ window.editVisitDate = function(id) {
         if (/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
             visit.date = newDate;
             recomputeStoreStatus(visit.storeId);
-            saveAppStateLocally();
+            saveAppStateLocally(); // fire and forget
             if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
             renderPage('reports');
             updateStats();
@@ -2202,13 +2119,7 @@ function updateStats() {
     if (totalStoresEl) totalStoresEl.textContent = fStores.length;
     
     if (totalVisitsEl) {
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        const visitsThisMonth = fVisits.filter(v => {
-            const vDate = new Date(v.date + 'T12:00:00');
-            return vDate.getMonth() === currentMonth && vDate.getFullYear() === currentYear;
-        });
-        totalVisitsEl.textContent = visitsThisMonth.length;
+        totalVisitsEl.textContent = fVisits.length;
     }
     
     if (ruptureRateEl) ruptureRateEl.textContent = calculateRuptureRate() + '%';
@@ -2220,23 +2131,57 @@ function updateStats() {
     }
 }
 
-window.getResolvedItemStatus = function(productId, storeId, visitId) {
-    // 1. Tenta achar resoluo exata (mesma visita e produto) no histrico
-    if (visitId) {
-        const exactMatch = resolvedRupturesHistory.find(r => 
-            String(r.productId) === String(productId) && 
-            String(r.storeId) === String(storeId) &&
-            String(r.visitId) === String(visitId)
-        );
-        if (exactMatch) return { isResolved: true, resolvedAt: exactMatch.resolvedAt };
+function isItemResolvedInHistory(productId, storeId, visitId, visitDate) {
+    const visitDateValue = visitDate ? new Date(`${visitDate}T12:00:00`) : null;
+    const visitDateMs = visitDateValue ? visitDateValue.getTime() : null;
+
+    const exactMatch = resolvedRupturesHistory.find(r => 
+        String(r.productId) === String(productId) &&
+        String(r.storeId) === String(storeId) &&
+        (visitId ? String(r.visitId) === String(visitId) : false)
+    );
+    if (exactMatch) return true;
+
+    const laterOrSameMatch = resolvedRupturesHistory.find(r => {
+        if (String(r.productId) !== String(productId) || String(r.storeId) !== String(storeId)) {
+            return false;
+        }
+        const resolvedAtValue = r.resolvedAt ? new Date(`${r.resolvedAt}T12:00:00`) : null;
+        const resolvedAtMs = resolvedAtValue ? resolvedAtValue.getTime() : null;
+        const visitDateCandidate = r.visitDate ? new Date(`${r.visitDate}T12:00:00`) : null;
+        const visitDateCandidateMs = visitDateCandidate ? visitDateCandidate.getTime() : null;
+        const referenceMs = visitDateMs || visitDateCandidateMs || resolvedAtMs;
+        return (resolvedAtMs !== null && referenceMs !== null && resolvedAtMs >= referenceMs) ||
+               (visitDateCandidateMs !== null && referenceMs !== null && visitDateCandidateMs >= referenceMs);
+    });
+
+    return !!laterOrSameMatch;
+}
+
+window.getResolvedItemStatus = function(productId, storeId, visitId, visitDate) {
+    const historyMatch = resolvedRupturesHistory.find(r => {
+        if (String(r.productId) !== String(productId) || String(r.storeId) !== String(storeId)) {
+            return false;
+        }
+        if (visitId && String(r.visitId) === String(visitId)) {
+            return true;
+        }
+        const resolvedAtValue = r.resolvedAt ? new Date(`${r.resolvedAt}T12:00:00`) : null;
+        const resolvedAtMs = resolvedAtValue ? resolvedAtValue.getTime() : null;
+        const visitDateValue = visitDate ? new Date(`${visitDate}T12:00:00`) : null;
+        const visitDateMs = visitDateValue ? visitDateValue.getTime() : null;
+        const referenceMs = visitDateMs || resolvedAtMs;
+        return resolvedAtMs !== null && referenceMs !== null && resolvedAtMs >= referenceMs;
+    });
+
+    if (historyMatch) {
+        return { isResolved: true, resolvedAt: historyMatch.resolvedAt };
     }
     
-    // 2. Verifica se existe ruptura ativa no momento
     const isActive = validatedRuptures.some(r => 
         String(r.productId) === String(productId) && String(r.storeId) === String(storeId)
     );
     
-    // 3. Se no est ativa e foi citada numa visita, consideramos resolvida
     if (!isActive) {
         const latestResolve = resolvedRupturesHistory.find(r => 
             String(r.productId) === String(productId) && String(r.storeId) === String(storeId)
@@ -2248,23 +2193,7 @@ window.getResolvedItemStatus = function(productId, storeId, visitId) {
 };
 
 window.exportVisitsCSV = function() {
-    const searchTerm = document.getElementById('reportSearch')?.value.toLowerCase() || '';
-    const startDate = document.getElementById('reportStartDate')?.value || '';
-    const endDate = document.getElementById('reportEndDate')?.value || '';
-    const checkboxes = document.querySelectorAll('.network-checkbox');
-    const selectedNetworks = checkboxes.length > 0 ? Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value) : ['all'];
-    const isAllSelected = document.getElementById('selectAllNetworks')?.checked ?? true;
-
-    const filtered = visits.filter(v => {
-        const store = stores.find(s => s.id === v.storeId);
-        if (!store) return false;
-        const matchesNetwork = isAllSelected || selectedNetworks.includes(store.network);
-        const matchesSearch = (store.name || '').toLowerCase().includes(searchTerm) || 
-                             (v.notes && v.notes.toLowerCase().includes(searchTerm));
-        const matchesDate = (!startDate || v.date >= startDate) && (!endDate || v.date <= endDate);
-        const matchesRupture = !reportFilterOnlyRuptures || (v.ruptures && v.ruptures.length > 0);
-        return matchesNetwork && matchesSearch && matchesDate && matchesRupture;
-    });
+    const filtered = getFilteredReportVisits().sort((a, b) => new Date(b.date) - new Date(a.date));
 
     if (filtered.length === 0) {
         alert('Não hï¿½ dados filtrados para exportar.');
@@ -2275,7 +2204,7 @@ window.exportVisitsCSV = function() {
     
     filtered.forEach(v => {
         const store = stores.find(s => s.id === v.storeId);
-        const ruptureNames = v.ruptures.map(id => {
+        const ruptureNames = (v.ruptures || []).map(id => {
             const p = products.find(prod => prod.id === id);
             return p ? p.name : id;
         }).join(" | ");
@@ -2285,7 +2214,7 @@ window.exportVisitsCSV = function() {
             formatDate(v.date),
             store ? store.name : 'N/A',
             store ? store.network : 'N/A',
-            v.ruptures.length,
+            (v.ruptures || []).length,
             ruptureNames,
             extraPointsNames,
             v.notes || ''
@@ -2594,7 +2523,8 @@ function exportHtmlToPdf(container, options) {
 }
 
 window.exportHistoryCSV = function() {
-    const { filteredVisits, filteredResolved } = getFilteredHistoryData();
+    let { filteredVisits, filteredResolved } = getFilteredHistoryData();
+    filteredVisits = [...filteredVisits].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     if (filteredVisits.length === 0 && filteredResolved.length === 0) {
         alert('Não há dados para exportar no histórico com os filtros atuais.');
@@ -2655,7 +2585,8 @@ window.exportHistoryCSV = function() {
 };
 
 window.exportHistoryPDF = async function() {
-    const { filteredVisits, filteredResolved } = getFilteredHistoryData();
+    let { filteredVisits, filteredResolved } = getFilteredHistoryData();
+    filteredVisits = [...filteredVisits].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     if (filteredVisits.length === 0 && filteredResolved.length === 0) {
         alert('Não há dados para exportar no histórico com os filtros atuais.');
@@ -2733,7 +2664,7 @@ window.exportHistoryPDF = async function() {
 
 window.exportVisitsPDF = async function() {
     const element = document.querySelector('.reports-container');
-    const filteredVisits = getFilteredReportVisits();
+    const filteredVisits = getFilteredReportVisits().sort((a, b) => new Date(b.date) - new Date(a.date));
     const { selectedNetworks, isAllSelected, startDate, endDate } = getReportFilterSettings();
 
     if (filteredVisits.length === 0) {
@@ -3224,7 +3155,7 @@ window.clearNotifications = function() {
     });
 
     dismissedNotifications = [...new Set([...dismissedNotifications, ...currentNotifs])];
-    saveAppStateLocally();
+    saveAppStateLocally(); // fire and forget
     if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
 
     updateNotifications();
@@ -3251,6 +3182,8 @@ function populateSelects() {
 
 function renderChecklist(searchTerm = '', storeProductIds = null) {
     productListChecklist.innerHTML = '';
+    const lastRupturesContainer = document.getElementById('lastVisitRuptures');
+    if (lastRupturesContainer) lastRupturesContainer.innerHTML = '';
     
     let filteredProducts = products;
     
@@ -3273,6 +3206,19 @@ function renderChecklist(searchTerm = '', storeProductIds = null) {
             ${storeProductIds ? 'Nenhum item cadastrado para esta loja específica.' : 'Selecione uma loja para ver os produtos.'}
         </p>`;
         return;
+    }
+    
+    // Se houver loja selecionada, exibe as rupturas registradas na ÚLTIMA visita
+    const selectedStoreId = storeSelect ? storeSelect.value : null;
+    if (selectedStoreId && lastRupturesContainer) {
+        const lastVisit = [...visits].filter(v => v.storeId === selectedStoreId).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+        if (lastVisit && Array.isArray(lastVisit.ruptures) && lastVisit.ruptures.length > 0) {
+            const names = lastVisit.ruptures.map(pid => {
+                const p = products.find(x => x.id === pid);
+                return p ? p.name : pid;
+            });
+            lastRupturesContainer.innerHTML = `<strong>Rupturas na última visita (${lastVisit.date ? formatDate(lastVisit.date) : ''}):</strong> <div style="margin-top:6px;">${names.map(n => `<span class="badge-rupture" style="margin-right:6px;">${n}</span>`).join('')}</div>`;
+        }
     }
 
     filteredProducts.forEach(product => {
@@ -3538,9 +3484,9 @@ async function handleVisitSubmit(e) {
         localStorage.removeItem('hr_products');
         // Segunda tentativa após limpar espaço
         try {
-            localStorage.setItem('hr_visits', JSON.stringify(visits));
+            IndexedDBHelper.set('hr_visits', visits);
             saveStoreUpdates();
-            localStorage.setItem('hr_validated_ruptures', JSON.stringify(validatedRuptures));
+            IndexedDBHelper.set('hr_validated_ruptures', validatedRuptures);
             showToast("Visita salva após liberar espaço!", 'success');
         } catch(err2) {
             alert("Armazenamento cheio mesmo após limpeza. Exporte o relatério em CSV e limpe o histórico de visitas antigas.");
@@ -3571,7 +3517,7 @@ function suggestRupture(productId, storeId) {
         };
         
         validatedRuptures.push(newRupture);
-        localStorage.setItem('hr_validated_ruptures', JSON.stringify(validatedRuptures));
+        IndexedDBHelper.set('hr_validated_ruptures', validatedRuptures);
         renderValidatedRuptures();
     }
 }
@@ -3705,7 +3651,7 @@ window.resolveRupture = function(id) {
     }
 
     validatedRuptures = validatedRuptures.filter(r => r.id !== id);
-    saveAppStateLocally();
+    saveAppStateLocally(); // fire and forget
     if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
     if (currentPage === 'dashboard') {
         renderValidatedRuptures();
@@ -4083,9 +4029,9 @@ function getVisitResolutionSummary(visit) {
     let resolvedCount = 0;
     
     visit.ruptures.forEach(productId => {
-        const isResolved = resolvedRupturesHistory.some(r => 
-            r.visitId === visit.id && String(r.productId) === String(productId)
-        );
+        const isResolved = window.getResolvedItemStatus
+            ? window.getResolvedItemStatus(productId, visit.storeId, visit.id, visit.date).isResolved
+            : resolvedRupturesHistory.some(r => r.visitId === visit.id && String(r.productId) === String(productId));
         if (isResolved) {
             resolvedCount++;
         }
