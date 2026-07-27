@@ -1,4 +1,4 @@
-﻿const PRODUCTS_DATA = [
+const PRODUCTS_DATA = [
     {
         "status":  "ATIVO",
         "name":  "ECONOMICO 30L",
@@ -46,6 +46,24 @@
         "name":  "BOBINA 30X40",
         "id":  "bobina-30x40",
         "network":  "BAHAMAS JF"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "LIXO BAHAMAS 30L",
+        "id":  "lixo-bahamas-30l",
+        "network":  "BAHAMAS"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "LIXO BAHAMAS 50L",
+        "id":  "lixo-bahamas-50l",
+        "network":  "BAHAMAS"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "LIXO BAHAMAS 100L",
+        "id":  "lixo-bahamas-100l",
+        "network":  "BAHAMAS"
     },
     {
         "status":  "ATIVO",
@@ -136,7 +154,10 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-25x35",
                            "bobina-30x40",
-                           "economico-100l"
+                           "economico-100l",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
                        ],
         "status":  "pending",
         "currentStatus":  "pending"
@@ -145,6 +166,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-16-atacadao-rotula",
         "name":  "16 ATACADAO - ROTULA",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "sacola-verde-38x50",
                            "sacola-verde-40x50",
@@ -171,9 +193,11 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "economico-100l",
                            "bobina-25x35",
-                           "bobina-30x40"
-                       ,
-                           "bobina-25x35"],
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -186,9 +210,11 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "economico-100l",
                            "economico-50l",
-                           "bobina-25x35"
-                       ,
-                           "bobina-25x35"],
+                           "bobina-25x35",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -204,7 +230,10 @@ const STORES_DATA = [
                            "economico-30l",
                            "sacola-29x39",
                            "sacola-38x48",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
                        ],
         "status":  "pending",
         "lastVisit":  null
@@ -216,7 +245,10 @@ const STORES_DATA = [
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
                        ],
         "status":  "pending",
         "lastVisit":  null
@@ -233,9 +265,12 @@ const STORES_DATA = [
                            "sacola-38x48",
                            "economico-50l",
                            "sacola-29x39",
-                           "economico-100l"
+                           "economico-100l",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -248,9 +283,12 @@ const STORES_DATA = [
                            "economico-100l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -265,9 +303,12 @@ const STORES_DATA = [
                            "sacola-29x39",
                            "bobina-25x35",
                            "economico-50l",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -277,9 +318,12 @@ const STORES_DATA = [
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -294,9 +338,12 @@ const STORES_DATA = [
                            "bobina-30x40",
                            "bobina-25x35",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -309,9 +356,13 @@ const STORES_DATA = [
                            "economico-30l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
+        "frequency": 2,
         "lastVisit":  null
     },
     {
@@ -326,9 +377,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-30x40",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -341,9 +395,13 @@ const STORES_DATA = [
                            "economico-100l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
+        "frequency": 2,
         "lastVisit":  null
     },
     {
@@ -356,10 +414,12 @@ const STORES_DATA = [
                            "economico-100l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
-                       ,
-                           "bobina-25x35"],
-        "status":  "pending",
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
+                       ],
         "lastVisit":  null
     },
     {
@@ -372,9 +432,12 @@ const STORES_DATA = [
                            "economico-30l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -389,9 +452,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-30x40",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -404,10 +470,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "economico-30l",
                            "bobina-25x35",
-                           "bobina-30x40"
-                       ,
-                           "bobina-25x35"],
-        "status":  "pending",
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
+                       ],
         "lastVisit":  null
     },
     {
@@ -422,9 +490,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-25x35",
                            "sacola-38x48",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -437,9 +508,12 @@ const STORES_DATA = [
                            "economico-30l",
                            "economico-100l",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -452,10 +526,12 @@ const STORES_DATA = [
                            "economico-100l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
-                       ,
-                           "bobina-25x35"],
-        "status":  "pending",
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
+                       ],
         "lastVisit":  null
     },
     {
@@ -467,9 +543,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "sacola-38x48",
                            "sacola-29x39",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -479,10 +558,13 @@ const STORES_DATA = [
         "productIds":  [
                            "bobina-20x30",
                            "economico-100l",
-                           "bobina-25x35"
-                       ,
-                           "bobina-25x35"],
-        "status":  "pending",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
+                       ],
         "lastVisit":  null
     },
     {
@@ -497,9 +579,12 @@ const STORES_DATA = [
                            "economico-30l",
                            "sacola-38x48",
                            "economico-100l",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -514,9 +599,12 @@ const STORES_DATA = [
                            "economico-100l",
                            "bobina-30x40",
                            "economico-30l",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -527,10 +615,12 @@ const STORES_DATA = [
                            "economico-100l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
-                       ,
-                           "bobina-25x35"],
-        "status":  "pending",
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
+                       ],
         "lastVisit":  null
     },
     {
@@ -542,9 +632,12 @@ const STORES_DATA = [
                            "sacola-29x39",
                            "bobina-30x40",
                            "bobina-20x30",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -554,9 +647,12 @@ const STORES_DATA = [
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -571,9 +667,12 @@ const STORES_DATA = [
                            "economico-100l",
                            "economico-30l",
                            "sacola-38x48",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -588,9 +687,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "economico-50l",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -605,9 +707,12 @@ const STORES_DATA = [
                            "economico-100l",
                            "sacola-38x48",
                            "economico-50l",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -619,9 +724,12 @@ const STORES_DATA = [
                            "bobina-25x35",
                            "bobina-30x40",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -636,9 +744,12 @@ const STORES_DATA = [
                            "bobina-25x35",
                            "sacola-38x48",
                            "bobina-30x40",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -653,9 +764,12 @@ const STORES_DATA = [
                            "economico-100l",
                            "bobina-30x40",
                            "sacola-38x48",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -667,9 +781,12 @@ const STORES_DATA = [
                            "bobina-25x35",
                            "bobina-30x40",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -684,9 +801,12 @@ const STORES_DATA = [
                            "bobina-25x35",
                            "bobina-30x40",
                            "sacola-38x48",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -698,9 +818,12 @@ const STORES_DATA = [
                            "bobina-30x40",
                            "sacola-38x48",
                            "sacola-29x39",
-                           "bobina-20x30"
+                           "bobina-20x30",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -713,10 +836,12 @@ const STORES_DATA = [
                            "economico-30l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
-                       ,
-                           "bobina-25x35"],
-        "status":  "pending",
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
+                       ],
         "lastVisit":  null
     },
     {
@@ -728,9 +853,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-30x40",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -742,9 +870,12 @@ const STORES_DATA = [
                            "bobina-25x35",
                            "bobina-20x30",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -756,9 +887,12 @@ const STORES_DATA = [
                            "sacola-29x39",
                            "sacola-38x48",
                            "bobina-20x30",
-                           "bobina-25x35"
+                           "bobina-25x35",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -770,9 +904,12 @@ const STORES_DATA = [
                            "bobina-30x40",
                            "bobina-20x30",
                            "sacola-38x48",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -784,9 +921,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "sacola-29x39",
                            "bobina-30x40",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -799,9 +939,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "economico-30l",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -816,9 +959,12 @@ const STORES_DATA = [
                            "sacola-38x48",
                            "bobina-25x35",
                            "bobina-30x40",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -829,9 +975,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-25x35",
                            "bobina-30x40",
-                           "economico-100l"
+                           "economico-100l",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -843,9 +992,12 @@ const STORES_DATA = [
                            "sacola-29x39",
                            "bobina-25x35",
                            "bobina-20x30",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -857,9 +1009,12 @@ const STORES_DATA = [
                            "bobina-25x35",
                            "bobina-30x40",
                            "sacola-38x48",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -871,9 +1026,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "sacola-38x48",
                            "sacola-29x39",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -886,10 +1044,12 @@ const STORES_DATA = [
                            "economico-30l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
-                       ,
-                           "bobina-25x35"],
-        "status":  "pending",
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
+                       ],
         "lastVisit":  null
     },
     {
@@ -904,9 +1064,12 @@ const STORES_DATA = [
                            "bobina-30x40",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -918,9 +1081,12 @@ const STORES_DATA = [
                            "bobina-25x35",
                            "bobina-20x30",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -932,9 +1098,12 @@ const STORES_DATA = [
                            "bobina-25x35",
                            "sacola-38x48",
                            "bobina-20x30",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -949,9 +1118,12 @@ const STORES_DATA = [
                            "economico-50l",
                            "bobina-30x40",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -966,9 +1138,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "sacola-29x39",
                            "sacola-38x48",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -981,10 +1156,13 @@ const STORES_DATA = [
                            "economico-100l",
                            "economico-30l",
                            "bobina-25x35",
-                           "bobina-30x40"
-                       ,
-                           "bobina-25x35"],
-        "status":  "pending",
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
+                       ],
+        "frequency": 2,
         "lastVisit":  null
     },
     {
@@ -996,9 +1174,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "sacola-29x39",
                            "bobina-25x35",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -1010,9 +1191,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-25x35",
                            "sacola-38x48",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -1024,9 +1208,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-30x40",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -1041,9 +1228,12 @@ const STORES_DATA = [
                            "economico-30l",
                            "sacola-38x48",
                            "bobina-30x40",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -1058,9 +1248,12 @@ const STORES_DATA = [
                            "economico-100l",
                            "bobina-30x40",
                            "sacola-38x48",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -1074,9 +1267,13 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "sacola-29x39",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
+        "frequency": 2,
         "lastVisit":  null
     },
     {
@@ -1091,9 +1288,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "economico-50l",
                            "sacola-38x48",
-                           "sacola-29x39"
+                           "sacola-29x39",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -1105,9 +1305,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-25x35",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -1120,9 +1323,12 @@ const STORES_DATA = [
                            "economico-30l",
                            "bobina-20x30",
                            "bobina-25x35",
-                           "bobina-30x40"
+                           "bobina-30x40",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -1134,9 +1340,12 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-25x35",
                            "sacola-29x39",
-                           "sacola-38x48"
+                           "sacola-38x48",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
     },
     {
@@ -1188,6 +1397,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-13-de-maio",
         "name":  "SUPER BOM - 13 DE MAIO",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1203,6 +1413,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-campo-grande",
         "name":  "SUPER BOM - CAMPO GRANDE",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1218,6 +1429,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-colubande",
         "name":  "SUPER BOM - COLUBANDE",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1233,6 +1445,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-curicica",
         "name":  "SUPER BOM - CURICICA",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1248,6 +1461,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-goytacazes",
         "name":  "SUPER BOM - GOYTACAZES",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1263,6 +1477,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-guarus-plaza",
         "name":  "SUPER BOM - GUARUS PLAZA",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1278,6 +1493,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-ips",
         "name":  "SUPER BOM - IPS",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1293,6 +1509,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-nova-iguacu",
         "name":  "SUPER BOM - NOVA IGUACU",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1308,6 +1525,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-partage-shopping",
         "name":  "SUPER BOM - PARTAGE SHOPPING",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1323,6 +1541,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-sao-pedro-da-aldeia",
         "name":  "SUPER BOM - SAO PEDRO DA ALDEIA",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1338,6 +1557,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-28-de-marco",
         "name":  "SUPER BOM - 28 DE MARCO",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1353,6 +1573,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-tarcisio-miranda",
         "name":  "SUPER BOM - TARCISIO MIRANDA",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1368,6 +1589,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-campista",
         "name":  "SUPER BOM - CAMPISTA",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1383,6 +1605,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-bartolomeu",
         "name":  "SUPER BOM - BARTOLOMEU",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1398,6 +1621,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-alberto-torres",
         "name":  "SUPER BOM - ALBERTO TORRES",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1413,6 +1637,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-visconde-jose-alves-de-azevedo",
         "name":  "SUPER BOM - VISCONDE JOSE ALVES DE AZEVEDO",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1428,6 +1653,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-uebe-turf",
         "name":  "SUPER BOM - UEBE TURF",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1443,6 +1669,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-alberto-lamego",
         "name":  "SUPER BOM - ALBERTO LAMEGO",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1458,6 +1685,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-sao-joao-da-barra",
         "name":  "SUPER BOM - SAO JOAO DA BARRA",
         "network":  "SUPER BOM",
+        "frequency": 2,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1593,6 +1821,7 @@ const STORES_DATA = [
         "id":  "bramil-bramil-areal",
         "name":  "Bramil de Areial",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1605,6 +1834,7 @@ const STORES_DATA = [
         "id":  "bramil-bramil-arcozelo",
         "name":  "Bramil de Arcozelo",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1615,8 +1845,9 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-barra-do-pirai",
-        "name":  "Bramil de Barra do Piraí",
+        "name":  "Bramil de Barra do Pira?",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1627,8 +1858,9 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-paraiba-do-sul-i",
-        "name":  "Bramil de Paraíba do Sul PV05",
+        "name":  "Bramil de Para?ba do Sul PV05",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1639,8 +1871,9 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-paraiba-do-sul-ii",
-        "name":  "Bramil de Paraíba do Sul PV20",
+        "name":  "Bramil de Para?ba do Sul PV20",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1651,8 +1884,9 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-paraiba-do-sul-iii",
-        "name":  "Bramil de Paraíba do Sul PV43",
+        "name":  "Bramil de Para?ba do Sul PV43",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1663,8 +1897,9 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-tres-rios-i",
-        "name":  "Bramil de Três Rios PV2",
+        "name":  "Bramil de Tr?s Rios PV2",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1677,6 +1912,7 @@ const STORES_DATA = [
         "id":  "bramil-bramil-tres-rios-ii",
         "name":  "Bramil de Tres Rios PV27",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1689,6 +1925,7 @@ const STORES_DATA = [
         "id":  "bramil-bramil-tres-rios-iii",
         "name":  "Bramil de Tres Rios PV26",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1699,8 +1936,9 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-posse",
-        "name":  "Bramil da Pósse",
+        "name":  "Bramil da P?sse",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1713,6 +1951,7 @@ const STORES_DATA = [
         "id":  "bramil-bramil-itaipava",
         "name":  "Bramil Itaipava",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1725,6 +1964,7 @@ const STORES_DATA = [
         "id":  "bramil-bramil-itamarati",
         "name":  "Bramil Itamarati",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1737,6 +1977,7 @@ const STORES_DATA = [
         "id":  "bramil-bramil-miguel-pereira",
         "name":  "Bramil de Miguel Pereira",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1749,6 +1990,7 @@ const STORES_DATA = [
         "id":  "bramil-bramil-vassouras",
         "name":  "Bramil de Vassoura",
         "network":  "BRAMIL",
+        "frequency": 1,
         "productIds":  [
                            "bramil-lixo-15l",
                            "bramil-lixo-30l",
@@ -1761,6 +2003,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-924-atacadao-alagoinhas",
         "name":  "924 ATACADAO - ALAGOINHAS",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1780,6 +2023,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-68-atacadao-aracaju-br",
         "name":  "68 ATACADAO - ARACAJU BR",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1799,6 +2043,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-109-atacadao-aracaju-cd",
         "name":  "109 ATACADAO - ARACAJU CD",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1819,8 +2064,9 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-862-atacadao-aracaju-goni-alo-prado",
-        "name":  "862 ATACADAO - ARACAJU GON�ALO PRADO",
+        "name":  "862 ATACADAO - ARACAJU GON?ALO PRADO",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1840,6 +2086,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-274-atacadao-aracaju-tancredo-neves",
         "name":  "274 ATACADAO - ARACAJU TANCREDO NEVES",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1862,6 +2109,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-926-atacadao-barreiras",
         "name":  "926 ATACADAO - BARREIRAS",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1879,7 +2127,7 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-845-atacadao-camai-ari-centro",
-        "name":  "845 ATACADAO - CAMA�ARI CENTRO",
+        "name":  "845 ATACADAO - CAMA?ARI CENTRO",
         "network":  "ATACADAO BA",
         "productIds":  [
                            "bobina-20x30",
@@ -1898,8 +2146,9 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-915-atacadao-camai-ari-via-parafuso",
-        "name":  "915 ATACADAO - CAMA�ARI VIA PARAFUSO",
+        "name":  "915 ATACADAO - CAMA?ARI VIA PARAFUSO",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1919,6 +2168,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-911-atacadao-eunapolis",
         "name":  "911 ATACADAO - EUNAPOLIS",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1938,6 +2188,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-124-atacadao-feira-de-santana-cd",
         "name":  "124 ATACADAO - FEIRA DE SANTANA CD",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1960,6 +2211,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-914-atacadao-feira-morada-das-arvores",
         "name":  "914 ATACADAO - FEIRA MORADA DAS ARVORES",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1979,6 +2231,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-830-atacadao-feira-pedra-descanso",
         "name":  "830 ATACADAO - FEIRA PEDRA DESCANSO",
         "network":  "ATACADAO BA",
+        "frequency": 1,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -1998,6 +2251,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-908-atacadao-feira-subae",
         "name":  "908 ATACADAO - FEIRA SUBAE",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2017,6 +2271,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-906-atacadao-ilheus-br",
         "name":  "906 ATACADAO - ILHEUS BR",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2036,6 +2291,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-932-atacadao-ilheus-praia",
         "name":  "932 ATACADAO - ILHEUS PRAIA",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2055,6 +2311,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-913-atacadao-irece",
         "name":  "913 ATACADAO - IRECE",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2074,6 +2331,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-741-atacadao-itaparica",
         "name":  "741 ATACADAO - ITAPARICA",
         "network":  "ATACADAO BA",
+        "frequency": 1,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2093,6 +2351,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-887-atacadao-juazeiro",
         "name":  "887 ATACADAO - JUAZEIRO",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2112,6 +2371,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-824-atacadao-lauro-de-freitas-caji",
         "name":  "824 ATACADAO - LAURO DE FREITAS CAJI",
         "network":  "ATACADAO BA",
+        "frequency": 1,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2131,6 +2391,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-907-atacadao-lauro-de-freitas-portao",
         "name":  "907 ATACADAO - LAURO DE FREITAS PORTAO",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2153,6 +2414,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-902-atacadao-santo-antonio-de-jesus",
         "name":  "902 ATACADAO - SANTO ANTONIO DE JESUS",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2172,6 +2434,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-909-atacadao-simoes-filho",
         "name":  "909 ATACADAO - SIMOES FILHO",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2191,6 +2454,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-916-atacadao-ssa-acm",
         "name":  "916 ATACADAO - SSA ACM",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2211,6 +2475,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-695-atacadao-ssa-barra",
         "name":  "695 ATACADAO - SSA BARRA",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2231,6 +2496,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-919-atacadao-ssa-barros-reis",
         "name":  "919 ATACADAO - SSA BARROS REIS",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2253,6 +2519,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-918-atacadao-ssa-bonoco",
         "name":  "918 ATACADAO - SSA BONOCO",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2273,6 +2540,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-835-atacadao-ssa-cabula",
         "name":  "835 ATACADAO - SSA CABULA",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2293,6 +2561,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-917-atacadao-ssa-cajazeiras",
         "name":  "917 ATACADAO - SSA CAJAZEIRAS",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2313,6 +2582,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-942-atacadao-ssa-campinas-brotas",
         "name":  "942 ATACADAO - SSA CAMPINAS BROTAS",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2333,6 +2603,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-618-atacadao-ssa-garibaldi",
         "name":  "618 ATACADAO - SSA GARIBALDI",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2353,6 +2624,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-920-atacadao-ssa-iguatemi",
         "name":  "920 ATACADAO - SSA IGUATEMI",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2373,6 +2645,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-742-atacadao-ssa-itapua",
         "name":  "742 ATACADAO - SSA ITAPUA",
         "network":  "ATACADAO BA",
+        "frequency": 1,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2393,6 +2666,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-851-atacadao-ssa-mares",
         "name":  "851 ATACADAO - SSA MARES",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2413,6 +2687,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-921-atacadao-ssa-mata-escura",
         "name":  "921 ATACADAO - SSA MATA ESCURA",
         "network":  "ATACADAO BA",
+        "frequency": 1,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2433,6 +2708,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-841-atacadao-ssa-pau-da-lima",
         "name":  "841 ATACADAO - SSA PAU DA LIMA",
         "network":  "ATACADAO BA",
+        "frequency": 1,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2453,6 +2729,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-925-atacadao-ssa-piraja",
         "name":  "925 ATACADAO - SSA PIRAJA",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2475,6 +2752,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-341-atacadao-ssa-piraja-cd",
         "name":  "341 ATACADAO - SSA PIRAJA CD",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2497,6 +2775,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-696-atacadao-ssa-pituba",
         "name":  "696 ATACADAO - SSA PITUBA",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2517,6 +2796,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-923-atacadao-ssa-trobogy",
         "name":  "923 ATACADAO - SSA TROBOGY",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2537,6 +2817,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-910-atacadao-texeira-de-freitas",
         "name":  "910 ATACADAO - TEXEIRA DE FREITAS",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2556,6 +2837,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-896-atacadao-valenca",
         "name":  "896 ATACADAO - VALENCA",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2575,6 +2857,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-94-atacadao-vitoria-conquista-cd",
         "name":  "94 ATACADAO - VITORIA CONQUISTA CD",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2597,6 +2880,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-894-atacadao-vitoria-conquista-av-pres-dutra-br",
         "name":  "894 ATACADAO - VITORIA CONQUISTA AV PRES DUTRA - BR",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2616,6 +2900,7 @@ const STORES_DATA = [
         "id":  "atacadao-ba-820-atacadao-vitoria-da-conquista-brumado",
         "name":  "820 ATACADAO - VITORIA DA CONQUISTA BRUMADO",
         "network":  "ATACADAO BA",
+        "frequency": 2,
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2639,15 +2924,107 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-25x35",
                            "bobina-30x40",
-                           "economico-100l"
+                           "economico-100l",
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l",
+                           "pending"
                        ],
-        "status":  "pending",
         "lastVisit":  null
+    },{
+        "id": "bramil-nova-friburgo",
+        "name": "Bramil - Nova Friburgo",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-pinheiral-i",
+        "name": "Bramil - Pinheiral I",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-pinheiral-ii",
+        "name": "Bramil - Pinheiral II",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-levy-gasparian",
+        "name": "Bramil - Levy Gasparian",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-paty-dos-alferes-i",
+        "name": "Bramil - Paty dos Alferes I",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-paty-dos-alferes-ii",
+        "name": "Bramil - Paty dos Alferes II",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-valenca",
+        "name": "Bramil - Valença",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-matias-barbosa",
+        "name": "Bramil - Matias Barbosa",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-petropolis-i",
+        "name": "Bramil - Petrópolis I",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-petropolis-ii",
+        "name": "Bramil - Petrópolis II",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-petropolis-iii",
+        "name": "Bramil - Petrópolis III",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
+    },{
+        "id": "bramil-volta-redonda",
+        "name": "Bramil - Volta Redonda",
+        "network": "BRAMIL",
+        "frequency": 1,
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
+        "status": "pending",
+        "lastVisit": null
     }];
-
-
-
-
-
-
-

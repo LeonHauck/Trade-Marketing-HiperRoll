@@ -676,23 +676,32 @@ function checkLoginStatus() {
 
 function checkOverdueStores() {
     const now = new Date();
+    
+    // Usar janela de 7 dias corridos (rolling window) ao invés de semana calendário
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    
     stores.forEach(store => {
         if (!store.lastVisit) {
             store.currentStatus = 'pending';
             return;
         }
 
-        const lastVisitDate = new Date(store.lastVisit);
-        const diffTime = Math.abs(now - lastVisitDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const freq = store.frequency || 1; // visitas esperadas por semana
         
-        const freq = store.frequency || 1;
-        const maxDays = 7 / freq;
-
-        if (diffDays > maxDays) {
-            store.currentStatus = 'overdue';
-        } else {
+        // Contar quantas visitas essa loja teve nos últimos 7 dias
+        const visitsLast7Days = visits.filter(v => {
+            if (v.storeId !== store.id) return false;
+            const vDate = new Date(v.date + 'T12:00:00');
+            return vDate >= sevenDaysAgo && vDate <= now;
+        }).length;
+        
+        // Se a loja teve visitas suficientes nos últimos 7 dias → visitada
+        if (visitsLast7Days >= freq) {
             store.currentStatus = 'visited';
+        } else {
+            store.currentStatus = 'overdue';
         }
     });
 }
@@ -970,6 +979,19 @@ function setupEventListeners() {
             const opts = document.getElementById('globalNetworkOptions');
             if (opts) opts.style.display = 'none';
         }
+        
+        // Fechar dropdowns da Gestão de Lojas
+        const storeNetworkDropdown = document.getElementById('storeNetworkDropdownContainer');
+        if (storeNetworkDropdown && !storeNetworkDropdown.contains(e.target)) {
+            const opts = document.getElementById('storeNetworkOptions');
+            if (opts) opts.style.display = 'none';
+        }
+        
+        const storeStatusDropdown = document.getElementById('storeStatusDropdownContainer');
+        if (storeStatusDropdown && !storeStatusDropdown.contains(e.target)) {
+            const opts = document.getElementById('storeStatusOptions');
+            if (opts) opts.style.display = 'none';
+        }
     });
 
     visitForm.addEventListener('submit', handleVisitSubmit);
@@ -1094,6 +1116,7 @@ function renderPage(page) {
     } else if (page === 'history') {
         renderHistoryView();
     } else if (page === 'stores') {
+        checkOverdueStores();
         renderStoresListView();
     } else if (page === 'products') {
         renderProductsListView();
@@ -1514,13 +1537,87 @@ function renderCriticalDelays() {
 }
 
 function renderStoresListView() {
+    const uniqueNetworks = [...new Set(stores.map(s => s.network))].filter(n => n).sort();
+    let networkOptionsHtml = `
+        <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid #eee; margin-bottom: 4px;">
+            <input type="checkbox" id="storeSelectAllNetworks" checked onchange="toggleAllStoreNetworks(this)" style="margin-right: 8px; width: 16px; height: 16px;"> 
+            <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">Todas as Redes</span>
+        </label>
+    `;
+    uniqueNetworks.forEach(net => {
+        networkOptionsHtml += `
+            <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer;">
+                <input type="checkbox" class="store-network-checkbox" value="${net}" checked onchange="updateStoreFilters()" style="margin-right: 8px; width: 16px; height: 16px;">
+                <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark);">${net}</span>
+            </label>
+        `;
+    });
+
     contentArea.innerHTML = `
         <div class="panel">
-            <div class="panel-header">
-                <h2>Gestão de Lojas (${stores.length})</h2>
-                <div class="search-bar" style="width: 300px;">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="storePageSearch" placeholder="Filtrar lojas...">
+            <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 15px;">
+                <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <h2>Gestão de Lojas (<span id="storePageCount">${stores.length}</span>)</h2>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <button class="btn btn-secondary btn-small" onclick="exportStoresCSV()"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+                        <button class="btn btn-primary btn-small" onclick="exportStoresPDF()"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
+                        <div class="search-bar" style="width: 250px;">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="storePageSearch" placeholder="Buscar loja ou produto..." oninput="updateStoreFilters()">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="store-filters" style="display: flex; gap: 15px; width: 100%; align-items: center; background: #f9f9f9; padding: 10px 15px; border-radius: 12px; border: 1px solid #eee; flex-wrap: wrap;">
+                    
+                    <!-- Network Filter -->
+                    <div class="checkbox-dropdown filter-select" id="storeNetworkDropdownContainer" style="height: 40px; background: white; border: 1px solid #eee; border-radius: 8px; min-width: 180px; position: relative;">
+                        <div class="dropdown-header" onclick="toggleDropdown('storeNetworkOptions')" style="height: 100%; display: flex; align-items: center; padding: 0 15px; cursor: pointer; justify-content: space-between;">
+                            <span id="storeSelectedNetworksText" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;">Todas as Redes</span>
+                            <i class="fa-solid fa-chevron-down" style="color: var(--text-light); font-size: 0.8rem;"></i>
+                        </div>
+                        <div class="dropdown-options" id="storeNetworkOptions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #eee; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 1000; max-height: 250px; overflow-y: auto; padding: 10px;">
+                            ${networkOptionsHtml}
+                        </div>
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div class="checkbox-dropdown filter-select" id="storeStatusDropdownContainer" style="height: 40px; background: white; border: 1px solid #eee; border-radius: 8px; min-width: 180px; position: relative;">
+                         <div class="dropdown-header" onclick="toggleDropdown('storeStatusOptions')" style="height: 100%; display: flex; align-items: center; padding: 0 15px; cursor: pointer; justify-content: space-between;">
+                            <span id="storeSelectedStatusText" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;">Todos os Status</span>
+                            <i class="fa-solid fa-chevron-down" style="color: var(--text-light); font-size: 0.8rem;"></i>
+                        </div>
+                        <div class="dropdown-options" id="storeStatusOptions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #eee; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 1000; padding: 10px;">
+                            <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid #eee; margin-bottom: 4px;">
+                                <input type="checkbox" id="storeSelectAllStatus" checked onchange="toggleAllStoreStatus(this)" style="margin-right: 8px; width: 16px; height: 16px;"> 
+                                <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">Todos</span>
+                            </label>
+                            <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer;">
+                                <input type="checkbox" class="store-status-checkbox" value="visited" checked onchange="updateStoreFilters()" style="margin-right: 8px; width: 16px; height: 16px;"> 
+                                <span class="status-indicator visited" style="margin-right: 5px; position: static;"></span> 
+                                <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark);">Visitada</span>
+                            </label>
+                            <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer;">
+                                <input type="checkbox" class="store-status-checkbox" value="overdue" checked onchange="updateStoreFilters()" style="margin-right: 8px; width: 16px; height: 16px;"> 
+                                <span class="status-indicator overdue" style="margin-right: 5px; position: static;"></span> 
+                                <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark);">Em Atraso</span>
+                            </label>
+                            <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer;">
+                                <input type="checkbox" class="store-status-checkbox" value="pending" checked onchange="updateStoreFilters()" style="margin-right: 8px; width: 16px; height: 16px;"> 
+                                <span class="status-indicator pending" style="margin-right: 5px; position: static;"></span> 
+                                <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark);">Sem Visita/Nunca</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Date Filter -->
+                    <div style="display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #eee; border-radius: 8px; padding: 0 10px; height: 40px;">
+                        <i class="fa-regular fa-calendar" style="color: var(--text-light); font-size: 0.85rem;"></i>
+                        <input type="date" id="storeFilterStartDate" onchange="updateStoreFilters()" style="border: none; outline: none; font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark); background: transparent;">
+                        <span style="color: var(--text-light); font-size: 0.85rem;">até</span>
+                        <input type="date" id="storeFilterEndDate" onchange="updateStoreFilters()" style="border: none; outline: none; font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark); background: transparent;">
+                    </div>
+                    
                 </div>
             </div>
             <div class="store-grid-full" id="storePageList">
@@ -1529,13 +1626,49 @@ function renderStoresListView() {
         </div>
     `;
     
-    const searchInput = document.getElementById('storePageSearch');
-    searchInput.addEventListener('input', (e) => {
-        renderStorePageItems(e.target.value.toLowerCase());
-    });
-    
-    renderStorePageItems();
+    updateStoreFilters();
 }
+
+window.toggleAllStoreNetworks = function(master) {
+    document.querySelectorAll('.store-network-checkbox').forEach(cb => cb.checked = master.checked);
+    updateStoreFilters();
+};
+
+window.toggleAllStoreStatus = function(master) {
+    document.querySelectorAll('.store-status-checkbox').forEach(cb => cb.checked = master.checked);
+    updateStoreFilters();
+};
+
+window.updateStoreFilters = function() {
+    // 1. Update Labels
+    const netBoxes = document.querySelectorAll('.store-network-checkbox');
+    const checkedNets = Array.from(netBoxes).filter(cb => cb.checked);
+    const netLabel = document.getElementById('storeSelectedNetworksText');
+    if (netLabel) {
+        if (checkedNets.length === 0) netLabel.textContent = 'Nenhuma rede';
+        else if (checkedNets.length === netBoxes.length) netLabel.textContent = 'Todas as Redes';
+        else if (checkedNets.length === 1) netLabel.textContent = checkedNets[0].value;
+        else netLabel.textContent = `${checkedNets.length} selecionadas`;
+        
+        const allNetBtn = document.getElementById('storeSelectAllNetworks');
+        if (allNetBtn) allNetBtn.checked = (checkedNets.length === netBoxes.length);
+    }
+
+    const statusBoxes = document.querySelectorAll('.store-status-checkbox');
+    const checkedStatus = Array.from(statusBoxes).filter(cb => cb.checked);
+    const statusLabel = document.getElementById('storeSelectedStatusText');
+    if (statusLabel) {
+        if (checkedStatus.length === 0) statusLabel.textContent = 'Nenhum status';
+        else if (checkedStatus.length === statusBoxes.length) statusLabel.textContent = 'Todos os Status';
+        else if (checkedStatus.length === 1) statusLabel.textContent = checkedStatus[0].nextElementSibling.nextElementSibling.textContent.trim();
+        else statusLabel.textContent = `${checkedStatus.length} selecionados`;
+
+        const allStatusBtn = document.getElementById('storeSelectAllStatus');
+        if (allStatusBtn) allStatusBtn.checked = (checkedStatus.length === statusBoxes.length);
+    }
+
+    renderStorePageItems();
+};
 
 function getStoreLatestExtraPoints(storeId) {
     const storeVisits = visits.filter(v => v.storeId === storeId).sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -1545,15 +1678,56 @@ function getStoreLatestExtraPoints(storeId) {
     return [];
 }
 
-function renderStorePageItems(filter = '') {
+function getFilteredStoresList() {
+    const searchInput = document.getElementById('storePageSearch');
+    const filterText = searchInput ? searchInput.value.toLowerCase() : '';
+    
+    const netCheckboxes = document.querySelectorAll('.store-network-checkbox:checked');
+    const checkedNets = Array.from(netCheckboxes).map(cb => cb.value);
+    const statusCheckboxes = document.querySelectorAll('.store-status-checkbox:checked');
+    const checkedStatus = Array.from(statusCheckboxes).map(cb => cb.value);
+    
+    const startDateVal = document.getElementById('storeFilterStartDate')?.value;
+    const endDateVal = document.getElementById('storeFilterEndDate')?.value;
+    const startDate = startDateVal ? new Date(startDateVal + 'T00:00:00') : null;
+    const endDate = endDateVal ? new Date(endDateVal + 'T23:59:59') : null;
+
+    return stores.filter(s => {
+        // Search Filter
+        const matchesSearch = (s.name || '').toLowerCase().includes(filterText) || (s.network || '').toLowerCase().includes(filterText);
+        if (!matchesSearch) return false;
+
+        // Network Filter
+        if (checkedNets.length > 0 && !checkedNets.includes(s.network)) return false;
+        if (checkedNets.length === 0) return false;
+
+        // Status Filter
+        const sStatus = s.currentStatus || 'pending';
+        if (checkedStatus.length > 0 && !checkedStatus.includes(sStatus)) return false;
+        if (checkedStatus.length === 0) return false;
+
+        // Date Filter (Last Visit)
+        if (startDate || endDate) {
+            if (!s.lastVisit) return false;
+            const lvDate = new Date(s.lastVisit + 'T12:00:00');
+            if (startDate && lvDate < startDate) return false;
+            if (endDate && lvDate > endDate) return false;
+        }
+
+        return true;
+    });
+}
+
+function renderStorePageItems() {
     const container = document.getElementById('storePageList');
     if (!container) return;
+
     container.innerHTML = '';
     
-    const filtered = stores.filter(s => 
-        (s.name || '').toLowerCase().includes(filter) || 
-        (s.network || '').toLowerCase().includes(filter)
-    );
+    const filtered = getFilteredStoresList();
+
+    const storePageCount = document.getElementById('storePageCount');
+    if (storePageCount) storePageCount.textContent = filtered.length;
 
     filtered.forEach(store => {
         const item = document.createElement('div');
@@ -2200,7 +2374,7 @@ window.exportVisitsCSV = function() {
         return;
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,Data;Loja;Rede;Qtd Rupturas;Itens em Ruptura;Pontos Extras;Observações\n";
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFFData;Loja;Rede;Qtd Rupturas;Itens em Ruptura;Pontos Extras;Observações\n";
     
     filtered.forEach(v => {
         const store = stores.find(s => s.id === v.storeId);
@@ -2531,7 +2705,7 @@ window.exportHistoryCSV = function() {
         return;
     }
 
-    let csvContent = 'data:text/csv;charset=utf-8,Tipo;Data;Loja;Rede;Produto;Produtos Pendentes;Status;Visita;Pontos Extras;Observações\n';
+    let csvContent = 'data:text/csv;charset=utf-8,\uFEFFTipo;Data;Loja;Rede;Produto;Produtos Pendentes;Status;Visita;Pontos Extras;Observações\n';
     filteredVisits.forEach(v => {
         const store = stores.find(s => s.id === v.storeId);
         const ruptureNames = (v.ruptures || []).map(r => {
@@ -3208,16 +3382,21 @@ function renderChecklist(searchTerm = '', storeProductIds = null) {
         return;
     }
     
-    // Se houver loja selecionada, exibe as rupturas registradas na ÚLTIMA visita
+    // Se houver loja selecionada, exibe dados da ÚLTIMA visita (com ou sem rupturas)
     const selectedStoreId = storeSelect ? storeSelect.value : null;
     if (selectedStoreId && lastRupturesContainer) {
         const lastVisit = [...visits].filter(v => v.storeId === selectedStoreId).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
-        if (lastVisit && Array.isArray(lastVisit.ruptures) && lastVisit.ruptures.length > 0) {
-            const names = lastVisit.ruptures.map(pid => {
-                const p = products.find(x => x.id === pid);
-                return p ? p.name : pid;
-            });
-            lastRupturesContainer.innerHTML = `<strong>Rupturas na última visita (${lastVisit.date ? formatDate(lastVisit.date) : ''}):</strong> <div style="margin-top:6px;">${names.map(n => `<span class="badge-rupture" style="margin-right:6px;">${n}</span>`).join('')}</div>`;
+        if (lastVisit) {
+            const formattedDate = lastVisit.date ? formatDate(lastVisit.date) : '';
+            if (Array.isArray(lastVisit.ruptures) && lastVisit.ruptures.length > 0) {
+                const names = lastVisit.ruptures.map(pid => {
+                    const p = products.find(x => x.id === pid);
+                    return p ? p.name : pid;
+                });
+                lastRupturesContainer.innerHTML = `<strong>Rupturas na última visita (${formattedDate}):</strong> <div style="margin-top:6px;">${names.map(n => `<span class="badge-rupture" style="margin-right:6px;">${n}</span>`).join('')}</div>`;
+            } else {
+                lastRupturesContainer.innerHTML = `<strong>Última visita (${formattedDate}):</strong> <div style="margin-top:6px; color: #27ae60; font-size: 0.9rem;"><i class="fa-solid fa-circle-check"></i> Nenhuma ruptura registrada</div>`;
+            }
         }
     }
 
@@ -4048,6 +4227,147 @@ function getVisitResolutionBadge(visit) {
     return '<span class="status-tag ok">Resolvido</span>';
 }
 
+window.exportStoresCSV = function() {
+    const fStores = getFilteredStoresList();
+    if (fStores.length === 0) {
+        alert('Não há dados para exportar com os filtros atuais.');
+        return;
+    }
+    
+    let csvContent = 'data:text/csv;charset=utf-8,\uFEFFLoja;Rede;Status Atual;Última Visita;Frequência;Rupturas (última visita)\n';
+    
+    fStores.forEach(s => {
+        let statusStr = "Sem Visita";
+        if (s.currentStatus === 'overdue') statusStr = "Em Atraso";
+        if (s.currentStatus === 'visited' || s.status === 'visited') statusStr = "Visitada";
+        
+        let ruptureText = "Sem registro";
+        const lastVisit = [...visits].filter(v => v.storeId === s.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+        if (lastVisit) {
+            if (Array.isArray(lastVisit.ruptures) && lastVisit.ruptures.length > 0) {
+                ruptureText = lastVisit.ruptures.map(pid => {
+                    const p = products.find(x => x.id === pid);
+                    return p ? p.name : pid;
+                }).join(', ');
+            } else {
+                ruptureText = "Nenhuma ruptura";
+            }
+        }
+        
+        csvContent += [
+            s.name,
+            s.network || '',
+            statusStr,
+            s.lastVisit ? formatDate(s.lastVisit) : 'Nunca',
+            s.frequency || 1,
+            `"${ruptureText}"`
+        ].join(';') + '\n';
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Lojas_Hiperroll_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+window.exportStoresPDF = function() {
+    const fStores = getFilteredStoresList();
+    if (fStores.length === 0) {
+        alert('Não há dados para exportar com os filtros atuais.');
+        return;
+    }
+    
+    const opt = {
+        margin:       [10, 10],
+        filename:     `Lojas_Hiperroll_${new Date().toLocaleDateString()}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+    
+    const header = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; font-family: 'Outfit', sans-serif; border-bottom: 2px solid #0047AB; padding-bottom: 15px; width: 100%; box-sizing: border-box;">
+            <div style="text-align: left; flex: 1; padding-right: 20px;">
+                <h1 style="color: #0047AB; margin: 0; font-size: 24px; font-weight: 700;">Hiperroll Embalagens</h1>
+                <h3 style="color: #333; margin: 5px 0 0; font-size: 16px; font-weight: 600;">Relatório de Gestão de Lojas</h3>
+                <p style="font-size: 11px; color: #666; margin: 6px 0 0; font-weight: 400;">Gerado em: ${new Date().toLocaleString()}</p>
+            </div>
+            <div style="text-align: right;">
+                <div style="background: #f8f9fa; border: 1px solid #e0e0e0; padding: 10px 15px; border-radius: 6px; display: inline-block;">
+                    <div style="font-size: 20px; font-weight: 700; color: #0047AB;">${fStores.length}</div>
+                    <div style="font-size: 11px; color: #555; text-transform: uppercase; margin-top: 3px;">Lojas Encontradas</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    let tableRows = '';
+    fStores.forEach(s => {
+        let statusStr = "Sem Visita";
+        let statusColor = "#f39c12"; // yellow
+        if (s.currentStatus === 'overdue') { statusStr = "Em Atraso"; statusColor = "#e74c3c"; }
+        if (s.currentStatus === 'visited' || s.status === 'visited') { statusStr = "Visitada"; statusColor = "#27ae60"; }
+        
+        let ruptureText = "<span style='color:#999; font-style:italic;'>Sem registro</span>";
+        const lastVisit = [...visits].filter(v => v.storeId === s.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+        if (lastVisit) {
+            if (Array.isArray(lastVisit.ruptures) && lastVisit.ruptures.length > 0) {
+                const names = lastVisit.ruptures.map(pid => {
+                    const p = products.find(x => x.id === pid);
+                    return p ? p.name : pid;
+                }).join(', ');
+                ruptureText = `<span style='color:#e74c3c;'>${names}</span>`;
+            } else {
+                ruptureText = "<span style='color:#27ae60;'>Nenhuma ruptura</span>";
+            }
+        }
+        
+        tableRows += `
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 8px; font-size: 12px; color: #333;"><strong>${s.name}</strong></td>
+                <td style="padding: 10px 8px; font-size: 12px; color: #555;">${s.network || '-'}</td>
+                <td style="padding: 10px 8px; font-size: 12px;"><span style="color: ${statusColor}; font-weight: 600;">${statusStr}</span></td>
+                <td style="padding: 10px 8px; font-size: 12px; color: #555;">${s.lastVisit ? formatDate(s.lastVisit) : '-'}</td>
+                <td style="padding: 10px 8px; font-size: 11px; color: #333;">${ruptureText}</td>
+                <td style="padding: 10px 8px; font-size: 12px; color: #555; text-align: center;">${s.frequency || 1}x/sem</td>
+            </tr>
+        `;
+    });
+    
+    const tableHtml = `
+        <table style="width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif;">
+            <thead>
+                <tr style="background: #f4f6f9; border-bottom: 2px solid #ddd;">
+                    <th style="padding: 12px 8px; text-align: left; font-size: 12px; color: #333; text-transform: uppercase; width: 25%;">Loja</th>
+                    <th style="padding: 12px 8px; text-align: left; font-size: 12px; color: #333; text-transform: uppercase; width: 15%;">Rede</th>
+                    <th style="padding: 12px 8px; text-align: left; font-size: 12px; color: #333; text-transform: uppercase; width: 10%;">Status</th>
+                    <th style="padding: 12px 8px; text-align: left; font-size: 12px; color: #333; text-transform: uppercase; width: 10%;">Última Visita</th>
+                    <th style="padding: 12px 8px; text-align: left; font-size: 12px; color: #333; text-transform: uppercase; width: 30%;">Rupturas (Última Visita)</th>
+                    <th style="padding: 12px 8px; text-align: center; font-size: 12px; color: #333; text-transform: uppercase; width: 10%;">Frequência</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+    `;
+    
+    const container = document.createElement('div');
+    container.innerHTML = header + tableHtml;
+    container.style.padding = '20px';
+    container.style.background = 'white';
+    container.style.color = 'black';
+    container.style.width = '297mm'; // A4 Landscape
+    container.style.boxSizing = 'border-box';
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    document.body.appendChild(container);
+    
+    exportHtmlToPdf(container, opt);
+};
 
 
 
