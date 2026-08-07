@@ -239,7 +239,7 @@ Este projeto é propriedade da **HiperRoll Embalagens**. Uso interno apenas.
 
 ## 👤 Autor
 
-Desenvolvido por **Leon Rodrigues**  
+Desenvolvido por **Leon Hauck**  
 Empresa: **HiperRoll Embalagens**  
 Data: Junho 2026
 
