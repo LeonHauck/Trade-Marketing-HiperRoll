@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // storage.js — Camada de sincronização com o servidor
 // Detecta automaticamente se está rodando no servidor ou local
 // ============================================================
@@ -54,6 +54,11 @@ const Storage = (function () {
     // --- Sincroniza visitas para o servidor (background) ---
     async function syncVisits(visits) {
         return await call('save_visits', { visits });
+    }
+
+    // --- Deleta visitas especificamente no servidor ---
+    async function deleteVisits(visitIds) {
+        return await call('delete_visits', { visit_ids: visitIds });
     }
 
     // --- Sincroniza atualizações de lojas para o servidor ---
@@ -132,6 +137,7 @@ const Storage = (function () {
         isServer,
         loadFromServer,
         syncVisits,
+        deleteVisits,
         syncStoreUpdates,
         syncRuptures,
         syncDismissed,

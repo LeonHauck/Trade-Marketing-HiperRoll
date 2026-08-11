@@ -82,7 +82,54 @@ switch ($action) {
     // ── Salva visitas ─────────────────────────────────────────
     case 'save_visits':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
-        $ok = writeData('visits.json', $body['visits'] ?? []);
+        
+        $incomingVisits = $body['visits'] ?? [];
+        if (!is_array($incomingVisits)) $incomingVisits = [];
+        
+        // Estratégia de MERGE para evitar perda de dados
+        $currentVisits = readData('visits.json', []);
+        
+        // Mapeia as visitas atuais pelo ID para busca rápida
+        $visitsMap = [];
+        foreach ($currentVisits as $v) {
+            if (isset($v['id'])) {
+                $visitsMap[$v['id']] = $v;
+            }
+        }
+        
+        // Atualiza ou insere as visitas recebidas
+        foreach ($incomingVisits as $v) {
+            if (isset($v['id'])) {
+                $visitsMap[$v['id']] = $v;
+            }
+        }
+        
+        // Transforma de volta num array reindexado
+        $mergedVisits = array_values($visitsMap);
+        
+        $ok = writeData('visits.json', $mergedVisits);
+        echo json_encode(['ok' => $ok]);
+        break;
+
+    // ── Exclui visitas especificamente ────────────────────────
+    case 'delete_visits':
+        if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
+        
+        $idsToDelete = $body['visit_ids'] ?? [];
+        if (!is_array($idsToDelete) || empty($idsToDelete)) {
+            echo json_encode(['ok' => true]);
+            break;
+        }
+        
+        $currentVisits = readData('visits.json', []);
+        
+        // Filtra mantendo apenas visitas que NÃO estão na lista de exclusão
+        $filteredVisits = array_filter($currentVisits, function($v) use ($idsToDelete) {
+            return isset($v['id']) && !in_array($v['id'], $idsToDelete);
+        });
+        
+        $mergedVisits = array_values($filteredVisits);
+        $ok = writeData('visits.json', $mergedVisits);
         echo json_encode(['ok' => $ok]);
         break;
 

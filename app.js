@@ -234,22 +234,19 @@ async function persistLocalStorageJson(key, value) {
 async function cleanPersistedDataForRemovedStores() {
     const existingStoreIds = new Set(stores.map(s => s.id));
 
-    const cleanedVisits = visits.filter(v => existingStoreIds.has(v.storeId));
-    if (cleanedVisits.length !== visits.length) {
-        visits = cleanedVisits;
-        await persistLocalStorageJson('hr_visits', visits);
+    // SEGURANÇA: NÃO deletar visitas de lojas removidas para evitar perda de dados.
+    // Apenas logar um aviso para auditoria.
+    const orphanedVisits = visits.filter(v => !existingStoreIds.has(v.storeId));
+    if (orphanedVisits.length > 0) {
+        console.warn(`[SEGURANÇA] ${orphanedVisits.length} visitas pertencem a lojas não encontradas no data.js. Os dados foram PRESERVADOS.`);
+        console.warn('[SEGURANÇA] IDs de lojas órfãs:', [...new Set(orphanedVisits.map(v => v.storeId))]);
     }
 
+    // Limpar apenas rupturas validadas e resolvidas (dados menos críticos)
     const cleanedValidatedRuptures = validatedRuptures.filter(r => existingStoreIds.has(r.storeId));
     if (cleanedValidatedRuptures.length !== validatedRuptures.length) {
         validatedRuptures = cleanedValidatedRuptures;
         await persistLocalStorageJson('hr_validated_ruptures', validatedRuptures);
-    }
-
-    const cleanedResolvedHistory = resolvedRupturesHistory.filter(item => existingStoreIds.has(item.storeId));
-    if (cleanedResolvedHistory.length !== resolvedRupturesHistory.length) {
-        resolvedRupturesHistory = cleanedResolvedHistory;
-        await persistLocalStorageJson('hr_resolved_ruptures_history', resolvedRupturesHistory);
     }
 
     const storeUpdates = await loadStoreUpdates();
@@ -1974,16 +1971,7 @@ function getFilteredHistoryData() {
         }
         return matchesText && matchesDate && matchesNetwork && matchesProduct && matchesObservation && matchesExtraPoints && matchesExtraVisits && includeVisit;
     });
-
-    // Mostrar apenas a última visita por loja no histórico
-    const latestVisitByStore = new Map();
-    filteredVisits.forEach(visit => {
-        const existing = latestVisitByStore.get(visit.storeId);
-        if (!existing || visit.date > existing.date) {
-            latestVisitByStore.set(visit.storeId, visit);
-        }
-    });
-    const latestVisits = Array.from(latestVisitByStore.values()).sort((a, b) => b.date.localeCompare(a.date));
+    filteredVisits.sort((a, b) => b.date.localeCompare(a.date));
 
     const filteredResolved = statusFilter === 'active' ? [] : [...resolvedRupturesHistory].filter(item => {
         const matchesText = !filters.searchTerm || (item.storeName || '').toLowerCase().includes(filters.searchTerm) || (item.productName || '').toLowerCase().includes(filters.searchTerm);
@@ -1991,8 +1979,6 @@ function getFilteredHistoryData() {
         const matchesProduct = filters.selectedProductIds.length === 0 || filters.selectedProductIds.includes(String(item.productId));
         return matchesText && matchesDate && matchesProduct;
     });
-
-    return { filteredVisits: latestVisits, filteredResolved };
 
     return { filteredVisits, filteredResolved };
 }
@@ -2013,8 +1999,16 @@ function renderHistoryViewData() {
         } else {
             tbodyVisits.innerHTML = '';
             
+            // FILTRO DE UI: Mostrar apenas a visita mais recente por loja na tela
+            const seenStores = new Set();
+            const uiVisits = filteredVisits.filter(visit => {
+                if (seenStores.has(visit.storeId)) return false;
+                seenStores.add(visit.storeId);
+                return true;
+            });
+
             const limit = window.historyVisitsLimit || 50;
-            filteredVisits.slice(0, limit).forEach(visit => {
+            uiVisits.slice(0, limit).forEach(visit => {
                 const store = stores.find(s => s.id === visit.storeId);
                 const summary = getVisitResolutionSummary(visit);
                 const row = document.createElement('tr');
@@ -2031,9 +2025,9 @@ function renderHistoryViewData() {
                 tbodyVisits.appendChild(row);
             });
             
-            if (filteredVisits.length > limit) {
+            if (uiVisits.length > limit) {
                 const loadMore = document.createElement('tr');
-                loadMore.innerHTML = `<td colspan="7" style="text-align:center; padding:15px;"><button class="btn btn-secondary" onclick="window.historyVisitsLimit += 50; renderHistoryViewData();">Carregar mais ${Math.min(50, filteredVisits.length - limit)} (Restam ${filteredVisits.length - limit})</button></td>`;
+                loadMore.innerHTML = `<td colspan="7" style="text-align:center; padding:15px;"><button class="btn btn-secondary" onclick="window.historyVisitsLimit += 50; renderHistoryViewData();">Carregar mais ${Math.min(50, uiVisits.length - limit)} (Restam ${uiVisits.length - limit})</button></td>`;
                 tbodyVisits.appendChild(loadMore);
             }
         }
@@ -2164,10 +2158,19 @@ window.deleteSelectedVisits = async function() {
         // Captura lojas afetadas antes de remover as visitas
         const affectedStoreIds = new Set(visits.filter(v => selectedIds.includes(v.id)).map(v => v.storeId));
 
+        // Deleta as fotos de cada visita no servidor (se aplicável)
+        if (typeof Storage !== 'undefined' && Storage.isServer) {
+            for (const id of selectedIds) {
+                await Storage.deleteVisitPhotos(id);
+            }
+            // Deleta as visitas especificamente no servidor
+            await Storage.deleteVisits(selectedIds);
+        }
+
         // Remove visitas
         visits = visits.filter(v => !selectedIds.includes(v.id));
 
-        // Persistência e sincronização
+        // Persistência e sincronização local
         persistAppState();
 
         // Recalcula status das lojas afetadas e atualiza views
@@ -2192,6 +2195,7 @@ window.deleteVisit = async function(id) {
         // Se tiver Storage server
         if (typeof Storage !== 'undefined' && Storage.isServer) {
             await Storage.deleteVisitPhotos(id);
+            await Storage.deleteVisits([id]);
             await syncAppStateServer();
         }
 
