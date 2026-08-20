@@ -1326,6 +1326,42 @@ const STORES_DATA = [
         "lastVisit":  null
     },
     {
+        "id":  "bahamas-jf-24-emporio-bahamas-jf-cascatinha",
+        "name":  "24 - EMPORIO BAHAMAS JF CASCATINHA",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "frequency": 2,
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-6-emporio-bahamas-jf-sao-mateus",
+        "name":  "6 - EMPORIO BAHAMAS JF SAO MATEUS",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "frequency": 2,
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-54-bahamas-express-jf-rio-branco",
+        "name":  "54 - BAHAMAS EXPRESS JF RIO BRANCO",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "frequency": 2,
+        "lastVisit":  null
+    },
+    {
         "id":  "bahamas-95-bahamas-mix-ube-segismundo",
         "name":  "95 - BAHAMAS MIX UBE SEGISMUNDO",
         "network":  "BAHAMAS",
@@ -3022,3 +3058,4 @@ const STORES_DATA = [
         "status": "pending",
         "lastVisit": null
     }];
+
