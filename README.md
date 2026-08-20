@@ -245,4 +245,4 @@ Data: Junho 2026
 
 ---
 
-**Made with ❤️ for HiperRoll Embalagens**
+**Made for HiperRoll Embalagens**
