@@ -1,4 +1,4 @@
-const PRODUCTS_DATA = [
+﻿const PRODUCTS_DATA = [
     {
         "status":  "ATIVO",
         "name":  "ECONOMICO 30L",
@@ -1187,15 +1187,9 @@ const STORES_DATA = [
         "name":  "82 - BAHAMAS MIX ARAXA SANTO ANTONIO",
         "network":  "BAHAMAS",
         "productIds":  [
-                           "bobina-30x40",
-                           "bobina-20x30",
-                           "bobina-25x35",
-                           "sacola-38x48",
-                           "sacola-29x39",
                            "lixo-bahamas-30l",
                            "lixo-bahamas-50l",
-                           "lixo-bahamas-100l",
-                           "pending"
+                           "lixo-bahamas-100l"
                        ],
         "lastVisit":  null
     },
