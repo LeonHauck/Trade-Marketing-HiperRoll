@@ -1310,6 +1310,42 @@ const STORES_DATA = [
     {
         "id":  "bahamas-jf-92-supermercado-bahamas-jf-linhares",
         "name":  "92 - SUPERMERCADO BAHAMAS JF LINHARES",
+            {
+                "id":  "bahamas-jf-24-emporio-bahamas-jf-cascatinha",
+                "name":  "24 - EMPORIO BAHAMAS JF CASCATINHA",
+                "network":  "BAHAMAS JF",
+                "productIds":  [
+                                   "lixo-bahamas-30l",
+                                   "lixo-bahamas-50l",
+                                   "lixo-bahamas-100l"
+                               ],
+                "frequency": 2,
+                "lastVisit":  null
+            },
+            {
+                "id":  "bahamas-jf-6-emporio-bahamas-jf-sao-mateus",
+                "name":  "6 - EMPORIO BAHAMAS JF SAO MATEUS",
+                "network":  "BAHAMAS JF",
+                "productIds":  [
+                                   "lixo-bahamas-30l",
+                                   "lixo-bahamas-50l",
+                                   "lixo-bahamas-100l"
+                               ],
+                "frequency": 2,
+                "lastVisit":  null
+            },
+            {
+                "id":  "bahamas-jf-54-bahamas-express-jf-rio-branco",
+                "name":  "54 - BAHAMAS EXPRESS JF RIO BRANCO",
+                "network":  "BAHAMAS JF",
+                "productIds":  [
+                                   "lixo-bahamas-30l",
+                                   "lixo-bahamas-50l",
+                                   "lixo-bahamas-100l"
+                               ],
+                "frequency": 2,
+                "lastVisit":  null
+            },
         "network":  "BAHAMAS JF",
         "productIds":  [
                            "economico-100l",
@@ -1323,42 +1359,6 @@ const STORES_DATA = [
                            "lixo-bahamas-100l",
                            "pending"
                        ],
-        "lastVisit":  null
-    },
-    {
-        "id":  "bahamas-jf-24-emporio-bahamas-jf-cascatinha",
-        "name":  "24 - EMPORIO BAHAMAS JF CASCATINHA",
-        "network":  "BAHAMAS JF",
-        "productIds":  [
-                           "lixo-bahamas-30l",
-                           "lixo-bahamas-50l",
-                           "lixo-bahamas-100l"
-                       ],
-        "frequency": 2,
-        "lastVisit":  null
-    },
-    {
-        "id":  "bahamas-jf-6-emporio-bahamas-jf-sao-mateus",
-        "name":  "6 - EMPORIO BAHAMAS JF SAO MATEUS",
-        "network":  "BAHAMAS JF",
-        "productIds":  [
-                           "lixo-bahamas-30l",
-                           "lixo-bahamas-50l",
-                           "lixo-bahamas-100l"
-                       ],
-        "frequency": 2,
-        "lastVisit":  null
-    },
-    {
-        "id":  "bahamas-jf-54-bahamas-express-jf-rio-branco",
-        "name":  "54 - BAHAMAS EXPRESS JF RIO BRANCO",
-        "network":  "BAHAMAS JF",
-        "productIds":  [
-                           "lixo-bahamas-30l",
-                           "lixo-bahamas-50l",
-                           "lixo-bahamas-100l"
-                       ],
-        "frequency": 2,
         "lastVisit":  null
     },
     {
