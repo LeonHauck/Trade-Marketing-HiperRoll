@@ -196,6 +196,7 @@ let validatedRuptures = [];
 let dismissedNotifications = [];
 let resolvedRupturesHistory = [];
 let historyBackfillNotice = '';
+let routePlans = []; // planos de rota semanal (aba "Rotas") — persistência local, sem sync com servidor
 
 // Funções auxiliares para o padrão de atualizações leves de lojas
 async function loadStoreUpdates() {
@@ -216,6 +217,13 @@ async function saveStoreUpdates() {
     }
 }
 
+// Aplica as coordenadas geocodificadas (store-geo.js) sobre um registro de loja,
+// seguindo o mesmo padrão de "overlay" já usado para lastVisit/currentStatus.
+function applyStoreGeo(store) {
+    const geo = (typeof STORE_GEO_DATA !== 'undefined') ? STORE_GEO_DATA[store.id] : null;
+    return geo ? { ...store, address: geo.address, lat: geo.lat, lng: geo.lng } : store;
+}
+
 async function saveAppStateLocally() {
     await saveStoreUpdates();
     try {
@@ -223,6 +231,7 @@ async function saveAppStateLocally() {
         await IndexedDBHelper.set('hr_validated_ruptures', validatedRuptures);
         await IndexedDBHelper.set('hr_dismissed', dismissedNotifications);
         await IndexedDBHelper.set('hr_resolved_ruptures_history', resolvedRupturesHistory);
+        await IndexedDBHelper.set('hr_route_plans', routePlans);
     } catch (e) {
         console.warn('Falha ao salvar estado local:', e);
     }
@@ -311,12 +320,14 @@ async function initializeAppDatabase() {
     validatedRuptures = (await IndexedDBHelper.get('hr_validated_ruptures')) || [];
     dismissedNotifications = (await IndexedDBHelper.get('hr_dismissed')) || [];
     resolvedRupturesHistory = (await IndexedDBHelper.get('hr_resolved_ruptures_history')) || [];
+    routePlans = (await IndexedDBHelper.get('hr_route_plans')) || [];
 
     const _storeUpdates = await loadStoreUpdates();
-    stores = (initialData.stores || []).map(s => {
-        const upd = _storeUpdates[s.id];
-        return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s };
-    });
+    stores = (initialData.stores || []).map(s => applyStoreGeo(
+        _storeUpdates[s.id]
+            ? { ...s, lastVisit: _storeUpdates[s.id].lastVisit, currentStatus: _storeUpdates[s.id].currentStatus }
+            : { ...s }
+    ));
 
     await cleanPersistedDataForRemovedStores();
     dbLoaded = true;
@@ -736,6 +747,262 @@ function checkOverdueStores() {
     });
 }
 
+// ===================================================================
+// ROTAS — priorização, geometria e montagem de rota (aba "Rotas")
+// ===================================================================
+
+const ROUTE_OVERDUE_WEIGHT = 0.6;
+const ROUTE_RUPTURE_WEIGHT = 0.4;
+const ROUTE_RUPTURE_SATURATION = 5; // a partir daqui o "peso" de ruptura satura em 1.0
+
+const AVG_URBAN_SPEED_KMH = 28;  // velocidade média assumida para estimar deslocamento
+const VISIT_DURATION_MIN = 30;   // tempo fixo de visita por loja
+const DAILY_BUDGET_MIN = 8 * 60; // jornada de trabalho considerada (8h)
+const ROUTE_DAY_START_MIN = 8 * 60; // rota do dia começa às 08:00
+const ROUTE_SCHEDULING_THRESHOLD = 0.35; // score mínimo pra loja entrar na sugestão automática
+const ROUTE_WEEK_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const ROUTE_DAY_LABELS = { mon: 'Segunda', tue: 'Terça', wed: 'Quarta', thu: 'Quinta', fri: 'Sexta', sat: 'Sábado' };
+
+// Contagem de rupturas ativas por loja, pré-computada em uma única passada
+// (mesmo espírito do índice de visitas: evita filtrar validatedRuptures inteiro por loja).
+function countActiveRupturesByStore() {
+    const map = new Map();
+    for (const r of validatedRuptures) {
+        map.set(r.storeId, (map.get(r.storeId) || 0) + 1);
+    }
+    return map;
+}
+
+/**
+ * Score de prioridade de visita (0..1): combina atraso relativo à frequência
+ * esperada com a pressão de rupturas ativas. Quanto maior, mais a loja precisa
+ * de uma visita.
+ */
+function computeStorePriorityScore(store, activeRuptureCount, referenceDate) {
+    const freq = store.frequency || 1;
+    const idealIntervalDays = 7 / freq;
+    const daysSinceLastVisit = store.lastVisit
+        ? (referenceDate - new Date(store.lastVisit + 'T12:00:00')) / 86400000
+        : idealIntervalDays * 3; // nunca visitada → trata como bem atrasada
+    const overdueRatio = Math.min(3, Math.max(0, daysSinceLastVisit / idealIntervalDays)) / 3;
+    const rupturePressure = Math.min(1, activeRuptureCount / ROUTE_RUPTURE_SATURATION);
+    return ROUTE_OVERDUE_WEIGHT * overdueRatio + ROUTE_RUPTURE_WEIGHT * rupturePressure;
+}
+
+// Distância em linha reta entre duas coordenadas (km) — fórmula de Haversine.
+function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Tempo estimado de deslocamento entre duas lojas, em minutos (null se alguma não tem coordenada).
+function travelTimeMin(storeA, storeB) {
+    if (!storeA || !storeB || !storeA.lat || !storeA.lng || !storeB.lat || !storeB.lng) return null;
+    const km = haversineKm(storeA.lat, storeA.lng, storeB.lat, storeB.lng);
+    return (km / AVG_URBAN_SPEED_KMH) * 60;
+}
+
+// Duração total estimada de uma rota já ordenada (minutos): visitas + deslocamentos.
+function routeTotalMinutes(orderedStores) {
+    let total = orderedStores.length * VISIT_DURATION_MIN;
+    for (let i = 1; i < orderedStores.length; i++) {
+        total += travelTimeMin(orderedStores[i - 1], orderedStores[i]) || 0;
+    }
+    return total;
+}
+
+function routeDistanceKm(orderedStores) {
+    let total = 0;
+    for (let i = 1; i < orderedStores.length; i++) {
+        const a = orderedStores[i - 1], b = orderedStores[i];
+        if (a.lat && b.lat) total += haversineKm(a.lat, a.lng, b.lat, b.lng);
+    }
+    return total;
+}
+
+/**
+ * Ordena um conjunto de lojas (todas precisam ter lat/lng) pela melhor rota
+ * possível sem depender de API externa: constrói uma rota inicial pelo vizinho
+ * mais próximo e refina com 2-opt (inverte trechos enquanto encurtar a distância).
+ * Heurística — não é ótimo global, mas é suficiente para rotas de 10-20 lojas/dia.
+ */
+function buildOptimalRoute(storesToVisit, startingPoint = null) {
+    const usable = storesToVisit.filter(s => s && s.lat && s.lng);
+    if (usable.length <= 2) return usable;
+
+    // 1. Construção inicial: vizinho mais próximo
+    const unvisited = new Set(usable);
+    let current = startingPoint && startingPoint.lat ? startingPoint : usable[0];
+    if (unvisited.has(current)) unvisited.delete(current);
+    const route = [current];
+    while (unvisited.size > 0) {
+        let nearest = null, nearestDist = Infinity;
+        for (const s of unvisited) {
+            const d = haversineKm(current.lat, current.lng, s.lat, s.lng);
+            if (d < nearestDist) { nearestDist = d; nearest = s; }
+        }
+        route.push(nearest);
+        unvisited.delete(nearest);
+        current = nearest;
+    }
+
+    // 2. Melhoria local 2-opt
+    const segDist = (i, j) => haversineKm(route[i].lat, route[i].lng, route[j].lat, route[j].lng);
+    let improved = true;
+    let iterations = 0;
+    while (improved && iterations < 200) {
+        improved = false;
+        iterations++;
+        for (let i = 1; i < route.length - 1; i++) {
+            for (let j = i + 1; j < route.length; j++) {
+                const before = segDist(i - 1, i) + (j + 1 < route.length ? segDist(j, j + 1) : 0);
+                const after = segDist(i - 1, j) + (j + 1 < route.length ? segDist(i, j + 1) : 0);
+                if (after < before - 1e-6) {
+                    // inverte o trecho [i..j]
+                    let lo = i, hi = j;
+                    while (lo < hi) { [route[lo], route[hi]] = [route[hi], route[lo]]; lo++; hi--; }
+                    improved = true;
+                }
+            }
+        }
+    }
+    return route;
+}
+
+// Monta os "stops" de um dia (com horário estimado de chegada) a partir de uma
+// rota já ordenada. scoreByStoreId é opcional (Map storeId -> score, usado no modo automático).
+function buildDayStops(orderedStores, scoreByStoreId) {
+    let clockMin = ROUTE_DAY_START_MIN;
+    return orderedStores.map((store, idx) => {
+        const travelFromPrevMin = idx === 0 ? 0 : Math.round(travelTimeMin(orderedStores[idx - 1], store) || 0);
+        clockMin += travelFromPrevMin;
+        const arrivalEstimateMin = clockMin;
+        clockMin += VISIT_DURATION_MIN;
+        return {
+            storeId: store.id,
+            order: idx,
+            arrivalEstimateMin,
+            travelFromPrevMin,
+            priorityScore: scoreByStoreId ? (scoreByStoreId.get(store.id) ?? null) : null
+        };
+    });
+}
+
+function buildDayFromStores(orderedStores, dateStr, scoreByStoreId) {
+    const stops = buildDayStops(orderedStores, scoreByStoreId);
+    const totalDurationMin = Math.round(routeTotalMinutes(orderedStores));
+    return { date: dateStr, stops, totalDurationMin, withinBudget: totalDurationMin <= DAILY_BUDGET_MIN };
+}
+
+function formatISODate(d) {
+    return d.toISOString().slice(0, 10);
+}
+
+function addDays(dateStr, n) {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return d;
+}
+
+/**
+ * Gera uma sugestão automática de plano semanal (segunda a sábado), priorizando
+ * lojas atrasadas/com ruptura e agrupando geograficamente por dia, respeitando
+ * o orçamento diário de tempo. Heurística gulosa — não é um otimizador global.
+ */
+function generateAutoWeekPlan(weekStartStr, promoterName, eligibleStores) {
+    const referenceDate = new Date(weekStartStr + 'T12:00:00');
+    const ruptureCounts = countActiveRupturesByStore();
+
+    const scoreByStoreId = new Map();
+    eligibleStores.forEach(s => {
+        scoreByStoreId.set(s.id, computeStorePriorityScore(s, ruptureCounts.get(s.id) || 0, referenceDate));
+    });
+
+    // Quantas vezes cada loja "precisa" ser visitada nessa semana, conforme sua frequência,
+    // mas só entra no plano se estiver de fato atrasada/com ruptura (score acima do piso)
+    // ou se a frequência exigir mais de uma visita por semana.
+    let pool = [];
+    eligibleStores.forEach(store => {
+        const score = scoreByStoreId.get(store.id);
+        const freq = store.frequency || 1;
+        if (score >= ROUTE_SCHEDULING_THRESHOLD || freq > 1) {
+            const timesThisWeek = Math.max(1, Math.round(freq));
+            for (let i = 0; i < timesThisWeek; i++) pool.push(store);
+        }
+    });
+    pool.sort((a, b) => scoreByStoreId.get(b.id) - scoreByStoreId.get(a.id));
+
+    const dayBuckets = Object.fromEntries(ROUTE_WEEK_DAYS.map(d => [d, []]));
+    const unscheduled = [];
+
+    pool.forEach(store => {
+        let bestDay = null, bestProximity = Infinity;
+        for (const d of ROUTE_WEEK_DAYS) {
+            const bucket = dayBuckets[d];
+            const currentTotal = routeTotalMinutes(bucket);
+            const lastStop = bucket[bucket.length - 1];
+            const projectedAdd = VISIT_DURATION_MIN + (lastStop ? (travelTimeMin(lastStop, store) || 0) : 0);
+            if (currentTotal + projectedAdd > DAILY_BUDGET_MIN) continue; // sem orçamento sobrando nesse dia
+            const proximity = bucket.length
+                ? Math.min(...bucket.map(s => haversineKm(s.lat, s.lng, store.lat, store.lng)))
+                : 0; // dia vazio: custo zero pra "semear"
+            if (proximity < bestProximity) { bestProximity = proximity; bestDay = d; }
+        }
+        if (bestDay) dayBuckets[bestDay].push(store);
+        else unscheduled.push(store);
+    });
+
+    const days = {};
+    ROUTE_WEEK_DAYS.forEach((d, idx) => {
+        const ordered = buildOptimalRoute(dayBuckets[d]);
+        days[d] = buildDayFromStores(ordered, formatISODate(addDays(weekStartStr, idx)), scoreByStoreId);
+    });
+
+    return {
+        id: 'route-' + Date.now(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        weekStart: weekStartStr,
+        promoterName: promoterName || '',
+        mode: 'auto',
+        days,
+        unscheduledStoreIds: unscheduled.map(s => s.id)
+    };
+}
+
+// URL de rota multi-parada do Google Maps (sem chave de API).
+function buildGoogleMapsUrl(orderedStops) {
+    const usable = orderedStops.filter(s => s && s.lat && s.lng);
+    if (usable.length === 0) return null;
+    const coord = s => `${s.lat},${s.lng}`;
+    const params = new URLSearchParams({
+        api: '1',
+        origin: coord(usable[0]),
+        destination: coord(usable[usable.length - 1]),
+        travelmode: 'driving'
+    });
+    const waypoints = usable.slice(1, -1).map(coord).join('|');
+    if (waypoints) params.set('waypoints', waypoints);
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+window.openRouteInGoogleMaps = function(planId, dayKey) {
+    const plan = routePlans.find(p => p.id === planId);
+    const day = plan && plan.days ? plan.days[dayKey] : null;
+    if (!day || !day.stops || day.stops.length === 0) { alert('Nenhuma parada neste dia.'); return; }
+    const orderedStores = [...day.stops]
+        .sort((a, b) => a.order - b.order)
+        .map(stop => stores.find(st => st.id === stop.storeId))
+        .filter(s => s && s.lat && s.lng);
+    const url = buildGoogleMapsUrl(orderedStores);
+    if (!url) { alert('Nenhuma loja com coordenadas cadastradas neste dia ainda.'); return; }
+    window.open(url, '_blank');
+};
+
 let selectedPhotos = [];
 
 function setupEventListeners() {
@@ -1109,7 +1376,7 @@ function processCSV(csvText) {
         stores = mergedData.stores.map(s => {
             const updates = loadStoreUpdates();
             const upd = updates[s.id];
-            return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s };
+            return applyStoreGeo(upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s });
         });
 
         persistDataOverrides(stores, products);
@@ -1150,6 +1417,9 @@ function renderPage(page) {
         renderStoresListView();
     } else if (page === 'products') {
         renderProductsListView();
+    } else if (page === 'routes') {
+        checkOverdueStores();
+        renderRoutesView();
     }
 }
 
@@ -1778,6 +2048,438 @@ function renderStorePageItems() {
         container.appendChild(item);
     });
 }
+
+// ===================================================================
+// ROTAS — view principal, montagem manual/automática, exportação
+// ===================================================================
+
+function formatMinutesAsClock(totalMin) {
+    const h = Math.floor(totalMin / 60) % 24;
+    const m = Math.round(totalMin % 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function formatDurationHuman(totalMin) {
+    const h = Math.floor(totalMin / 60);
+    const m = Math.round(totalMin % 60);
+    return h > 0 ? `${h}h${m > 0 ? ' ' + m + 'min' : ''}` : `${m}min`;
+}
+
+function renderRoutesView() {
+    const geoCount = stores.filter(s => s.lat && s.lng).length;
+
+    contentArea.innerHTML = `
+        <div class="panel">
+            <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+                <h2>Planejamento de Rotas</h2>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap: wrap;">
+                    <span class="route-geo-coverage"><i class="fa-solid fa-location-dot"></i> ${geoCount} de ${stores.length} lojas com coordenadas</span>
+                    <button class="btn btn-primary" onclick="openRouteBuilder('auto')"><i class="fa-solid fa-plus"></i> Novo Plano Semanal</button>
+                </div>
+            </div>
+            <div id="routePlanListArea" class="route-plan-list"></div>
+        </div>
+        <div id="routeWeekViewArea"></div>
+    `;
+
+    renderRoutePlanList();
+}
+
+function renderRoutePlanList() {
+    const area = document.getElementById('routePlanListArea');
+    if (!area) return;
+
+    if (!routePlans || routePlans.length === 0) {
+        area.innerHTML = `<p class="empty-state">Nenhum plano de rota criado ainda. Clique em "Novo Plano Semanal" para começar.</p>`;
+        return;
+    }
+
+    const sorted = [...routePlans].sort((a, b) => (b.weekStart || '').localeCompare(a.weekStart || ''));
+    area.innerHTML = sorted.map(plan => {
+        const storeCount = ROUTE_WEEK_DAYS.reduce((acc, d) => acc + ((plan.days[d] && plan.days[d].stops) ? plan.days[d].stops.length : 0), 0);
+        return `
+            <div class="route-plan-card">
+                <div>
+                    <strong>Semana de ${formatDate(plan.weekStart)}</strong>
+                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 2px;">
+                        ${plan.promoterName ? `Promotor: ${plan.promoterName} · ` : ''}${storeCount} paradas · ${plan.mode === 'auto' ? 'Sugestão automática' : 'Montagem manual'}
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary btn-small" onclick="openRoutePlan('${plan.id}')"><i class="fa-solid fa-eye"></i> Abrir</button>
+                    <button class="btn btn-secondary btn-small" onclick="exportWeeklyRoutePDF('${plan.id}')"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
+                    <button class="btn-icon text-red" title="Excluir plano" onclick="deleteRoutePlan('${plan.id}')"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.deleteRoutePlan = function(planId) {
+    if (!confirm('Excluir este plano de rota permanentemente?')) return;
+    routePlans = routePlans.filter(p => p.id !== planId);
+    saveAppStateLocally();
+    const weekArea = document.getElementById('routeWeekViewArea');
+    if (weekArea) weekArea.innerHTML = '';
+    renderRoutePlanList();
+};
+
+window.openRoutePlan = function(planId) {
+    const plan = routePlans.find(p => p.id === planId);
+    if (!plan) return;
+    const area = document.getElementById('routeWeekViewArea');
+    if (!area) return;
+    area.innerHTML = renderRouteWeekGridHtml(plan);
+};
+
+function renderRouteWeekGridHtml(plan) {
+    const unscheduledNote = (plan.unscheduledStoreIds && plan.unscheduledStoreIds.length > 0)
+        ? `<p style="color: var(--primary-red); font-size: 0.85rem; margin-top: 10px;"><i class="fa-solid fa-triangle-exclamation"></i> ${plan.unscheduledStoreIds.length} loja(s) não couberam no orçamento de tempo desta semana.</p>`
+        : '';
+
+    const dayCards = ROUTE_WEEK_DAYS.map(d => {
+        const day = plan.days[d];
+        if (!day) return '';
+        const overBudget = !day.withinBudget;
+        const stopsHtml = day.stops.length === 0
+            ? `<p style="color: var(--text-muted); font-size: 0.8rem;">Sem paradas.</p>`
+            : day.stops.map(stop => {
+                const store = stores.find(s => s.id === stop.storeId);
+                return `
+                    <div class="route-stop">
+                        <span class="route-stop-time">${formatMinutesAsClock(stop.arrivalEstimateMin)}</span>
+                        <div>
+                            <div class="route-stop-name">${store ? store.name : 'Loja removida'}</div>
+                            <div class="route-stop-network">${store ? store.network : ''}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        return `
+            <div class="route-day-card ${overBudget ? 'over-budget' : ''}">
+                <div class="route-day-header">
+                    <strong>${ROUTE_DAY_LABELS[d]}</strong>
+                    <span>${formatDate(day.date)}</span>
+                </div>
+                <div class="route-day-duration">${formatDurationHuman(day.totalDurationMin)} ${overBudget ? '· acima do orçamento' : ''}</div>
+                <div>${stopsHtml}</div>
+                ${day.stops.length > 0 ? `<button class="btn btn-secondary btn-small" onclick="openRouteInGoogleMaps('${plan.id}', '${d}')"><i class="fa-solid fa-map-location-dot"></i> Abrir no Google Maps</button>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="panel" style="margin-top: 20px;">
+            <div class="panel-header">
+                <h2>Semana de ${formatDate(plan.weekStart)}${plan.promoterName ? ' — ' + plan.promoterName : ''}</h2>
+                <button class="btn btn-secondary btn-small" onclick="document.getElementById('routeWeekViewArea').innerHTML=''">Fechar</button>
+            </div>
+            ${unscheduledNote}
+            <div class="route-week-grid">${dayCards}</div>
+        </div>
+    `;
+}
+
+// ---------- Modal: novo plano (automático / manual) ----------
+
+window.openRouteBuilder = function(mode) {
+    window._routeManualDraftPlan = window._routeManualDraftPlan || null;
+    window._routeManualOrder = [];
+    const modal = document.getElementById('routeBuilderModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    switchRouteBuilderMode(mode || 'auto');
+};
+
+window.switchRouteBuilderMode = function(mode) {
+    const body = document.getElementById('routeBuilderBody');
+    if (!body) return;
+    const toggle = `
+        <div class="route-mode-toggle">
+            <button class="btn ${mode === 'auto' ? 'btn-primary' : 'btn-secondary'}" onclick="switchRouteBuilderMode('auto')">Sugestão Automática</button>
+            <button class="btn ${mode === 'manual' ? 'btn-primary' : 'btn-secondary'}" onclick="switchRouteBuilderMode('manual')">Montagem Manual</button>
+        </div>
+    `;
+    body.innerHTML = toggle + (mode === 'auto' ? renderRouteBuilderAutoHtml() : renderRouteBuilderManualHtml());
+};
+
+function nextMondayISO() {
+    const d = new Date();
+    const day = d.getDay(); // 0=domingo
+    const diff = (day === 0) ? 1 : (day === 1 ? 0 : 8 - day);
+    d.setDate(d.getDate() + diff);
+    return formatISODate(d);
+}
+
+function renderRouteBuilderAutoHtml() {
+    const geoCount = stores.filter(s => s.lat && s.lng).length;
+    return `
+        <div class="form-group">
+            <label>Semana (segunda-feira)</label>
+            <input type="date" id="routeAutoWeekStart" value="${nextMondayISO()}">
+        </div>
+        <div class="form-group">
+            <label>Promotor (opcional)</label>
+            <input type="text" id="routeAutoPromoterName" placeholder="Nome do promotor">
+        </div>
+        ${geoCount === 0 ? `<p style="color: var(--primary-red); font-size: 0.85rem;">Nenhuma loja tem coordenadas cadastradas ainda — não é possível gerar sugestões.</p>` : ''}
+        <div class="form-actions">
+            <button class="btn btn-success" ${geoCount === 0 ? 'disabled' : ''} onclick="generateAndSaveAutoPlan()">Gerar e Salvar Plano</button>
+        </div>
+    `;
+}
+
+window.generateAndSaveAutoPlan = function() {
+    const weekStart = document.getElementById('routeAutoWeekStart').value;
+    const promoterName = document.getElementById('routeAutoPromoterName').value.trim();
+    if (!weekStart) { alert('Selecione a data da segunda-feira da semana.'); return; }
+
+    const eligibleStores = stores.filter(s => s.lat && s.lng);
+    if (eligibleStores.length === 0) { alert('Nenhuma loja com coordenadas cadastradas ainda.'); return; }
+
+    const plan = generateAutoWeekPlan(weekStart, promoterName, eligibleStores);
+    routePlans.push(plan);
+    saveAppStateLocally();
+
+    document.getElementById('routeBuilderModal').style.display = 'none';
+    renderRoutePlanList();
+    window.openRoutePlan(plan.id);
+};
+
+function renderRouteBuilderManualHtml() {
+    const uniqueNetworks = [...new Set(stores.map(s => s.network))].filter(n => n).sort();
+    const networkOptions = uniqueNetworks.map(net => `
+        <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer;">
+            <input type="checkbox" class="route-network-checkbox" value="${net}" checked onchange="updateRouteStoreChecklist()" style="margin-right: 8px; width: 16px; height: 16px;">
+            <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">${net}</span>
+        </label>
+    `).join('');
+
+    const storeRows = [...stores].sort((a, b) => a.name.localeCompare(b.name)).map(s => {
+        const hasCoords = !!(s.lat && s.lng);
+        return `
+            <div class="route-store-checklist-row ${hasCoords ? '' : 'no-coords'}" data-network="${s.network || ''}" data-name="${normalizeText(s.name)}">
+                <label style="display:flex; align-items:center; gap:8px; flex:1; cursor:${hasCoords ? 'pointer' : 'not-allowed'};">
+                    <input type="checkbox" class="route-store-checkbox" value="${s.id}" ${hasCoords ? '' : 'disabled'}>
+                    <span>${s.name} <span style="color: var(--text-muted); font-size: 0.75rem;">(${s.network || ''})</span></span>
+                </label>
+                ${hasCoords ? '' : '<span style="font-size: 0.7rem; color: var(--text-muted);" title="Sem coordenadas ainda">sem endereço</span>'}
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="checkbox-dropdown filter-select" id="routeNetworkDropdownContainer" style="height: 40px; background: white; border: 1px solid var(--border-color); border-radius: 8px; min-width: 200px; position: relative; margin-bottom: 10px;">
+            <div class="dropdown-header" onclick="toggleDropdown('routeNetworkOptions')" style="height: 100%; display: flex; align-items: center; padding: 0 15px; cursor: pointer; justify-content: space-between;">
+                <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">Filtrar por rede</span>
+                <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem;"></i>
+            </div>
+            <div class="dropdown-options" id="routeNetworkOptions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 1000; max-height: 220px; overflow-y: auto; padding: 10px;">
+                ${networkOptions}
+            </div>
+        </div>
+        <div class="search-bar" style="margin-bottom: 10px;">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="routeStoreSearch" placeholder="Buscar loja..." oninput="updateRouteStoreChecklist()">
+        </div>
+        <div class="product-checklist" id="routeStoreChecklist" style="max-height: 220px;">
+            ${storeRows}
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-secondary" style="width:100%; margin-top: 10px;" onclick="optimizeManualRoute()"><i class="fa-solid fa-route"></i> Otimizar Ordem</button>
+        </div>
+        <div id="routeManualResult"></div>
+        <div id="routeManualDraftSummary"></div>
+    `;
+}
+
+window.updateRouteStoreChecklist = function() {
+    const checkedNets = Array.from(document.querySelectorAll('.route-network-checkbox:checked')).map(cb => cb.value);
+    const search = normalizeText(document.getElementById('routeStoreSearch')?.value || '');
+    document.querySelectorAll('.route-store-checklist-row').forEach(row => {
+        const matchesNet = checkedNets.includes(row.getAttribute('data-network'));
+        const matchesSearch = !search || row.getAttribute('data-name').includes(search);
+        row.style.display = (matchesNet && matchesSearch) ? 'flex' : 'none';
+    });
+};
+
+window.optimizeManualRoute = function() {
+    const checkedIds = Array.from(document.querySelectorAll('.route-store-checkbox:checked')).map(cb => cb.value);
+    if (checkedIds.length < 1) { alert('Selecione ao menos uma loja.'); return; }
+    const selectedStores = checkedIds.map(id => stores.find(s => s.id === id)).filter(Boolean);
+    const ordered = buildOptimalRoute(selectedStores);
+    window._routeManualOrder = ordered.map(s => s.id);
+    renderManualRouteResult();
+};
+
+function renderManualRouteResult() {
+    const resultArea = document.getElementById('routeManualResult');
+    if (!resultArea) return;
+    const orderedStores = window._routeManualOrder.map(id => stores.find(s => s.id === id)).filter(Boolean);
+    if (orderedStores.length === 0) { resultArea.innerHTML = ''; return; }
+
+    const totalMin = Math.round(routeTotalMinutes(orderedStores));
+    const stops = buildDayStops(orderedStores, null);
+
+    const rowsHtml = orderedStores.map((s, idx) => `
+        <div class="route-manual-row">
+            <div class="route-order-btns">
+                <button onclick="moveManualRouteStop(${idx}, -1)" ${idx === 0 ? 'disabled' : ''}><i class="fa-solid fa-caret-up"></i></button>
+                <button onclick="moveManualRouteStop(${idx}, 1)" ${idx === orderedStores.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-caret-down"></i></button>
+            </div>
+            <span class="route-stop-time">${formatMinutesAsClock(stops[idx].arrivalEstimateMin)}</span>
+            <div style="flex:1;">
+                <div class="route-stop-name">${s.name}</div>
+                <div class="route-stop-network">${s.network}</div>
+            </div>
+        </div>
+    `).join('');
+
+    resultArea.innerHTML = `
+        <p style="margin-top: 14px; font-weight: 700; color: var(--navy-deep);">Duração total estimada: ${formatDurationHuman(totalMin)} ${totalMin > DAILY_BUDGET_MIN ? '<span style="color: var(--primary-red);">(acima do orçamento diário de 8h)</span>' : ''}</p>
+        <div class="route-manual-list">${rowsHtml}</div>
+        <div class="form-group" style="margin-top: 14px;">
+            <label>Atribuir esta rota ao dia</label>
+            <select id="routeManualDaySelect">
+                ${ROUTE_WEEK_DAYS.map(d => `<option value="${d}">${ROUTE_DAY_LABELS[d]}</option>`).join('')}
+            </select>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;" onclick="assignManualRouteToDay()"><i class="fa-solid fa-calendar-plus"></i> Adicionar a este dia</button>
+    `;
+}
+
+window.moveManualRouteStop = function(index, direction) {
+    const target = index + direction;
+    if (target < 0 || target >= window._routeManualOrder.length) return;
+    const arr = window._routeManualOrder;
+    [arr[index], arr[target]] = [arr[target], arr[index]];
+    renderManualRouteResult();
+};
+
+window.assignManualRouteToDay = function() {
+    const dayKey = document.getElementById('routeManualDaySelect').value;
+    const orderedStores = window._routeManualOrder.map(id => stores.find(s => s.id === id)).filter(Boolean);
+    if (orderedStores.length === 0) return;
+
+    if (!window._routeManualDraftPlan) {
+        const weekStart = nextMondayISO();
+        window._routeManualDraftPlan = {
+            id: 'route-' + Date.now(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            weekStart,
+            promoterName: '',
+            mode: 'manual',
+            days: {}
+        };
+    }
+    const dayIndex = ROUTE_WEEK_DAYS.indexOf(dayKey);
+    const dateStr = formatISODate(addDays(window._routeManualDraftPlan.weekStart, dayIndex));
+    window._routeManualDraftPlan.days[dayKey] = buildDayFromStores(orderedStores, dateStr, null);
+
+    renderManualDraftSummary();
+};
+
+function renderManualDraftSummary() {
+    const area = document.getElementById('routeManualDraftSummary');
+    if (!area || !window._routeManualDraftPlan) return;
+    const plan = window._routeManualDraftPlan;
+    const assignedDays = ROUTE_WEEK_DAYS.filter(d => plan.days[d]);
+
+    area.innerHTML = `
+        <div style="margin-top: 16px; padding: 12px; background: var(--bg-light); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <strong style="font-size: 0.85rem;">Dias já atribuídos neste plano:</strong>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 10px;">${assignedDays.map(d => ROUTE_DAY_LABELS[d]).join(', ') || 'nenhum ainda'}</p>
+            <div class="form-group">
+                <label>Nome do promotor (opcional)</label>
+                <input type="text" id="routeManualPromoterName" value="${plan.promoterName || ''}" placeholder="Nome do promotor" oninput="window._routeManualDraftPlan.promoterName = this.value">
+            </div>
+            <button class="btn btn-success" style="width:100%;" onclick="saveManualRoutePlan()">Salvar Plano</button>
+        </div>
+    `;
+}
+
+window.saveManualRoutePlan = function() {
+    const plan = window._routeManualDraftPlan;
+    if (!plan) return;
+    // Preenche dias sem rota atribuída como vazios, pra manter o formato consistente
+    ROUTE_WEEK_DAYS.forEach((d, idx) => {
+        if (!plan.days[d]) {
+            plan.days[d] = { date: formatISODate(addDays(plan.weekStart, idx)), stops: [], totalDurationMin: 0, withinBudget: true };
+        }
+    });
+    plan.updatedAt = new Date().toISOString();
+    routePlans.push(plan);
+    saveAppStateLocally();
+
+    window._routeManualDraftPlan = null;
+    window._routeManualOrder = [];
+    document.getElementById('routeBuilderModal').style.display = 'none';
+    renderRoutePlanList();
+    window.openRoutePlan(plan.id);
+};
+
+// ---------- Exportação em PDF do plano semanal ----------
+
+window.exportWeeklyRoutePDF = function(planId) {
+    const plan = routePlans.find(p => p.id === planId);
+    if (!plan) return;
+
+    const opt = {
+        margin: [10, 10],
+        filename: `Rota_Semana_${plan.weekStart}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    const header = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; font-family: 'Outfit', sans-serif; border-bottom: 2px solid #E31E24; padding-bottom: 12px;">
+            <div>
+                <h1 style="color: #E31E24; margin: 0; font-size: 22px; font-weight: 700;">Hiperroll — Plano de Rota Semanal</h1>
+                <h3 style="color: #333; margin: 5px 0 0; font-size: 14px; font-weight: 600;">Semana de ${formatDate(plan.weekStart)}${plan.promoterName ? ' — ' + plan.promoterName : ''}</h3>
+            </div>
+        </div>
+    `;
+
+    const daysHtml = ROUTE_WEEK_DAYS.map(d => {
+        const day = plan.days[d];
+        if (!day || day.stops.length === 0) return '';
+        const rows = day.stops.map(stop => {
+            const store = stores.find(s => s.id === stop.storeId);
+            return `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 6px 8px; font-size: 12px; color: #333;">${formatMinutesAsClock(stop.arrivalEstimateMin)}</td>
+                    <td style="padding: 6px 8px; font-size: 12px; color: #333;">${store ? store.name : 'Loja removida'}</td>
+                    <td style="padding: 6px 8px; font-size: 11px; color: #666;">${store ? store.network : ''}</td>
+                </tr>
+            `;
+        }).join('');
+        return `
+            <div style="margin-bottom: 18px; page-break-inside: avoid;">
+                <h3 style="color: #0054A6; font-size: 14px; margin: 0 0 6px;">${ROUTE_DAY_LABELS[d]} — ${formatDate(day.date)} · ${formatDurationHuman(day.totalDurationMin)}</h3>
+                <table style="width:100%; border-collapse: collapse;">
+                    <thead><tr style="background:#f4f6f9;"><th style="padding:6px 8px; text-align:left; font-size:11px;">Horário</th><th style="padding:6px 8px; text-align:left; font-size:11px;">Loja</th><th style="padding:6px 8px; text-align:left; font-size:11px;">Rede</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
+
+    const container = document.createElement('div');
+    container.innerHTML = header + (daysHtml || '<p>Nenhuma parada neste plano.</p>');
+    container.style.padding = '20px';
+    container.style.background = 'white';
+    container.style.color = 'black';
+    container.style.width = '210mm';
+    container.style.boxSizing = 'border-box';
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    document.body.appendChild(container);
+
+    exportHtmlToPdf(container, opt);
+};
 
 function renderProductsListView() {
     contentArea.innerHTML = `
