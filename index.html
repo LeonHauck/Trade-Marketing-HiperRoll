@@ -102,6 +102,10 @@
                     <i class="fa-solid fa-clock-rotate-left"></i>
                     <span>Histórico de Visitas</span>
                 </a>
+                <a href="#" class="nav-item" data-page="routes">
+                    <i class="fa-solid fa-route"></i>
+                    <span>Rotas</span>
+                </a>
                 <a href="#" class="nav-item" data-page="history">
                     <i class="fa-solid fa-exclamation-triangle"></i>
                     <span>Rupturas</span>
@@ -254,6 +258,19 @@
         </div>
     </div>
 
+    <!-- Modal for Route Builder -->
+    <div id="routeBuilderModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Novo Plano de Rota Semanal</h2>
+                <span class="close-modal" onclick="document.getElementById('routeBuilderModal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body" id="routeBuilderBody">
+                <!-- Injected by JS -->
+            </div>
+        </div>
+    </div>
+
     <!-- Modal for New Visit -->
     <div id="visitModal" class="modal">
         <div class="modal-content">
@@ -346,6 +363,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script defer src="data.js?v=20260713"></script>
+    <script defer src="store-geo.js?v=20260821"></script>
     <script defer src="storage.js?v=20260713"></script>
     <script defer src="db.js?v=20260713"></script>
     <script defer src="app.js?v=20260713"></script>
