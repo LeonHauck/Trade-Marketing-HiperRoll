@@ -163,6 +163,35 @@ const photoCache = {};
 let visits = [];
 let dbLoaded = false;
 
+// Índice loja -> suas visitas (ordenadas da mais recente para a mais antiga).
+// Construído sob demanda e reaproveitado entre telas: evita varrer o array
+// inteiro de visitas para cada uma das lojas toda vez que uma tela é (re)desenhada.
+let _visitsByStoreIndex = null;
+
+function invalidateVisitsIndex() {
+    _visitsByStoreIndex = null;
+}
+
+function getVisitsByStoreIndex() {
+    if (_visitsByStoreIndex) return _visitsByStoreIndex;
+    const map = new Map();
+    for (const v of visits) {
+        let arr = map.get(v.storeId);
+        if (!arr) { arr = []; map.set(v.storeId, arr); }
+        arr.push(v);
+    }
+    for (const arr of map.values()) {
+        arr.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+    _visitsByStoreIndex = map;
+    return map;
+}
+
+// Visitas de uma loja, já ordenadas da mais recente para a mais antiga.
+function getStoreVisitsIndexed(storeId) {
+    return getVisitsByStoreIndex().get(storeId) || [];
+}
+
 let validatedRuptures = [];
 let dismissedNotifications = [];
 let resolvedRupturesHistory = [];
@@ -276,6 +305,7 @@ async function initializeAppDatabase() {
         }
         return v;
     });
+    invalidateVisitsIndex();
     if (dirty) await persistLocalStorageJson('hr_visits', visits);
 
     validatedRuptures = (await IndexedDBHelper.get('hr_validated_ruptures')) || [];
@@ -596,7 +626,7 @@ async function init() {
         const serverData = await Storage.loadFromServer();
         if (serverData) {
             // Merge server state with local state to avoid overwriting local resolutions.
-            if (serverData.visits) visits = serverData.visits;
+            if (serverData.visits) { visits = serverData.visits; invalidateVisitsIndex(); }
 
             // Build resolved keys from server and local resolved history
             const serverResolved = Array.isArray(serverData.resolved_history) ? serverData.resolved_history : [];
@@ -679,6 +709,8 @@ function checkOverdueStores() {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setHours(0, 0, 0, 0);
     
+    const visitsByStore = getVisitsByStoreIndex();
+
     stores.forEach(store => {
         if (!store.lastVisit) {
             store.currentStatus = 'pending';
@@ -686,14 +718,15 @@ function checkOverdueStores() {
         }
 
         const freq = store.frequency || 1; // visitas esperadas por semana
-        
+
         // Contar quantas visitas essa loja teve nos últimos 7 dias
-        const visitsLast7Days = visits.filter(v => {
-            if (v.storeId !== store.id) return false;
+        // (usa o índice pré-agrupado por loja em vez de varrer todas as visitas do sistema)
+        const storeVisits = visitsByStore.get(store.id) || [];
+        const visitsLast7Days = storeVisits.filter(v => {
             const vDate = new Date(v.date + 'T12:00:00');
             return vDate >= sevenDaysAgo && vDate <= now;
         }).length;
-        
+
         // Se a loja teve visitas suficientes nos últimos 7 dias → visitada
         if (visitsLast7Days >= freq) {
             store.currentStatus = 'visited';
@@ -1668,7 +1701,7 @@ window.updateStoreFilters = function() {
 };
 
 function getStoreLatestExtraPoints(storeId) {
-    const storeVisits = visits.filter(v => v.storeId === storeId).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const storeVisits = getStoreVisitsIndexed(storeId); // já ordenadas: mais recente primeiro
     if (storeVisits.length > 0) {
         return storeVisits[0].extraPoints || [];
     }
@@ -2169,6 +2202,7 @@ window.deleteSelectedVisits = async function() {
 
         // Remove visitas
         visits = visits.filter(v => !selectedIds.includes(v.id));
+        invalidateVisitsIndex();
 
         // Persistência e sincronização local
         persistAppState();
@@ -2190,6 +2224,7 @@ window.deleteVisit = async function(id) {
 
         // Remove a visita do histórico
         visits = visits.filter(v => v.id !== id);
+        invalidateVisitsIndex();
         saveAppStateLocally(); // fire and forget
 
         // Se tiver Storage server
@@ -2241,6 +2276,7 @@ window.editVisitDate = function(id) {
         // Validação simples de formato AAAA-MM-DD
         if (/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
             visit.date = newDate;
+            invalidateVisitsIndex();
             recomputeStoreStatus(visit.storeId);
             saveAppStateLocally(); // fire and forget
             if (typeof Storage !== 'undefined' && Storage.isServer) syncAppStateServer();
@@ -2519,7 +2555,7 @@ function buildReportInsightsHTML(filteredVisits) {
     sentences.push(`Total de visitas no relatório: <strong>${filteredVisits.length}</strong>.`);
     sentences.push(`Lojas diferentes no recorte: <strong>${storeMap.size}</strong>.`);
     sentences.push(`Rede mais registrada: <strong>${topNetwork[0]}</strong> (${topNetwork[1]} visitas).`);
-    sentences.push(`Taxa Geral de Ruptura: <strong style="color: #E53935;">${generalRuptureRate}%</strong> (Média de ${(totalRuptureItems / Math.max(1, filteredVisits.length)).toFixed(1)} Itens/visita).`);
+    sentences.push(`Taxa Geral de Ruptura: <strong style="color: #E31E24;">${generalRuptureRate}%</strong> (Média de ${(totalRuptureItems / Math.max(1, filteredVisits.length)).toFixed(1)} Itens/visita).`);
     sentences.push(improvedText);
     sentences.push(worsenedText);
 
@@ -2959,7 +2995,7 @@ window.exportVisitsPDF = async function() {
             labels: ['Com Ruptura', 'Sem Ruptura'],
             datasets: [{
                 data: [visitsWithRupture, visitsWithout],
-                backgroundColor: ['#E53935', '#27ae60']
+                backgroundColor: ['#E31E24', '#27ae60']
             }]
         },
         plugins: [{
@@ -2999,7 +3035,7 @@ window.exportVisitsPDF = async function() {
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; font-family: 'Outfit', sans-serif; border-bottom: 2px solid #0047AB; padding-bottom: 14px; width: 100%; box-sizing: border-box;">
             <div style="text-align: left; flex: 1; padding-right: 20px;">
                 <h1 style="color: #0047AB; margin: 0; font-size: 24px; font-weight: 700;">Hiperroll Embalagens</h1>
-                <h3 style="color: #E53935; margin: 6px 0 0; font-size: 16px; font-weight: 600;">Relatório de Visitas Trade Marketing</h3>
+                <h3 style="color: #E31E24; margin: 6px 0 0; font-size: 16px; font-weight: 600;">Relatório de Visitas Trade Marketing</h3>
                 <p style="font-size: 10px; color: #666; margin: 6px 0 0; font-weight: 400;">Gerado em: ${new Date().toLocaleString()}</p>
                 <p style="font-size: 11px; color: #333; margin: 4px 0 0; font-weight: 600; white-space: normal; overflow-wrap: anywhere;">Responsável: Nicole Portela - Trade Marketing</p>
             </div>
@@ -3039,7 +3075,7 @@ window.exportVisitsPDF = async function() {
                         <span style="color: #555;">${strOk}</span>
                     </div>
                     <div>
-                        <strong style="color: #E53935; display: block; margin-bottom: 2px; white-space: nowrap;">Com Ruptura (Composição por Rede)</strong>
+                        <strong style="color: #E31E24; display: block; margin-bottom: 2px; white-space: nowrap;">Com Ruptura (Composição por Rede)</strong>
                         <span style="color: #555;">${strRup}</span>
                     </div>
                 </div>
@@ -3110,7 +3146,7 @@ window.exportDashboardPDF = function() {
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; font-family: 'Outfit', sans-serif; border-bottom: 2px solid #0047AB; padding-bottom: 15px; width: 100%; box-sizing: border-box;">
             <div style="text-align: left; flex: 1; padding-right: 20px;">
                 <h1 style="color: #0047AB; margin: 0; font-size: 24px; font-weight: 700;">Hiperroll Embalagens</h1>
-                <h3 style="color: #E53935; margin: 5px 0 0; font-size: 16px; font-weight: 600;">Relatório de Lojas Pendentes / Em Atraso</h3>
+                <h3 style="color: #E31E24; margin: 5px 0 0; font-size: 16px; font-weight: 600;">Relatório de Lojas Pendentes / Em Atraso</h3>
                 <p style="font-size: 11px; color: #666; margin: 6px 0 0; font-weight: 400;">Gerado em: ${new Date().toLocaleString()}</p>
                 <p style="font-size: 12px; color: #333; margin-top: 5px; font-weight: 600; white-space: normal; overflow-wrap: anywhere;">Responsável: Nicole Portela - Trade Marketing</p>
             </div>
@@ -3143,7 +3179,7 @@ window.exportDashboardPDF = function() {
         let statusColor = "#FFC107";
         if (s.currentStatus === 'overdue') {
             statusStr = "Atrasado";
-            statusColor = "#E53935";
+            statusColor = "#E31E24";
         }
 
         let lastVisitStr = "Nunca visitada";
@@ -3177,9 +3213,9 @@ window.toggleRuptureFilter = function() {
     const btn = document.getElementById('reportRuptureFilterBtn');
     if (btn) {
         if (reportFilterOnlyRuptures) {
-            btn.style.background = 'var(--primary-red, #E53935)';
+            btn.style.background = 'var(--primary-red, #E31E24)';
             btn.style.color = 'white';
-            btn.style.borderColor = 'var(--primary-red, #E53935)';
+            btn.style.borderColor = 'var(--primary-red, #E31E24)';
         } else {
             btn.style.background = 'white';
             btn.style.color = 'var(--text-dark)';
@@ -3194,9 +3230,9 @@ window.toggleReportObservationFilter = function() {
     const btn = document.getElementById('reportObservationFilterBtn');
     if (btn) {
         if (reportFilterOnlyObservation) {
-            btn.style.background = 'var(--primary-red, #E53935)';
+            btn.style.background = 'var(--primary-red, #E31E24)';
             btn.style.color = 'white';
-            btn.style.borderColor = 'var(--primary-red, #E53935)';
+            btn.style.borderColor = 'var(--primary-red, #E31E24)';
         } else {
             btn.style.background = 'white';
             btn.style.color = 'var(--text-dark)';
@@ -3211,9 +3247,9 @@ window.toggleReportExtraVisitsFilter = function() {
     const btn = document.getElementById('reportExtraVisitsFilterBtn');
     if (btn) {
         if (reportFilterOnlyExtraVisits) {
-            btn.style.background = 'var(--primary-red, #E53935)';
+            btn.style.background = 'var(--primary-red, #E31E24)';
             btn.style.color = 'white';
-            btn.style.borderColor = 'var(--primary-red, #E53935)';
+            btn.style.borderColor = 'var(--primary-red, #E31E24)';
         } else {
             btn.style.background = 'white';
             btn.style.color = 'var(--text-dark)';
@@ -3228,9 +3264,9 @@ window.toggleReportExtraPointsFilter = function() {
     const btn = document.getElementById('reportExtraPointsFilterBtn');
     if (btn) {
         if (reportFilterOnlyExtraPoints) {
-            btn.style.background = 'var(--primary-red, #E53935)';
+            btn.style.background = 'var(--primary-red, #E31E24)';
             btn.style.color = 'white';
-            btn.style.borderColor = 'var(--primary-red, #E53935)';
+            btn.style.borderColor = 'var(--primary-red, #E31E24)';
         } else {
             btn.style.background = 'white';
             btn.style.color = 'var(--text-dark)';
@@ -3564,7 +3600,8 @@ async function handleVisitSubmit(e) {
     
     // Atualiza Estado
     visits.push(newVisit);
-    
+    invalidateVisitsIndex();
+
     recomputeStoreStatus(storeId);
     
     let autoResolvedCount = 0;
@@ -3745,8 +3782,7 @@ function renderValidatedRuptures(storeFilter) {
     fRuptures.forEach(r => {
         const key = `${r.productId}-${r.storeId}`;
         if (!recurrenceMap[key]) {
-            const storeVisits = visits.filter(v => v.storeId === r.storeId)
-                                      .sort((a, b) => new Date(b.date) - new Date(a.date));
+            const storeVisits = getStoreVisitsIndexed(r.storeId); // já ordenadas: mais recente primeiro
             let streak = 0;
             for (const v of storeVisits) {
                 if (v.ruptures && v.ruptures.includes(r.productId)) {
@@ -4246,7 +4282,7 @@ window.exportStoresCSV = function() {
         if (s.currentStatus === 'visited' || s.status === 'visited') statusStr = "Visitada";
         
         let ruptureText = "Sem registro";
-        const lastVisit = [...visits].filter(v => v.storeId === s.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+        const lastVisit = getStoreVisitsIndexed(s.id)[0];
         if (lastVisit) {
             if (Array.isArray(lastVisit.ruptures) && lastVisit.ruptures.length > 0) {
                 ruptureText = lastVisit.ruptures.map(pid => {
@@ -4316,7 +4352,7 @@ window.exportStoresPDF = function() {
         if (s.currentStatus === 'visited' || s.status === 'visited') { statusStr = "Visitada"; statusColor = "#27ae60"; }
         
         let ruptureText = "<span style='color:#999; font-style:italic;'>Sem registro</span>";
-        const lastVisit = [...visits].filter(v => v.storeId === s.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+        const lastVisit = getStoreVisitsIndexed(s.id)[0];
         if (lastVisit) {
             if (Array.isArray(lastVisit.ruptures) && lastVisit.ruptures.length > 0) {
                 const names = lastVisit.ruptures.map(pid => {
