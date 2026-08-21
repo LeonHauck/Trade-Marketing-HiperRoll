@@ -760,8 +760,22 @@ const VISIT_DURATION_MIN = 30;   // tempo fixo de visita por loja
 const DAILY_BUDGET_MIN = 8 * 60; // jornada de trabalho considerada (8h)
 const ROUTE_DAY_START_MIN = 8 * 60; // rota do dia começa às 08:00
 const ROUTE_SCHEDULING_THRESHOLD = 0.35; // score mínimo pra loja entrar na sugestão automática
-const ROUTE_WEEK_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-const ROUTE_DAY_LABELS = { mon: 'Segunda', tue: 'Terça', wed: 'Quarta', thu: 'Quinta', fri: 'Sexta', sat: 'Sábado' };
+const ROUTE_PLAN_LENGTH_DAYS = 6; // quantos dias corridos o plano cobre, a partir da data escolhida
+
+// Nomes dos dias da semana em pt-BR, indexados por Date#getDay() (0=domingo).
+// O plano de rota não é mais fixo em "sempre começa numa segunda": os dias são
+// calculados a partir da data que o usuário escolher, então o rótulo de cada
+// dia precisa ser derivado da data real, não de uma chave fixa mon/tue/wed.
+const PT_WEEKDAY_NAMES = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+const PT_WEEKDAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+function weekdayLabelPtBR(dateStr) {
+    return PT_WEEKDAY_NAMES[new Date(dateStr + 'T12:00:00').getDay()];
+}
+
+function weekdayShortLabelPtBR(dateStr) {
+    return PT_WEEKDAY_SHORT[new Date(dateStr + 'T12:00:00').getDay()];
+}
 
 // Contagem de rupturas ativas por loja, pré-computada em uma única passada
 // (mesmo espírito do índice de visitas: evita filtrar validatedRuptures inteiro por loja).
@@ -909,7 +923,8 @@ function addDays(dateStr, n) {
 }
 
 /**
- * Gera uma sugestão automática de plano semanal (segunda a sábado), priorizando
+ * Gera uma sugestão automática de plano de rota cobrindo ROUTE_PLAN_LENGTH_DAYS
+ * dias corridos a partir da data escolhida (qualquer dia da semana), priorizando
  * lojas atrasadas/com ruptura e agrupando geograficamente por dia, respeitando
  * o orçamento diário de tempo. Heurística gulosa — não é um otimizador global.
  */
@@ -936,13 +951,13 @@ function generateAutoWeekPlan(weekStartStr, promoterName, eligibleStores) {
     });
     pool.sort((a, b) => scoreByStoreId.get(b.id) - scoreByStoreId.get(a.id));
 
-    const dayBuckets = Object.fromEntries(ROUTE_WEEK_DAYS.map(d => [d, []]));
+    const dayBuckets = Array.from({ length: ROUTE_PLAN_LENGTH_DAYS }, () => []);
     const unscheduled = [];
 
     pool.forEach(store => {
-        let bestDay = null, bestProximity = Infinity;
-        for (const d of ROUTE_WEEK_DAYS) {
-            const bucket = dayBuckets[d];
+        let bestDayIdx = -1, bestProximity = Infinity;
+        for (let i = 0; i < ROUTE_PLAN_LENGTH_DAYS; i++) {
+            const bucket = dayBuckets[i];
             const currentTotal = routeTotalMinutes(bucket);
             const lastStop = bucket[bucket.length - 1];
             const projectedAdd = VISIT_DURATION_MIN + (lastStop ? (travelTimeMin(lastStop, store) || 0) : 0);
@@ -950,16 +965,15 @@ function generateAutoWeekPlan(weekStartStr, promoterName, eligibleStores) {
             const proximity = bucket.length
                 ? Math.min(...bucket.map(s => haversineKm(s.lat, s.lng, store.lat, store.lng)))
                 : 0; // dia vazio: custo zero pra "semear"
-            if (proximity < bestProximity) { bestProximity = proximity; bestDay = d; }
+            if (proximity < bestProximity) { bestProximity = proximity; bestDayIdx = i; }
         }
-        if (bestDay) dayBuckets[bestDay].push(store);
+        if (bestDayIdx > -1) dayBuckets[bestDayIdx].push(store);
         else unscheduled.push(store);
     });
 
-    const days = {};
-    ROUTE_WEEK_DAYS.forEach((d, idx) => {
-        const ordered = buildOptimalRoute(dayBuckets[d]);
-        days[d] = buildDayFromStores(ordered, formatISODate(addDays(weekStartStr, idx)), scoreByStoreId);
+    const days = dayBuckets.map((bucket, idx) => {
+        const ordered = buildOptimalRoute(bucket);
+        return buildDayFromStores(ordered, formatISODate(addDays(weekStartStr, idx)), scoreByStoreId);
     });
 
     return {
@@ -990,9 +1004,9 @@ function buildGoogleMapsUrl(orderedStops) {
     return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-window.openRouteInGoogleMaps = function(planId, dayKey) {
+window.openRouteInGoogleMaps = function(planId, dayIndex) {
     const plan = routePlans.find(p => p.id === planId);
-    const day = plan && plan.days ? plan.days[dayKey] : null;
+    const day = plan && plan.days ? plan.days[dayIndex] : null;
     if (!day || !day.stops || day.stops.length === 0) { alert('Nenhuma parada neste dia.'); return; }
     const orderedStores = [...day.stops]
         .sort((a, b) => a.order - b.order)
@@ -2096,7 +2110,7 @@ function renderRoutePlanList() {
 
     const sorted = [...routePlans].sort((a, b) => (b.weekStart || '').localeCompare(a.weekStart || ''));
     area.innerHTML = sorted.map(plan => {
-        const storeCount = ROUTE_WEEK_DAYS.reduce((acc, d) => acc + ((plan.days[d] && plan.days[d].stops) ? plan.days[d].stops.length : 0), 0);
+        const storeCount = (plan.days || []).reduce((acc, day) => acc + (day && day.stops ? day.stops.length : 0), 0);
         return `
             <div class="route-plan-card">
                 <div>
@@ -2137,8 +2151,7 @@ function renderRouteWeekGridHtml(plan) {
         ? `<p style="color: var(--primary-red); font-size: 0.85rem; margin-top: 10px;"><i class="fa-solid fa-triangle-exclamation"></i> ${plan.unscheduledStoreIds.length} loja(s) não couberam no orçamento de tempo desta semana.</p>`
         : '';
 
-    const dayCards = ROUTE_WEEK_DAYS.map(d => {
-        const day = plan.days[d];
+    const dayCards = (plan.days || []).map((day, idx) => {
         if (!day) return '';
         const overBudget = !day.withinBudget;
         const stopsHtml = day.stops.length === 0
@@ -2159,12 +2172,12 @@ function renderRouteWeekGridHtml(plan) {
         return `
             <div class="route-day-card ${overBudget ? 'over-budget' : ''}">
                 <div class="route-day-header">
-                    <strong>${ROUTE_DAY_LABELS[d]}</strong>
+                    <strong>${weekdayLabelPtBR(day.date)}</strong>
                     <span>${formatDate(day.date)}</span>
                 </div>
                 <div class="route-day-duration">${formatDurationHuman(day.totalDurationMin)} ${overBudget ? '· acima do orçamento' : ''}</div>
                 <div>${stopsHtml}</div>
-                ${day.stops.length > 0 ? `<button class="btn btn-secondary btn-small" onclick="openRouteInGoogleMaps('${plan.id}', '${d}')"><i class="fa-solid fa-map-location-dot"></i> Abrir no Google Maps</button>` : ''}
+                ${day.stops.length > 0 ? `<button class="btn btn-secondary btn-small" onclick="openRouteInGoogleMaps('${plan.id}', ${idx})"><i class="fa-solid fa-map-location-dot"></i> Abrir no Google Maps</button>` : ''}
             </div>
         `;
     }).join('');
@@ -2214,10 +2227,12 @@ function nextMondayISO() {
 
 function renderRouteBuilderAutoHtml() {
     const geoCount = stores.filter(s => s.lat && s.lng).length;
+    const defaultStart = nextMondayISO();
     return `
         <div class="form-group">
-            <label>Semana (segunda-feira)</label>
-            <input type="date" id="routeAutoWeekStart" value="${nextMondayISO()}">
+            <label>Data de início do plano</label>
+            <input type="date" id="routeAutoWeekStart" value="${defaultStart}" oninput="updateRouteAutoWeekdayHint()">
+            <p id="routeAutoWeekdayHint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">${weekdayLabelPtBR(defaultStart)} — o plano cobre ${ROUTE_PLAN_LENGTH_DAYS} dias corridos a partir desta data.</p>
         </div>
         <div class="form-group">
             <label>Promotor (opcional)</label>
@@ -2230,10 +2245,26 @@ function renderRouteBuilderAutoHtml() {
     `;
 }
 
+window.updateRouteAutoWeekdayHint = function() {
+    const input = document.getElementById('routeAutoWeekStart');
+    const hint = document.getElementById('routeAutoWeekdayHint');
+    if (!input || !hint) return;
+    if (!input.value) { hint.textContent = ''; return; }
+    hint.textContent = `${weekdayLabelPtBR(input.value)} — o plano cobre ${ROUTE_PLAN_LENGTH_DAYS} dias corridos a partir desta data.`;
+};
+
+window.updateRouteManualWeekdayHint = function() {
+    const input = document.getElementById('routeManualWeekStart');
+    const hint = document.getElementById('routeManualWeekdayHint');
+    if (!input || !hint) return;
+    if (!input.value) { hint.textContent = ''; return; }
+    hint.textContent = `${weekdayLabelPtBR(input.value)} — o plano cobre ${ROUTE_PLAN_LENGTH_DAYS} dias corridos a partir desta data.`;
+};
+
 window.generateAndSaveAutoPlan = function() {
     const weekStart = document.getElementById('routeAutoWeekStart').value;
     const promoterName = document.getElementById('routeAutoPromoterName').value.trim();
-    if (!weekStart) { alert('Selecione a data da segunda-feira da semana.'); return; }
+    if (!weekStart) { alert('Selecione a data de início do plano.'); return; }
 
     const eligibleStores = stores.filter(s => s.lat && s.lng);
     if (eligibleStores.length === 0) { alert('Nenhuma loja com coordenadas cadastradas ainda.'); return; }
@@ -2249,7 +2280,12 @@ window.generateAndSaveAutoPlan = function() {
 
 function renderRouteBuilderManualHtml() {
     const uniqueNetworks = [...new Set(stores.map(s => s.network))].filter(n => n).sort();
-    const networkOptions = uniqueNetworks.map(net => `
+    const networkOptions = `
+        <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid var(--border-color); margin-bottom: 4px;">
+            <input type="checkbox" id="routeSelectAllNetworks" checked onchange="toggleAllRouteNetworks(this)" style="margin-right: 8px; width: 16px; height: 16px;">
+            <strong style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">Todas as Redes</strong>
+        </label>
+    ` + uniqueNetworks.map(net => `
         <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer;">
             <input type="checkbox" class="route-network-checkbox" value="${net}" checked onchange="updateRouteStoreChecklist()" style="margin-right: 8px; width: 16px; height: 16px;">
             <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">${net}</span>
@@ -2259,20 +2295,26 @@ function renderRouteBuilderManualHtml() {
     const storeRows = [...stores].sort((a, b) => a.name.localeCompare(b.name)).map(s => {
         const hasCoords = !!(s.lat && s.lng);
         return `
-            <div class="route-store-checklist-row ${hasCoords ? '' : 'no-coords'}" data-network="${s.network || ''}" data-name="${normalizeText(s.name)}">
-                <label style="display:flex; align-items:center; gap:8px; flex:1; cursor:${hasCoords ? 'pointer' : 'not-allowed'};">
-                    <input type="checkbox" class="route-store-checkbox" value="${s.id}" ${hasCoords ? '' : 'disabled'}>
-                    <span>${s.name} <span style="color: var(--text-muted); font-size: 0.75rem;">(${s.network || ''})</span></span>
-                </label>
-                ${hasCoords ? '' : '<span style="font-size: 0.7rem; color: var(--text-muted);" title="Sem coordenadas ainda">sem endereço</span>'}
+            <div class="route-store-checklist-row checklist-item ${hasCoords ? '' : 'no-coords'}" data-network="${s.network || ''}" data-name="${normalizeText(s.name)}">
+                <input type="checkbox" id="routeStoreCb-${s.id}" class="route-store-checkbox" value="${s.id}" ${hasCoords ? '' : 'disabled'}>
+                <label for="routeStoreCb-${s.id}">${s.name} <span style="color: var(--text-muted); font-size: 0.75rem;">(${s.network || ''})</span></label>
+                ${hasCoords ? '' : '<span style="font-size: 0.7rem; color: var(--text-muted); flex-shrink: 0;" title="Sem coordenadas ainda">sem endereço</span>'}
             </div>
         `;
     }).join('');
 
+    const manualDefaultStart = (window._routeManualDraftPlan && window._routeManualDraftPlan.weekStart) || nextMondayISO();
+    const manualStartLocked = !!(window._routeManualDraftPlan && window._routeManualDraftPlan.weekStart);
+
     return `
+        <div class="form-group">
+            <label>Data de início do plano</label>
+            <input type="date" id="routeManualWeekStart" value="${manualDefaultStart}" oninput="updateRouteManualWeekdayHint()" ${manualStartLocked ? 'disabled' : ''}>
+            <p id="routeManualWeekdayHint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">${weekdayLabelPtBR(manualDefaultStart)}${manualStartLocked ? ' — já travada, pois este plano já tem dias atribuídos' : ` — o plano cobre ${ROUTE_PLAN_LENGTH_DAYS} dias corridos a partir desta data`}.</p>
+        </div>
         <div class="checkbox-dropdown filter-select" id="routeNetworkDropdownContainer" style="height: 40px; background: white; border: 1px solid var(--border-color); border-radius: 8px; min-width: 200px; position: relative; margin-bottom: 10px;">
             <div class="dropdown-header" onclick="toggleDropdown('routeNetworkOptions')" style="height: 100%; display: flex; align-items: center; padding: 0 15px; cursor: pointer; justify-content: space-between;">
-                <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">Filtrar por rede</span>
+                <span id="routeNetworkFilterLabel" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;">Todas as Redes</span>
                 <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem;"></i>
             </div>
             <div class="dropdown-options" id="routeNetworkOptions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 1000; max-height: 220px; overflow-y: auto; padding: 10px;">
@@ -2283,8 +2325,9 @@ function renderRouteBuilderManualHtml() {
             <i class="fa-solid fa-magnifying-glass"></i>
             <input type="text" id="routeStoreSearch" placeholder="Buscar loja..." oninput="updateRouteStoreChecklist()">
         </div>
-        <div class="product-checklist" id="routeStoreChecklist" style="max-height: 220px;">
+        <div class="product-checklist" id="routeStoreChecklist" style="height: 220px;">
             ${storeRows}
+            <p id="routeStoreChecklistEmpty" class="empty-state" style="display:none; padding: 1.5rem 0;">Nenhuma loja encontrada para os filtros atuais.</p>
         </div>
         <div class="form-actions">
             <button class="btn btn-secondary" style="width:100%; margin-top: 10px;" onclick="optimizeManualRoute()"><i class="fa-solid fa-route"></i> Otimizar Ordem</button>
@@ -2294,14 +2337,38 @@ function renderRouteBuilderManualHtml() {
     `;
 }
 
+window.toggleAllRouteNetworks = function(master) {
+    document.querySelectorAll('.route-network-checkbox').forEach(cb => cb.checked = master.checked);
+    updateRouteStoreChecklist();
+};
+
 window.updateRouteStoreChecklist = function() {
-    const checkedNets = Array.from(document.querySelectorAll('.route-network-checkbox:checked')).map(cb => cb.value);
+    const netBoxes = document.querySelectorAll('.route-network-checkbox');
+    const checkedBoxes = Array.from(netBoxes).filter(cb => cb.checked);
+    const checkedNets = checkedBoxes.map(cb => cb.value);
     const search = normalizeText(document.getElementById('routeStoreSearch')?.value || '');
+
+    const label = document.getElementById('routeNetworkFilterLabel');
+    if (label) {
+        if (checkedBoxes.length === 0) label.textContent = 'Nenhuma rede';
+        else if (checkedBoxes.length === netBoxes.length) label.textContent = 'Todas as Redes';
+        else if (checkedBoxes.length === 1) label.textContent = checkedNets[0];
+        else label.textContent = `${checkedBoxes.length} redes selecionadas`;
+    }
+    const allBtn = document.getElementById('routeSelectAllNetworks');
+    if (allBtn) allBtn.checked = (checkedBoxes.length === netBoxes.length);
+
+    let visibleCount = 0;
     document.querySelectorAll('.route-store-checklist-row').forEach(row => {
         const matchesNet = checkedNets.includes(row.getAttribute('data-network'));
         const matchesSearch = !search || row.getAttribute('data-name').includes(search);
-        row.style.display = (matchesNet && matchesSearch) ? 'flex' : 'none';
+        const visible = matchesNet && matchesSearch;
+        row.style.display = visible ? 'flex' : 'none';
+        if (visible) visibleCount++;
     });
+
+    const emptyMsg = document.getElementById('routeStoreChecklistEmpty');
+    if (emptyMsg) emptyMsg.style.display = visibleCount === 0 ? 'block' : 'none';
 };
 
 window.optimizeManualRoute = function() {
@@ -2336,13 +2403,22 @@ function renderManualRouteResult() {
         </div>
     `).join('');
 
+    // A data de início pode estar travada (plano já tem dias atribuídos) ou ainda editável;
+    // em ambos os casos lemos do campo pra montar as opções de dia com o rótulo real do dia da semana.
+    const startInput = document.getElementById('routeManualWeekStart');
+    const startDate = (window._routeManualDraftPlan && window._routeManualDraftPlan.weekStart) || (startInput ? startInput.value : nextMondayISO());
+    const dayOptions = Array.from({ length: ROUTE_PLAN_LENGTH_DAYS }, (_, i) => {
+        const d = formatISODate(addDays(startDate, i));
+        return `<option value="${i}">${weekdayLabelPtBR(d)} — ${formatDate(d)}</option>`;
+    }).join('');
+
     resultArea.innerHTML = `
         <p style="margin-top: 14px; font-weight: 700; color: var(--navy-deep);">Duração total estimada: ${formatDurationHuman(totalMin)} ${totalMin > DAILY_BUDGET_MIN ? '<span style="color: var(--primary-red);">(acima do orçamento diário de 8h)</span>' : ''}</p>
         <div class="route-manual-list">${rowsHtml}</div>
         <div class="form-group" style="margin-top: 14px;">
             <label>Atribuir esta rota ao dia</label>
             <select id="routeManualDaySelect">
-                ${ROUTE_WEEK_DAYS.map(d => `<option value="${d}">${ROUTE_DAY_LABELS[d]}</option>`).join('')}
+                ${dayOptions}
             </select>
         </div>
         <button class="btn btn-secondary" style="width:100%;" onclick="assignManualRouteToDay()"><i class="fa-solid fa-calendar-plus"></i> Adicionar a este dia</button>
@@ -2358,12 +2434,12 @@ window.moveManualRouteStop = function(index, direction) {
 };
 
 window.assignManualRouteToDay = function() {
-    const dayKey = document.getElementById('routeManualDaySelect').value;
+    const dayIndex = parseInt(document.getElementById('routeManualDaySelect').value, 10);
     const orderedStores = window._routeManualOrder.map(id => stores.find(s => s.id === id)).filter(Boolean);
     if (orderedStores.length === 0) return;
 
     if (!window._routeManualDraftPlan) {
-        const weekStart = nextMondayISO();
+        const weekStart = document.getElementById('routeManualWeekStart')?.value || nextMondayISO();
         window._routeManualDraftPlan = {
             id: 'route-' + Date.now(),
             createdAt: new Date().toISOString(),
@@ -2371,26 +2447,43 @@ window.assignManualRouteToDay = function() {
             weekStart,
             promoterName: '',
             mode: 'manual',
-            days: {}
+            days: new Array(ROUTE_PLAN_LENGTH_DAYS).fill(null)
         };
     }
-    const dayIndex = ROUTE_WEEK_DAYS.indexOf(dayKey);
     const dateStr = formatISODate(addDays(window._routeManualDraftPlan.weekStart, dayIndex));
-    window._routeManualDraftPlan.days[dayKey] = buildDayFromStores(orderedStores, dateStr, null);
+    window._routeManualDraftPlan.days[dayIndex] = buildDayFromStores(orderedStores, dateStr, null);
 
     renderManualDraftSummary();
+    // A data de início trava assim que o primeiro dia é atribuído — reabre o formulário
+    // já refletindo isso (campo desabilitado) pra não desalinhar dias já salvos.
+    renderRouteBuilderManualFormOnly();
 };
+
+// Reaplica só a parte de filtro/checklist do modo manual, preservando o resultado já otimizado
+// (evita perder a rota calculada ao travar o campo de data após o primeiro dia ser atribuído).
+function renderRouteBuilderManualFormOnly() {
+    const startGroup = document.getElementById('routeManualWeekStart')?.closest('.form-group');
+    if (!startGroup || !window._routeManualDraftPlan) return;
+    const d = window._routeManualDraftPlan.weekStart;
+    startGroup.innerHTML = `
+        <label>Data de início do plano</label>
+        <input type="date" id="routeManualWeekStart" value="${d}" disabled>
+        <p id="routeManualWeekdayHint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">${weekdayLabelPtBR(d)} — já travada, pois este plano já tem dias atribuídos.</p>
+    `;
+}
 
 function renderManualDraftSummary() {
     const area = document.getElementById('routeManualDraftSummary');
     if (!area || !window._routeManualDraftPlan) return;
     const plan = window._routeManualDraftPlan;
-    const assignedDays = ROUTE_WEEK_DAYS.filter(d => plan.days[d]);
+    const assignedLabels = plan.days
+        .map((day, idx) => day ? weekdayLabelPtBR(formatISODate(addDays(plan.weekStart, idx))) : null)
+        .filter(Boolean);
 
     area.innerHTML = `
         <div style="margin-top: 16px; padding: 12px; background: var(--bg-light); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
             <strong style="font-size: 0.85rem;">Dias já atribuídos neste plano:</strong>
-            <p style="font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 10px;">${assignedDays.map(d => ROUTE_DAY_LABELS[d]).join(', ') || 'nenhum ainda'}</p>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 10px;">${assignedLabels.join(', ') || 'nenhum ainda'}</p>
             <div class="form-group">
                 <label>Nome do promotor (opcional)</label>
                 <input type="text" id="routeManualPromoterName" value="${plan.promoterName || ''}" placeholder="Nome do promotor" oninput="window._routeManualDraftPlan.promoterName = this.value">
@@ -2404,11 +2497,11 @@ window.saveManualRoutePlan = function() {
     const plan = window._routeManualDraftPlan;
     if (!plan) return;
     // Preenche dias sem rota atribuída como vazios, pra manter o formato consistente
-    ROUTE_WEEK_DAYS.forEach((d, idx) => {
-        if (!plan.days[d]) {
-            plan.days[d] = { date: formatISODate(addDays(plan.weekStart, idx)), stops: [], totalDurationMin: 0, withinBudget: true };
+    for (let idx = 0; idx < ROUTE_PLAN_LENGTH_DAYS; idx++) {
+        if (!plan.days[idx]) {
+            plan.days[idx] = { date: formatISODate(addDays(plan.weekStart, idx)), stops: [], totalDurationMin: 0, withinBudget: true };
         }
-    });
+    }
     plan.updatedAt = new Date().toISOString();
     routePlans.push(plan);
     saveAppStateLocally();
@@ -2443,8 +2536,7 @@ window.exportWeeklyRoutePDF = function(planId) {
         </div>
     `;
 
-    const daysHtml = ROUTE_WEEK_DAYS.map(d => {
-        const day = plan.days[d];
+    const daysHtml = (plan.days || []).map(day => {
         if (!day || day.stops.length === 0) return '';
         const rows = day.stops.map(stop => {
             const store = stores.find(s => s.id === stop.storeId);
@@ -2458,7 +2550,7 @@ window.exportWeeklyRoutePDF = function(planId) {
         }).join('');
         return `
             <div style="margin-bottom: 18px; page-break-inside: avoid;">
-                <h3 style="color: #0054A6; font-size: 14px; margin: 0 0 6px;">${ROUTE_DAY_LABELS[d]} — ${formatDate(day.date)} · ${formatDurationHuman(day.totalDurationMin)}</h3>
+                <h3 style="color: #0054A6; font-size: 14px; margin: 0 0 6px;">${weekdayLabelPtBR(day.date)} — ${formatDate(day.date)} · ${formatDurationHuman(day.totalDurationMin)}</h3>
                 <table style="width:100%; border-collapse: collapse;">
                     <thead><tr style="background:#f4f6f9;"><th style="padding:6px 8px; text-align:left; font-size:11px;">Horário</th><th style="padding:6px 8px; text-align:left; font-size:11px;">Loja</th><th style="padding:6px 8px; text-align:left; font-size:11px;">Rede</th></tr></thead>
                     <tbody>${rows}</tbody>
