@@ -674,7 +674,7 @@ async function init() {
             const sUpdates = serverData.store_updates || {};
             stores = STORES_DATA.map(s => {
                 const upd = sUpdates[s.id];
-                return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s };
+                return applyStoreGeo(upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s });
             });
             
             if (serverData.photo_map) {
