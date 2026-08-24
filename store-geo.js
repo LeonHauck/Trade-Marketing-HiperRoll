@@ -11,6 +11,7 @@
 const STORE_GEO_DATA = {
   "atacadao-ba-16-atacadao-rotula": { address: "Estr. do Coqueiro Grande, 614 - Cajazeiras, Salvador - BA, 41342-846", lat: -12.9084179, lng: -38.3939193, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-274-atacadao-aracaju-tancredo-neves": { address: "Av. Pres. Tancredo Neves, 3550 - Ponto Novo, Aracaju - SE, 49025-620", lat: -10.9563657, lng: -37.0532853, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
+  "atacadao-ba-324-atacadao-br": { address: "BR-324, 9069 - KM 7 - Pirajá, Salvador - BA", lat: -12.9042621, lng: -38.4546808, geocodedAt: "2026-08-24T21:00:00Z", precision: "bairro" },
   "atacadao-ba-618-atacadao-ssa-garibaldi": { address: "Av. Reitor Miguel Calmon, 381 - Garibaldi, Salvador - BA, 40110-100", lat: -12.9891931, lng: -38.5228607, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-68-atacadao-aracaju-br": { address: "BR-235, 2445 - Novo Paraíso, Aracaju - SE, 49082-110", lat: -10.9076913, lng: -37.0921955, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-695-atacadao-ssa-barra": { address: "Av. Centenário, 2786 - Chame-Chame, Salvador - BA, 40155-150", lat: -13.000581, lng: -38.5180925, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
