@@ -2070,29 +2070,6 @@ const STORES_DATA = [
         "lastVisit":  null
     },
     {
-        "id":  "atacadao-ba-109-atacadao-aracaju-cd",
-        "name":  "109 ATACADAO - ARACAJU CD",
-        "network":  "ATACADAO BA",
-        "frequency": 2,
-        "productIds":  [
-                           "bobina-20x30",
-                           "bobina-25x35",
-                           "bobina-30x40",
-                           "sacola-29x39",
-                           "sacola-38x48",
-                           "hiperroll-15l",
-                           "hiperroll-30l",
-                           "hiperroll-50l",
-                           "hiperroll-100l",
-                           "reforcado-100l",
-                           "reforcado-200l",
-                           "sacola-verde-38x50",
-                           "sacola-verde-40x50"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
         "id":  "atacadao-ba-862-atacadao-aracaju-goni-alo-prado",
         "name":  "862 ATACADAO - ARACAJU GON?ALO PRADO",
         "network":  "ATACADAO BA",
@@ -2211,29 +2188,6 @@ const STORES_DATA = [
                            "hiperroll-100l",
                            "reforcado-100l",
                            "reforcado-200l"],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "atacadao-ba-124-atacadao-feira-de-santana-cd",
-        "name":  "124 ATACADAO - FEIRA DE SANTANA CD",
-        "network":  "ATACADAO BA",
-        "frequency": 2,
-        "productIds":  [
-                           "bobina-20x30",
-                           "bobina-25x35",
-                           "bobina-30x40",
-                           "sacola-29x39",
-                           "sacola-38x48",
-                           "hiperroll-15l",
-                           "hiperroll-30l",
-                           "hiperroll-50l",
-                           "hiperroll-100l",
-                           "reforcado-100l",
-                           "reforcado-200l",
-                           "sacola-verde-38x50",
-                           "sacola-verde-40x50"
-                       ],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2523,29 +2477,6 @@ const STORES_DATA = [
         "lastVisit":  null
     },
     {
-        "id":  "atacadao-ba-919-atacadao-ssa-barros-reis",
-        "name":  "919 ATACADAO - SSA BARROS REIS",
-        "network":  "ATACADAO BA",
-        "frequency": 2,
-        "productIds":  [
-                           "bobina-20x30",
-                           "bobina-25x35",
-                           "bobina-30x40",
-                           "sacola-29x39",
-                           "sacola-38x48",
-                           "hiperroll-15l",
-                           "hiperroll-30l",
-                           "hiperroll-50l",
-                           "hiperroll-100l",
-                           "reforcado-100l",
-                           "reforcado-200l",
-                           "sacola-verde-38x50",
-                           "sacola-verde-40x50"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
         "id":  "atacadao-ba-918-atacadao-ssa-bonoco",
         "name":  "918 ATACADAO - SSA BONOCO",
         "network":  "ATACADAO BA",
@@ -2694,9 +2625,29 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-851-atacadao-ssa-mares",
-        "name":  "851 ATACADAO - SSA MARES",
+        "name":  "851 ATACADAO - EGUAS",
         "network":  "ATACADAO BA",
         "frequency": 2,
+        "productIds":  [
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40",
+                           "hiperroll-15l",
+                           "hiperroll-30l",
+                           "hiperroll-50l",
+                           "hiperroll-100l",
+                           "reforcado-100l",
+                           "reforcado-200l",
+                           "sacola-verde-38x50",
+                           "sacola-verde-40x50"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
+        "id":  "atacadao-ba-324-atacadao-br",
+        "name":  "324 ATACADAO - BR",
+        "network":  "ATACADAO BA",
         "productIds":  [
                            "bobina-20x30",
                            "bobina-25x35",
@@ -2743,52 +2694,6 @@ const STORES_DATA = [
                            "bobina-20x30",
                            "bobina-25x35",
                            "bobina-30x40",
-                           "hiperroll-15l",
-                           "hiperroll-30l",
-                           "hiperroll-50l",
-                           "hiperroll-100l",
-                           "reforcado-100l",
-                           "reforcado-200l",
-                           "sacola-verde-38x50",
-                           "sacola-verde-40x50"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "atacadao-ba-925-atacadao-ssa-piraja",
-        "name":  "925 ATACADAO - SSA PIRAJA",
-        "network":  "ATACADAO BA",
-        "frequency": 2,
-        "productIds":  [
-                           "bobina-20x30",
-                           "bobina-25x35",
-                           "bobina-30x40",
-                           "sacola-29x39",
-                           "sacola-38x48",
-                           "hiperroll-15l",
-                           "hiperroll-30l",
-                           "hiperroll-50l",
-                           "hiperroll-100l",
-                           "reforcado-100l",
-                           "reforcado-200l",
-                           "sacola-verde-38x50",
-                           "sacola-verde-40x50"
-                       ],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "atacadao-ba-341-atacadao-ssa-piraja-cd",
-        "name":  "341 ATACADAO - SSA PIRAJA CD",
-        "network":  "ATACADAO BA",
-        "frequency": 2,
-        "productIds":  [
-                           "bobina-20x30",
-                           "bobina-25x35",
-                           "bobina-30x40",
-                           "sacola-29x39",
-                           "sacola-38x48",
                            "hiperroll-15l",
                            "hiperroll-30l",
                            "hiperroll-50l",
@@ -2880,29 +2785,6 @@ const STORES_DATA = [
                            "hiperroll-100l",
                            "reforcado-100l",
                            "reforcado-200l"],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "atacadao-ba-94-atacadao-vitoria-conquista-cd",
-        "name":  "94 ATACADAO - VITORIA CONQUISTA CD",
-        "network":  "ATACADAO BA",
-        "frequency": 2,
-        "productIds":  [
-                           "bobina-20x30",
-                           "bobina-25x35",
-                           "bobina-30x40",
-                           "sacola-29x39",
-                           "sacola-38x48",
-                           "hiperroll-15l",
-                           "hiperroll-30l",
-                           "hiperroll-50l",
-                           "hiperroll-100l",
-                           "reforcado-100l",
-                           "reforcado-200l",
-                           "sacola-verde-38x50",
-                           "sacola-verde-40x50"
-                       ],
         "status":  "pending",
         "lastVisit":  null
     },
