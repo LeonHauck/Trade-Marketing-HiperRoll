@@ -1849,20 +1849,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-areal",
-        "name":  "Bramil de Areial",
-        "network":  "BRAMIL",
-        "frequency": 1,
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l"],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-arcozelo",
-        "name":  "Bramil de Arcozelo",
+        "name":  "804 BRAMIL - AREAL",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -1875,7 +1862,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-barra-do-pirai",
-        "name":  "Bramil de Barra do Pira?",
+        "name":  "806 BRAMIL - BARRA DO PIRAI",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -1888,7 +1875,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-paraiba-do-sul-i",
-        "name":  "Bramil de Para?ba do Sul PV05",
+        "name":  "813 BRAMIL - PARAIBA DO SUL AVENIDA",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -1901,7 +1888,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-paraiba-do-sul-ii",
-        "name":  "Bramil de Para?ba do Sul PV20",
+        "name":  "805 BRAMIL - PARAIBA DO SUL BARAO",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -1914,7 +1901,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-paraiba-do-sul-iii",
-        "name":  "Bramil de Para?ba do Sul PV43",
+        "name":  "815 BRAMIL - PARAIBA DO SUL PRACA",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -1927,7 +1914,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-tres-rios-i",
-        "name":  "Bramil de Tr?s Rios PV2",
+        "name":  "821 BRAMIL - TRES RIOS CONDESSA",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -1940,7 +1927,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-tres-rios-ii",
-        "name":  "Bramil de Tres Rios PV27",
+        "name":  "820 BRAMIL - TRES RIOS AUTONOMIA",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -1953,7 +1940,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-tres-rios-iii",
-        "name":  "Bramil de Tres Rios PV26",
+        "name":  "822 BRAMIL - TRES RIOS VILA ISABEL",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -1966,33 +1953,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-posse",
-        "name":  "Bramil da P?sse",
-        "network":  "BRAMIL",
-        "frequency": 1,
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l"],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-itaipava",
-        "name":  "Bramil Itaipava",
-        "network":  "BRAMIL",
-        "frequency": 1,
-        "productIds":  [
-                           "bramil-lixo-15l",
-                           "bramil-lixo-30l",
-                           "bramil-lixo-50l",
-                           "bramil-lixo-100l"],
-        "status":  "pending",
-        "lastVisit":  null
-    },
-    {
-        "id":  "bramil-bramil-itamarati",
-        "name":  "Bramil Itamarati",
+        "name":  "818 BRAMIL - POSSE",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -2005,7 +1966,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-miguel-pereira",
-        "name":  "Bramil de Miguel Pereira",
+        "name":  "811 BRAMIL - MIGUEL PEREIRA",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -2018,7 +1979,7 @@ const STORES_DATA = [
     },
     {
         "id":  "bramil-bramil-vassouras",
-        "name":  "Bramil de Vassoura",
+        "name":  "824 BRAMIL - VASSOURAS",
         "network":  "BRAMIL",
         "frequency": 1,
         "productIds":  [
@@ -2845,7 +2806,7 @@ const STORES_DATA = [
         "lastVisit":  null
     },{
         "id": "bramil-nova-friburgo",
-        "name": "Bramil - Nova Friburgo",
+        "name": "812 BRAMIL - NOVA FRIBURGO",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2853,7 +2814,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-pinheiral-i",
-        "name": "Bramil - Pinheiral I",
+        "name": "816 BRAMIL - PINHEIRAL ORIENTE",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2861,7 +2822,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-pinheiral-ii",
-        "name": "Bramil - Pinheiral II",
+        "name": "817 BRAMIL - PINHEIRAL SÃO JORGE",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2869,7 +2830,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-levy-gasparian",
-        "name": "Bramil - Levy Gasparian",
+        "name": "807 BRAMIL - COMENDADOR LEVY GASPARIAN",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2877,7 +2838,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-paty-dos-alferes-i",
-        "name": "Bramil - Paty dos Alferes I",
+        "name": "803 BRAMIL - ARCOZELO",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2885,7 +2846,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-paty-dos-alferes-ii",
-        "name": "Bramil - Paty dos Alferes II",
+        "name": "814 BRAMIL - PATY DO ALFERES",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2893,7 +2854,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-valenca",
-        "name": "Bramil - Valença",
+        "name": "823 BRAMIL - VALENCA",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2901,7 +2862,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-matias-barbosa",
-        "name": "Bramil - Matias Barbosa",
+        "name": "810 BRAMIL - MATIAS BARBOSA",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2909,7 +2870,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-petropolis-i",
-        "name": "Bramil - Petrópolis I",
+        "name": "808 BRAMIL - ITAIPAVA",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2917,7 +2878,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-petropolis-ii",
-        "name": "Bramil - Petrópolis II",
+        "name": "809 BRAMIL - ITAMARATI",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2925,7 +2886,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-petropolis-iii",
-        "name": "Bramil - Petrópolis III",
+        "name": "819 BRAMIL - QUITANDINHA",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],
@@ -2933,7 +2894,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-volta-redonda",
-        "name": "Bramil - Volta Redonda",
+        "name": "825 BRAMIL - VOLTA REDONDA",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l"],

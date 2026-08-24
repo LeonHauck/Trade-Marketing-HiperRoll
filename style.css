@@ -1671,14 +1671,6 @@ body.logged-in .app-container {
     flex: 1;
 }
 
-.route-store-checklist-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border-color);
-}
-
 .route-store-checklist-row.no-coords { opacity: 0.5; }
+.route-store-checklist-row.no-coords input,
 .route-store-checklist-row.no-coords label { cursor: not-allowed; }
