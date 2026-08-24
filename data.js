@@ -1166,6 +1166,17 @@ const STORES_DATA = [
         "lastVisit":  null
     },
     {
+        "id":  "bahamas-76-emporio-bahamas-uba",
+        "name":  "76 - EMPORIO BAHAMAS UBA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "lastVisit":  null
+    },
+    {
         "id":  "bahamas-80-bahamas-mix-iturama",
         "name":  "80 - BAHAMAS MIX ITURAMA",
         "network":  "BAHAMAS",
@@ -1189,7 +1200,10 @@ const STORES_DATA = [
         "productIds":  [
                            "lixo-bahamas-30l",
                            "lixo-bahamas-50l",
-                           "lixo-bahamas-100l"
+                           "lixo-bahamas-100l",
+                           "bobina-20x30",
+                           "bobina-25x35",
+                           "bobina-30x40"
                        ],
         "lastVisit":  null
     },
