@@ -3381,45 +3381,23 @@ function buildReportInsightsHTML(filteredVisits) {
     `;
 }
 
-function buildReportTableHTML(filteredVisits) {
-    const rows = filteredVisits.map(v => {
+// Retorna as linhas da tabela de visitas como um ARRAY (uma string por linha), não uma
+// tabela HTML já montada — assim exportVisitsPDF pode dividi-las em lotes menores antes
+// de rasterizar (ver exportSectionedTablesToPdf), evitando páginas em branco quando o
+// histórico é muito grande (milhares de visitas).
+function buildReportTableRows(filteredVisits) {
+    return filteredVisits.map(v => {
         const store = stores.find(s => s.id === v.storeId) || { name: 'Loja Removida', network: 'N/A' };
-        const ruptureCount = (v.ruptures || []).length;
-        const notesText = v.notes ? v.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '-';
-        const extraPts = (v.extraPoints || []).map(ep => `<span style="display:inline-block; padding: 2px 6px; border-radius: 5px; background:#f3e5f5; color:#8e44ad; font-weight:600; font-size:10px; margin-right:3px;">${ep}</span>`).join('') || '-';
-
-        return `
-            <tr style="border-bottom: 1px solid #ececec; page-break-inside: avoid; break-inside: avoid;">
-                <td style="padding: 10px; font-weight: 600; color: #2b3a55;">${formatDate(v.date)}</td>
-                <td style="padding: 10px; color: #2b3a55;">${store.name}</td>
-                <td style="padding: 10px; color: #0c5db8; font-weight: 700;">${store.network}</td>
-                <td style="padding: 10px; color: #333;">${ruptureCount}</td>
-                <td style="padding: 10px; white-space: normal; word-break: break-word;">${extraPts}</td>
-                <td style="padding: 10px; color: #555;">${notesText}</td>
-            </tr>
-        `;
-    }).join('');
-
-    return `
-        <div style="background: white; padding: 16px 18px; border-radius: 18px; border: 1px solid #e8edff; margin-bottom: 24px; font-family: 'Outfit', sans-serif; page-break-inside: avoid; break-inside: avoid;">
-            <h2 style="margin: 0 0 12px; color: #0d3b7f; font-size: 16px;">Visitas Incluídas no Relatório</h2>
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                <thead>
-                    <tr style="background: #f3f6ff; color: #2b3a55; text-align: left;">
-                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Data</th>
-                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Loja</th>
-                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Rede</th>
-                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Rupturas</th>
-                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Pontos Extras</th>
-                        <th style="padding: 12px; border-bottom: 1px solid #dfe7f5;">Observações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows}
-                </tbody>
-            </table>
-        </div>
-    `;
+        const extraPts = (v.extraPoints || []).join(', ') || '-';
+        return [
+            formatDate(v.date),
+            store.name,
+            store.network,
+            (v.ruptures || []).length,
+            extraPts,
+            v.notes || '-'
+        ];
+    });
 }
 
 function generateChartImage(config, width = 500, height = 300) {
@@ -3530,6 +3508,137 @@ function exportHtmlToPdf(container, options) {
     }
 }
 
+/**
+ * Gera um PDF com cabeçalho/gráficos (via html2pdf — captura única, conteúdo pequeno e
+ * seguro) seguido de uma ou mais tabelas potencialmente com milhares de linhas, desenhadas
+ * diretamente com o jsPDF (texto vetorial, sem rasterizar linha por linha).
+ *
+ * Por quê: a abordagem anterior (rasterizar a tabela inteira com html2canvas) capturava
+ * todo o conteúdo como UM único canvas gigante — com o histórico real (milhares de
+ * linhas) isso ultrapassa o limite de tamanho de canvas do navegador e o resultado sai em
+ * branco, gerando um PDF com dezenas de páginas vazias. Tentar rasterizar em lotes
+ * menores (chamando html2pdf/html2canvas várias vezes em sequência) evita o canvas
+ * gigante, mas mostrou-se instável — várias chamadas seguidas à mesma biblioteca podem
+ * derrubar o processo do navegador em exportações grandes. Desenhando o texto da tabela
+ * diretamente no jsPDF (sem rasterizar), nenhum desses dois problemas ocorre, e como
+ * bônus o PDF fica menor e com texto selecionável/pesquisável.
+ *
+ * @param {object} params
+ * @param {string} params.headerHtml - cabeçalho/gráficos, renderizado como imagem na 1ª página
+ * @param {Array<{title:string, columns:Array<{label:string,width:string}>, rows:Array<Array<string|number>>, emptyLabel?:string}>} params.sections
+ * @param {object} params.opt - { filename, margin:[v,h], jsPDF:{unit,format,orientation}, image:{quality} }
+ */
+async function exportSectionedTablesToPdf({ headerHtml, sections, opt }) {
+    if (typeof window.html2pdf !== 'function') {
+        alert('A biblioteca de PDF não está disponível no momento.');
+        return;
+    }
+
+    const marginArr = Array.isArray(opt.margin) ? opt.margin : [opt.margin || 10, opt.margin || 10];
+    const marginV = marginArr[0];
+    const marginH = marginArr[1] !== undefined ? marginArr[1] : marginArr[0];
+    const jsPdfOpts = opt.jsPDF || { unit: 'mm', format: 'a4', orientation: 'portrait' };
+
+    const staging = document.createElement('div');
+    staging.style.position = 'fixed';
+    staging.style.left = '-9999px';
+    staging.style.top = '0';
+    staging.innerHTML = `<div style="width:1000px; padding:16px; box-sizing:border-box; background:white; font-family:'Outfit', Arial, sans-serif; color:#24305e;">${headerHtml}</div>`;
+    document.body.appendChild(staging);
+    const cleanup = () => { if (staging.parentNode) staging.parentNode.removeChild(staging); };
+
+    try {
+        if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+
+        // Única chamada ao html2pdf — só para o cabeçalho/gráficos (pequeno e seguro).
+        // `.get('pdf')` devolve a instância real do jsPDF, que reaproveitamos abaixo
+        // pra desenhar as tabelas nativamente, sem precisar chamar html2pdf de novo.
+        const pdf = await window.html2pdf()
+            .set({
+                margin: marginArr,
+                image: { type: 'jpeg', quality: (opt.image && opt.image.quality) || 0.95 },
+                html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, letterRendering: true },
+                jsPDF: jsPdfOpts,
+                pagebreak: { mode: ['avoid', 'css', 'legacy'] }
+            })
+            .from(staging.firstElementChild)
+            .toPdf()
+            .get('pdf');
+
+        const pageWidthMm = pdf.internal.pageSize.getWidth();
+        const pageHeightMm = pdf.internal.pageSize.getHeight();
+        const contentWidthMm = pageWidthMm - marginH * 2;
+        const contentBottomMm = pageHeightMm - marginV;
+
+        const FONT_SIZE = 8.5;
+        const LINE_HEIGHT_MM = 4;
+        const ROW_PADDING_MM = 1.5;
+
+        sections.forEach(section => {
+            pdf.addPage();
+            let y = marginV + 4;
+
+            const colWidths = section.columns.map(c => (contentWidthMm * parseFloat(c.width)) / 100);
+            const colX = [];
+            let acc = marginH;
+            colWidths.forEach(w => { colX.push(acc); acc += w; });
+
+            pdf.setFont(undefined, 'bold');
+            pdf.setFontSize(12);
+            pdf.setTextColor(0, 71, 171);
+            pdf.text(section.title, marginH, y);
+            y += 7;
+
+            const drawColumnHeaders = () => {
+                pdf.setFillColor(243, 246, 255);
+                pdf.rect(marginH, y - 3.5, contentWidthMm, 6, 'F');
+                pdf.setFont(undefined, 'bold');
+                pdf.setFontSize(FONT_SIZE);
+                pdf.setTextColor(43, 58, 85);
+                section.columns.forEach((col, i) => pdf.text(String(col.label), colX[i] + 1, y));
+                y += 5.5;
+                pdf.setFont(undefined, 'normal');
+                pdf.setTextColor(50, 50, 50);
+                pdf.setFontSize(FONT_SIZE);
+            };
+
+            drawColumnHeaders();
+
+            if (!section.rows || section.rows.length === 0) {
+                pdf.setTextColor(120, 120, 120);
+                pdf.text(section.emptyLabel || 'Nenhum registro', marginH, y);
+                return;
+            }
+
+            section.rows.forEach(rowFields => {
+                const wrapped = rowFields.map((field, i) => pdf.splitTextToSize(String(field ?? '-'), Math.max(4, colWidths[i] - 2)));
+                const rowLines = Math.max(1, ...wrapped.map(w => w.length));
+                const rowHeightMm = rowLines * LINE_HEIGHT_MM + ROW_PADDING_MM;
+
+                if (y + rowHeightMm > contentBottomMm) {
+                    pdf.addPage();
+                    y = marginV + 4;
+                    drawColumnHeaders();
+                }
+
+                wrapped.forEach((lines, i) => {
+                    pdf.text(lines, colX[i] + 1, y + LINE_HEIGHT_MM - 1);
+                });
+                y += rowHeightMm;
+                pdf.setDrawColor(230, 230, 230);
+                pdf.line(marginH, y - 1, marginH + contentWidthMm, y - 1);
+            });
+        });
+
+        pdf.save(opt.filename || 'documento.pdf');
+    } catch (err) {
+        console.error('Erro ao gerar PDF (seccionado):', err);
+        alert('Não foi possível gerar o PDF. Tente novamente ou aplique um filtro para reduzir o período.');
+    } finally {
+        cleanup();
+    }
+}
+
 window.exportHistoryCSV = function() {
     let { filteredVisits, filteredResolved } = getFilteredHistoryData();
     filteredVisits = [...filteredVisits].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -3605,69 +3714,77 @@ window.exportHistoryPDF = async function() {
         margin: [6, 6],
         filename: `Historico_Hiperroll_${new Date().toLocaleDateString()}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-        pagebreak: { mode: ['avoid', 'css', 'legacy'] }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     };
 
     const visitsRows = filteredVisits.map(v => {
         const store = stores.find(s => s.id === v.storeId) || { name: 'N/A', network: 'N/A' };
         const summary = getVisitResolutionSummary(v);
-        const badgeColor = summary.tone === 'ok' ? '#e8f5e9' : '#fff4e5';
-        const badgeText = summary.tone === 'ok' ? '#2e7d32' : '#c2410c';
-        const extraPts = (v.extraPoints || []).map(ep => `<span style="display:inline-block; padding: 2px 5px; border-radius: 5px; background:#f3e5f5; color:#8e44ad; font-weight:600; font-size:9px; margin-right:2px;">${ep}</span>`).join('') || '-';
-        return `
-            <tr>
-                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${formatDate(v.date)}</td>
-                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${store.name}</td>
-                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${store.network}</td>
-                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${(v.ruptures || []).length}</td>
-                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;"><span style="display:inline-block; padding: 3px 7px; border-radius: 999px; background:${badgeColor}; color:${badgeText}; font-weight:700;">${summary.label}</span></td>
-                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${extraPts}</td>
-                <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${(v.notes || '-').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
-            </tr>`;
-    }).join('');
+        const extraPts = (v.extraPoints || []).join(', ') || '-';
+        return [
+            formatDate(v.date),
+            store.name,
+            store.network,
+            (v.ruptures || []).length,
+            summary.label,
+            extraPts,
+            v.notes || '-'
+        ];
+    });
 
-    const resolvedRows = filteredResolved.map(item => `
-        <tr>
-            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${item.productName || 'Produto'}</td>
-            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${item.storeName || 'Loja'}</td>
-            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${item.visitDate ? formatDate(item.visitDate) : '-'}</td>
-            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">${item.resolvedAt ? formatDate(item.resolvedAt) : '-'}</td>
-            <td style="padding: 6px 7px; border-bottom: 1px solid #eee; white-space: normal; word-break: break-word;">Resolvido</td>
-        </tr>`).join('');
+    const resolvedRows = filteredResolved.map(item => [
+        item.productName || 'Produto',
+        item.storeName || 'Loja',
+        item.visitDate ? formatDate(item.visitDate) : '-',
+        item.resolvedAt ? formatDate(item.resolvedAt) : '-',
+        'Resolvido'
+    ]);
 
-    const container = document.createElement('div');
-    container.innerHTML = `
-        <div style="width: 100%; max-width: 1000px; margin: 0 auto; box-sizing: border-box; font-family: 'Outfit', sans-serif; color: #24305e; overflow: visible;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
-                <div style="flex: 1; min-width: 0;">
-                    <h1 style="color: #0047AB; margin: 0 0 4px; font-size: 20px;">Histórico Hiperroll</h1>
-                    <p style="margin: 0; color: #666; font-size: 11px;">Gerado em ${new Date().toLocaleString()}</p>
-                </div>
-                <div style="text-align: right; min-width: 220px; max-width: 260px; color: #0047AB; font-weight: 700; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">
-                    <div style="font-size: 13px;">Nicole Portela</div>
-                    <div style="font-size: 10px; color: #666; font-weight: 600; margin-top: 4px;">Trade Marketing</div>
-                </div>
+    const headerHtml = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+            <div style="flex: 1; min-width: 0;">
+                <h1 style="color: #0047AB; margin: 0 0 4px; font-size: 20px;">Histórico Hiperroll</h1>
+                <p style="margin: 0; color: #666; font-size: 11px;">Gerado em ${new Date().toLocaleString()}</p>
             </div>
-            <div style="margin-bottom: 18px; page-break-inside: avoid; break-inside: avoid;">
-                <h3 style="margin: 0 0 8px; font-size: 13px;">Rupturas não resolvidas</h3>
-                <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px; margin-bottom: 0;">
-                    <thead><tr style="background: #f3f6ff;"><th style="padding: 6px 7px; text-align: left; width: 11%;">Data</th><th style="padding: 6px 7px; text-align: left; width: 18%;">Loja</th><th style="padding: 6px 7px; text-align: left; width: 10%;">Rede</th><th style="padding: 6px 7px; text-align: left; width: 8%;">Rupturas</th><th style="padding: 6px 7px; text-align: left; width: 15%;">Status</th><th style="padding: 6px 7px; text-align: left; width: 16%;">Pontos Extras</th><th style="padding: 6px 7px; text-align: left; width: 22%;">Observações</th></tr></thead>
-                    <tbody>${visitsRows || '<tr><td colspan="7" style="padding: 8px;">Nenhuma visita no filtro</td></tr>'}</tbody>
-                </table>
-            </div>
-            <div style="page-break-inside: avoid; break-inside: avoid; margin-top: 12px;">
-                <h3 style="margin: 0 0 8px; font-size: 13px;">Rupturas resolvidas</h3>
-                <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px;">
-                    <thead><tr style="background: #f3f6ff;"><th style="padding: 6px 7px; text-align: left; width: 22%;">Produto</th><th style="padding: 6px 7px; text-align: left; width: 22%;">Loja</th><th style="padding: 6px 7px; text-align: left; width: 18%;">Visita</th><th style="padding: 6px 7px; text-align: left; width: 18%;">Resolvido em</th><th style="padding: 6px 7px; text-align: left; width: 20%;">Status</th></tr></thead>
-                    <tbody>${resolvedRows || '<tr><td colspan="5" style="padding: 8px;">Nenhuma ruptura resolvida no filtro</td></tr>'}</tbody>
-                </table>
+            <div style="text-align: right; min-width: 220px; max-width: 260px; color: #0047AB; font-weight: 700; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">
+                <div style="font-size: 13px;">Nicole Portela</div>
+                <div style="font-size: 10px; color: #666; font-weight: 600; margin-top: 4px;">Trade Marketing</div>
             </div>
         </div>
     `;
 
-    exportHtmlToPdf(container, opt);
+    await exportSectionedTablesToPdf({
+        headerHtml,
+        opt,
+        sections: [
+            {
+                title: 'Rupturas não resolvidas',
+                emptyLabel: 'Nenhuma visita no filtro',
+                columns: [
+                    { label: 'Data', width: '11%' },
+                    { label: 'Loja', width: '18%' },
+                    { label: 'Rede', width: '10%' },
+                    { label: 'Rupturas', width: '8%' },
+                    { label: 'Status', width: '15%' },
+                    { label: 'Pontos Extras', width: '16%' },
+                    { label: 'Observações', width: '22%' }
+                ],
+                rows: visitsRows
+            },
+            {
+                title: 'Rupturas resolvidas',
+                emptyLabel: 'Nenhuma ruptura resolvida no filtro',
+                columns: [
+                    { label: 'Produto', width: '22%' },
+                    { label: 'Loja', width: '22%' },
+                    { label: 'Visita', width: '18%' },
+                    { label: 'Resolvido em', width: '18%' },
+                    { label: 'Status', width: '20%' }
+                ],
+                rows: resolvedRows
+            }
+        ]
+    });
 };
 
 window.exportVisitsPDF = async function() {
@@ -3882,12 +3999,26 @@ window.exportVisitsPDF = async function() {
     `;
 
     const insightsSection = buildReportInsightsHTML(filteredVisits);
-    const tableSection = buildReportTableHTML(filteredVisits);
-    
-    const container = document.createElement('div');
-    container.innerHTML = header + filtersSummary + chartsSection + insightsSection + tableSection;
 
-    exportHtmlToPdf(container, opt);
+    await exportSectionedTablesToPdf({
+        headerHtml: header + filtersSummary + chartsSection + insightsSection,
+        opt,
+        sections: [
+            {
+                title: 'Visitas Incluídas no Relatório',
+                emptyLabel: 'Nenhuma visita no filtro',
+                columns: [
+                    { label: 'Data', width: '13%' },
+                    { label: 'Loja', width: '22%' },
+                    { label: 'Rede', width: '13%' },
+                    { label: 'Rupturas', width: '10%' },
+                    { label: 'Pontos Extras', width: '20%' },
+                    { label: 'Observações', width: '22%' }
+                ],
+                rows: buildReportTableRows(filteredVisits)
+            }
+        ]
+    });
 };
 
 function buildPendingStoresInsightsHTML(pendingStores) {
