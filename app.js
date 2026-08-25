@@ -756,7 +756,8 @@ const ROUTE_RUPTURE_WEIGHT = 0.4;
 const ROUTE_RUPTURE_SATURATION = 5; // a partir daqui o "peso" de ruptura satura em 1.0
 
 const AVG_URBAN_SPEED_KMH = 28;  // velocidade média assumida para estimar deslocamento
-const VISIT_DURATION_MIN = 30;   // tempo fixo de visita por loja
+const VISIT_BASE_MIN = 30;       // tempo fixo por visita: chegada, cumprimento, conferência inicial
+const VISIT_PER_ITEM_MIN = 2;    // tempo adicional por item cadastrado na loja (conferência/reposição)
 const DAILY_BUDGET_MIN = 8 * 60; // jornada de trabalho considerada (8h)
 const ROUTE_DAY_START_MIN = 8 * 60; // rota do dia começa às 08:00
 const ROUTE_SCHEDULING_THRESHOLD = 0.35; // score mínimo pra loja entrar na sugestão automática
@@ -813,6 +814,13 @@ function haversineKm(lat1, lng1, lat2, lng2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Tempo estimado de permanência na loja, em minutos: base fixa + tempo por item
+// cadastrado (quanto mais itens a conferir/repor, mais tempo o promotor leva).
+function estimateVisitDurationMin(store) {
+    const itemCount = (store && Array.isArray(store.productIds)) ? store.productIds.length : 0;
+    return VISIT_BASE_MIN + itemCount * VISIT_PER_ITEM_MIN;
+}
+
 // Tempo estimado de deslocamento entre duas lojas, em minutos (null se alguma não tem coordenada).
 function travelTimeMin(storeA, storeB) {
     if (!storeA || !storeB || !storeA.lat || !storeA.lng || !storeB.lat || !storeB.lng) return null;
@@ -822,7 +830,7 @@ function travelTimeMin(storeA, storeB) {
 
 // Duração total estimada de uma rota já ordenada (minutos): visitas + deslocamentos.
 function routeTotalMinutes(orderedStores) {
-    let total = orderedStores.length * VISIT_DURATION_MIN;
+    let total = orderedStores.reduce((sum, s) => sum + estimateVisitDurationMin(s), 0);
     for (let i = 1; i < orderedStores.length; i++) {
         total += travelTimeMin(orderedStores[i - 1], orderedStores[i]) || 0;
     }
@@ -895,7 +903,7 @@ function buildDayStops(orderedStores, scoreByStoreId) {
         const travelFromPrevMin = idx === 0 ? 0 : Math.round(travelTimeMin(orderedStores[idx - 1], store) || 0);
         clockMin += travelFromPrevMin;
         const arrivalEstimateMin = clockMin;
-        clockMin += VISIT_DURATION_MIN;
+        clockMin += estimateVisitDurationMin(store);
         return {
             storeId: store.id,
             order: idx,
@@ -960,7 +968,7 @@ function generateAutoWeekPlan(weekStartStr, promoterName, eligibleStores) {
             const bucket = dayBuckets[i];
             const currentTotal = routeTotalMinutes(bucket);
             const lastStop = bucket[bucket.length - 1];
-            const projectedAdd = VISIT_DURATION_MIN + (lastStop ? (travelTimeMin(lastStop, store) || 0) : 0);
+            const projectedAdd = estimateVisitDurationMin(store) + (lastStop ? (travelTimeMin(lastStop, store) || 0) : 0);
             if (currentTotal + projectedAdd > DAILY_BUDGET_MIN) continue; // sem orçamento sobrando nesse dia
             const proximity = bucket.length
                 ? Math.min(...bucket.map(s => haversineKm(s.lat, s.lng, store.lat, store.lng)))
