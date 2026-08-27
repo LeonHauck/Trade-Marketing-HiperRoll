@@ -757,7 +757,7 @@ const ROUTE_RUPTURE_SATURATION = 5; // a partir daqui o "peso" de ruptura satura
 
 const AVG_URBAN_SPEED_KMH = 28;  // velocidade média assumida para estimar deslocamento
 const VISIT_BASE_MIN = 30;       // tempo fixo por visita: chegada, cumprimento, conferência inicial
-const VISIT_PER_ITEM_MIN = 2;    // tempo adicional por item cadastrado na loja (conferência/reposição)
+const VISIT_PER_ITEM_MIN = 5;    // tempo adicional por item cadastrado na loja (conferência/reposição)
 const DAILY_BUDGET_MIN = 8 * 60; // jornada de trabalho considerada (8h)
 const ROUTE_DAY_START_MIN = 8 * 60; // rota do dia começa às 08:00
 const ROUTE_SCHEDULING_THRESHOLD = 0.35; // score mínimo pra loja entrar na sugestão automática
