@@ -557,7 +557,6 @@ const STORES_DATA = [
         "network":  "BAHAMAS",
         "productIds":  [
                            "bobina-20x30",
-                           "economico-100l",
                            "bobina-25x35",
                            "bobina-30x40",
                            "lixo-bahamas-30l",
@@ -926,6 +925,17 @@ const STORES_DATA = [
                            "lixo-bahamas-50l",
                            "lixo-bahamas-100l",
                            "pending"
+                       ],
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-jf-57-emporio-bahamas-jf-granbery",
+        "name":  "57 - EMPORIO BAHAMAS JF GRANBERY",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
                        ],
         "lastVisit":  null
     },
