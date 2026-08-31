@@ -2818,6 +2818,21 @@ function getFilteredHistoryData() {
     return { filteredVisits, filteredResolved };
 }
 
+// Monta o texto da tooltip do badge de rupturas (nomes dos itens, um por linha),
+// já escapado para uso seguro dentro do atributo HTML data-tooltip.
+function getRuptureTooltipAttr(ruptures) {
+    if (!ruptures || ruptures.length === 0) return '';
+    const names = ruptures.map(pId => {
+        const prod = products.find(p => p.id === pId);
+        return prod ? prod.name : 'Produto Desconhecido';
+    });
+    return names.join('\n')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 function renderHistoryViewData() {
     const { filteredVisits, filteredResolved } = getFilteredHistoryData();
 
@@ -2852,7 +2867,7 @@ function renderHistoryViewData() {
                     <td>${formatDate(visit.date)}</td>
                     <td><strong>${store ? store.name : 'Loja Removida'}${visit.isExtra ? ' <span class="badge-visit-extra">⭐ Visita Extra</span>' : ''}</strong></td>
                     <td>${store ? store.network : '-'}</td>
-                    <td><span class="badge-rupture">${(visit.ruptures || []).length} Itens</span></td>
+                    <td><span class="badge-rupture"${(visit.ruptures || []).length > 0 ? ` data-tooltip="${getRuptureTooltipAttr(visit.ruptures)}"` : ''}>${(visit.ruptures || []).length} Itens</span></td>
                     <td>${getVisitResolutionBadge(visit)}</td>
                     <td>${(visit.extraPoints || []).map(ep => `<span class="badge-extra-point">${ep}</span>`).join('') || '-'}</td>
                     <td>${window.fixEncoding(visit.notes) || '-'}</td>
@@ -2941,7 +2956,7 @@ function renderReportsTable() {
             </td>
             <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="showVisitDetails(${visit.id})" title="Ver detalhes da visita">${store ? store.name : 'Loja Removida'}${visit.isExtra ? ' <span class="badge-visit-extra">⭐ Visita Extra</span>' : ''}</strong></td>
             <td><span class="network-tag">${store ? store.network : '-'}</span></td>
-            <td><span class="badge-rupture">${visit.ruptures.length} Itens</span></td>
+            <td><span class="badge-rupture"${visit.ruptures.length > 0 ? ` data-tooltip="${getRuptureTooltipAttr(visit.ruptures)}"` : ''}>${visit.ruptures.length} Itens</span></td>
             <td>
                 <div class="history-photos">
                     ${(photoCache[visit.id] && photoCache[visit.id].length > 0) ? `<button class="btn btn-secondary btn-small" onclick="viewVisitPhotos('${visit.id}')" style="display:flex; align-items:center; gap:5px;"><i class="fa-solid fa-camera"></i> ${photoCache[visit.id].length} Fotos</button>` : '<span style="color:#ccc; font-size: 0.7rem;">Sem fotos</span>'}
