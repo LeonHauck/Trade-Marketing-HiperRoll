@@ -905,6 +905,59 @@ select:focus, textarea:focus, input:focus {
     border-radius: 4px;
     font-weight: 600;
     font-size: 0.8rem;
+    position: relative;
+    display: inline-block;
+}
+
+.badge-rupture[data-tooltip] {
+    cursor: help;
+}
+
+.badge-rupture[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: #262626;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.5;
+    white-space: pre-line;
+    text-align: left;
+    max-width: 260px;
+    width: max-content;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 50;
+    pointer-events: none;
+}
+
+.badge-rupture[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border: 6px solid transparent;
+    border-top-color: #262626;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 50;
+    pointer-events: none;
+}
+
+.badge-rupture[data-tooltip]:hover::after,
+.badge-rupture[data-tooltip]:hover::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
 }
 
 .notes-cell {
