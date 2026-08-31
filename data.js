@@ -2846,10 +2846,6 @@ const STORES_DATA = [
         "name":  "69 - EMPORIO BAHAMAS UBERLANDIA CENTER SHOPPING",
         "network":  "BAHAMAS",
         "productIds":  [
-                           "bobina-20x30",
-                           "bobina-25x35",
-                           "bobina-30x40",
-                           "economico-100l",
                            "lixo-bahamas-30l",
                            "lixo-bahamas-50l",
                            "lixo-bahamas-100l",
