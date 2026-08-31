@@ -3770,32 +3770,28 @@ window.exportHistoryCSV = function() {
     document.body.removeChild(link);
 };
 
-async function drawHistoryHeaderNative(pdf, { marginH, marginV, contentWidthMm }) {
-    const y = marginV + 6;
+// Cabeçalho do PDF de Rupturas — mesmo tratamento visual do Relatório de Visitas
+// (título/selo + gráficos de Status/Top Produtos + quadro de Principais Insights),
+// desenhado nativamente. `data` vem de buildVisitsChartsAndInsights(filteredVisits),
+// já calculado em cima do recorte de dados que o usuário tem filtrado na tela.
+async function drawHistoryHeaderNative(pdf, { marginH, marginV, contentWidthMm }, data) {
+    const pageHeightMm = pdf.internal.pageSize.getHeight();
+    const contentBottomMm = pageHeightMm - marginV;
 
-    pdf.setFont(undefined, 'bold');
-    pdf.setFontSize(16);
-    pdf.setTextColor(0, 71, 171);
-    pdf.text('Histórico Hiperroll', marginH, y);
+    let y = drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle: 'Histórico de Rupturas Trade Marketing', subtitleColor: [227, 30, 36] });
 
-    pdf.setFont(undefined, 'normal');
-    pdf.setFontSize(9);
-    pdf.setTextColor(102, 102, 102);
-    pdf.text('Gerado em ' + new Date().toLocaleString(), marginH, y + 5);
+    if (data) {
+        y = drawPdfChartsRow(pdf, { marginH, y, contentWidthMm }, {
+            donutChartUrl: data.donutChartUrl,
+            donutLegendTitle: 'Composição por Rede (Sem/Com Ruptura)',
+            donutLegendLines: [`Sem Ruptura: ${data.strOk}`, `Com Ruptura: ${data.strRup}`],
+            barChartUrl: data.barChartUrl,
+            barLegendTitle: 'Detalhamento das Faltas (Por Rede)',
+            barLegendLines: data.topProductsList.map(p => `${p.name}: ${data.formatProductNetStr(p.networks)}`)
+        });
 
-    const rightX = marginH + contentWidthMm;
-    pdf.setFont(undefined, 'bold');
-    pdf.setFontSize(11);
-    pdf.setTextColor(0, 71, 171);
-    pdf.text('Nicole Portela', rightX, y, { align: 'right' });
-    pdf.setFont(undefined, 'normal');
-    pdf.setFontSize(8);
-    pdf.setTextColor(102, 102, 102);
-    pdf.text('Trade Marketing', rightX, y + 4.5, { align: 'right' });
-
-    const lineY = y + 8;
-    pdf.setDrawColor(226, 232, 240);
-    pdf.line(marginH, lineY, marginH + contentWidthMm, lineY);
+        drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, data.insights);
+    }
 }
 
 window.exportHistoryPDF = async function() {
@@ -3837,8 +3833,10 @@ window.exportHistoryPDF = async function() {
         'Resolvido'
     ]);
 
+    const chartsData = await buildVisitsChartsAndInsights(filteredVisits);
+
     await exportSectionedTablesToPdf({
-        headerDraw: drawHistoryHeaderNative,
+        headerDraw: (pdf, ctx) => drawHistoryHeaderNative(pdf, ctx, chartsData),
         opt,
         sections: [
             {
@@ -4223,36 +4221,111 @@ window.exportVisitsPDF = async function() {
     });
 };
 
-function buildPendingStoresInsightsHTML(pendingStores) {
+// Dados (texto puro) do resumo executivo de lojas pendentes/em atraso — mesmo
+// formato de computeReportInsights, pra reaproveitar drawPdfInsightsBox.
+function computePendingStoresInsights(pendingStores) {
     const overdueCounts = pendingStores.filter(s => s.currentStatus === 'overdue').length;
     const pendingCounts = pendingStores.filter(s => s.currentStatus === 'pending' || s.status === 'pending').length;
     const networkMap = {};
     const neverVisited = pendingStores.filter(s => !s.lastVisit).length;
-    
+
     pendingStores.forEach(s => {
         const net = s.network || 'Não informada';
         networkMap[net] = (networkMap[net] || 0) + 1;
     });
-    
+
     const topNetwork = Object.entries(networkMap).sort((a, b) => b[1] - a[1])[0] || ['Nenhuma', 0];
     const overduePct = Math.round((overdueCounts / pendingStores.length) * 100);
-    
-    return `
-        <div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 16px; padding: 16px 18px; margin-bottom: 20px; font-family: 'Outfit', sans-serif;">
-            <h2 style="margin: 0 0 12px; font-size: 16px; color: #8b6914;">Resumo Executivo</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; color: #555; line-height: 1.6;">
-                <div><strong>Lojas no relatório:</strong> ${pendingStores.length}</div>
-                <div><strong>Em atraso:</strong> ${overdueCounts} (${overduePct}%)</div>
-                <div><strong>Pendentes de visita:</strong> ${pendingCounts}</div>
-                <div><strong>Nunca visitadas:</strong> ${neverVisited}</div>
-                <div><strong>Rede mais afetada:</strong> ${topNetwork[0]} (${topNetwork[1]} lojas)</div>
-                <div style="color: #d9534f; font-weight: 600;"><i class="fa-solid fa-exclamation-circle"></i> Prioridade: Agendar visitas</div>
-            </div>
-        </div>
-    `;
+
+    return {
+        sentences: [
+            `Lojas no relatório: ${pendingStores.length}.`,
+            `Em atraso: ${overdueCounts} (${overduePct}%).`,
+            `Pendentes de visita: ${pendingCounts}.`,
+            `Nunca visitadas: ${neverVisited}.`,
+            `Rede mais afetada: ${topNetwork[0]} (${topNetwork[1]} lojas).`
+        ],
+        details: ['Prioridade: agendar visitas para as lojas em atraso o quanto antes.']
+    };
 }
 
-window.exportDashboardPDF = function() {
+// Monta o gráfico de rosca (Atrasado/Pendente) e de barras (top redes) para o
+// relatório de lojas pendentes, no mesmo espírito de buildVisitsChartsAndInsights.
+async function buildPendingStoresCharts(pendingStores) {
+    const overdueCounts = pendingStores.filter(s => s.currentStatus === 'overdue').length;
+    const pendingCounts = pendingStores.length - overdueCounts;
+
+    const donutChartConfig = {
+        type: 'doughnut',
+        data: { labels: ['Atrasado', 'Pendente'], datasets: [{ data: [overdueCounts, pendingCounts], backgroundColor: ['#E31E24', '#FFC107'] }] },
+        plugins: [{
+            id: 'textInside',
+            afterDraw: function(chart) {
+                const ctx = chart.ctx;
+                chart.data.datasets.forEach((dataset, i) => {
+                    chart.getDatasetMeta(i).data.forEach((element, index) => {
+                        const data = dataset.data[index];
+                        if (data > 0) {
+                            const total = dataset.data.reduce((a, b) => a + b, 0);
+                            const percent = Math.round((data / total) * 100) + '%';
+                            ctx.fillStyle = 'white';
+                            ctx.font = 'bold 16px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            const position = element.tooltipPosition();
+                            ctx.fillText(percent, position.x, position.y);
+                        }
+                    });
+                });
+            }
+        }],
+        options: { plugins: { title: { display: true, text: 'Status das Lojas', font: { size: 14 } }, legend: { position: 'bottom' } } }
+    };
+
+    const networkCounts = {};
+    pendingStores.forEach(s => { const n = s.network || 'Não informada'; networkCounts[n] = (networkCounts[n] || 0) + 1; });
+    const topNets = Object.entries(networkCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    const barChartConfig = {
+        type: 'bar',
+        data: { labels: topNets.map(([n]) => n), datasets: [{ label: 'Lojas Pendentes', data: topNets.map(([, c]) => c), backgroundColor: '#0047AB', borderRadius: 4 }] },
+        options: {
+            plugins: { title: { display: true, text: 'Top Redes com Mais Lojas Pendentes', font: { size: 14 } } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    };
+
+    const donutChartUrl = await generateChartImage(donutChartConfig, 350, 250);
+    const barChartUrl = await generateChartImage(barChartConfig, 500, 250);
+
+    const total = pendingStores.length;
+    const statusSummary = `Atrasado: ${overdueCounts} (${Math.round((overdueCounts / total) * 100)}%) — Pendente: ${pendingCounts} (${Math.round((pendingCounts / total) * 100)}%)`;
+
+    return { donutChartUrl, barChartUrl, statusSummary, topNets };
+}
+
+// Cabeçalho do PDF de Lojas Pendentes/Em Atraso — título/selo + gráficos + insights,
+// desenhado nativamente (sem rasterizar tabela nenhuma, ao contrário da versão
+// anterior que capturava a lista inteira como uma única imagem e saía em branco).
+async function drawPendingStoresHeaderNative(pdf, { marginH, marginV, contentWidthMm }, data) {
+    const pageHeightMm = pdf.internal.pageSize.getHeight();
+    const contentBottomMm = pageHeightMm - marginV;
+
+    let y = drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle: 'Relatório de Lojas Pendentes / Em Atraso', subtitleColor: [227, 30, 36] });
+
+    y = drawPdfChartsRow(pdf, { marginH, y, contentWidthMm }, {
+        donutChartUrl: data.donutChartUrl,
+        donutLegendTitle: 'Resumo por Status',
+        donutLegendLines: [data.statusSummary],
+        barChartUrl: data.barChartUrl,
+        barLegendTitle: 'Top Redes (Lojas Pendentes)',
+        barLegendLines: data.topNets.map(([n, c]) => `${n}: ${c} loja(s)`)
+    });
+
+    drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, data.insights);
+}
+
+window.exportDashboardPDF = async function() {
     const fStores = typeof getGlobalFilteredStores === 'function' ? getGlobalFilteredStores() : stores;
     const pendingStores = fStores.filter(s => s.currentStatus === 'overdue' || s.currentStatus === 'pending' || s.status === 'pending');
 
@@ -4262,77 +4335,38 @@ window.exportDashboardPDF = function() {
     }
 
     const opt = {
-        margin:       [10, 10],
-        filename:     `Relatorio_Lojas_Pendentes_${new Date().toLocaleDateString()}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        margin: [10, 10],
+        filename: `Relatorio_Lojas_Pendentes_${new Date().toLocaleDateString()}.pdf`,
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     };
 
-    const header = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; font-family: 'Outfit', sans-serif; border-bottom: 2px solid #0047AB; padding-bottom: 15px; width: 100%; box-sizing: border-box;">
-            <div style="text-align: left; flex: 1; padding-right: 20px;">
-                <h1 style="color: #0047AB; margin: 0; font-size: 24px; font-weight: 700;">Hiperroll Embalagens</h1>
-                <h3 style="color: #E31E24; margin: 5px 0 0; font-size: 16px; font-weight: 600;">Relatório de Lojas Pendentes / Em Atraso</h3>
-                <p style="font-size: 11px; color: #666; margin: 6px 0 0; font-weight: 400;">Gerado em: ${new Date().toLocaleString()}</p>
-                <p style="font-size: 12px; color: #333; margin-top: 5px; font-weight: 600; white-space: normal; overflow-wrap: anywhere;">Responsável: Nicole Portela - Trade Marketing</p>
-            </div>
-            <div style="text-align: center; min-width: 220px; max-width: 260px;">
-                <div style="background: #0047AB; color: white; padding: 14px 20px; border-radius: 10px; font-weight: 700; font-size: 18px; letter-spacing: 0.5px; display: inline-block; margin-bottom: 8px;">
-                    HIPERROLL
-                </div>
-                <p style="font-size: 11px; color: #0047AB; margin: 0; font-weight: 700; letter-spacing: 0.3px; white-space: normal; overflow-wrap: anywhere; line-height: 1.35;">INTELIGÊNCIA EM TRADE</p>
-            </div>
-        </div>
-    `;
+    const chartsData = await buildPendingStoresCharts(pendingStores);
+    const insights = computePendingStoresInsights(pendingStores);
+    const headerData = { ...chartsData, insights };
 
-    const insightsHtml = buildPendingStoresInsightsHTML(pendingStores);
-
-    let tableHtml = `
-        <table style="width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif; font-size: 12px; text-align: left;">
-            <thead>
-                <tr style="background-color: #f5f5f5; border-bottom: 1px solid #ddd;">
-                    <th style="padding: 10px;">Loja</th>
-                    <th style="padding: 10px;">Rede</th>
-                    <th style="padding: 10px;">Status</th>
-                    <th style="padding: 10px;">Última Visita</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-    pendingStores.forEach(s => {
-        let statusStr = "Pendente";
-        let statusColor = "#FFC107";
-        if (s.currentStatus === 'overdue') {
-            statusStr = "Atrasado";
-            statusColor = "#E31E24";
-        }
-
-        let lastVisitStr = "Nunca visitada";
-        if (s.lastVisit) {
-            lastVisitStr = formatDate(s.lastVisit);
-        }
-
-        tableHtml += `
-            <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding: 10px; font-weight: 600; color: #333;">${s.name}</td>
-                <td style="padding: 10px; font-weight: bold; color: var(--primary-blue);">${s.network}</td>
-                <td style="padding: 10px; color: ${statusColor}; font-weight: bold;">${statusStr}</td>
-                <td style="padding: 10px; color: #666;">${lastVisitStr}</td>
-            </tr>
-        `;
+    const rows = pendingStores.map(s => {
+        const statusStr = s.currentStatus === 'overdue' ? 'Atrasado' : 'Pendente';
+        const lastVisitStr = s.lastVisit ? formatDate(s.lastVisit) : 'Nunca visitada';
+        return [s.name, s.network, statusStr, lastVisitStr];
     });
 
-    tableHtml += `
-            </tbody>
-        </table>
-    `;
-
-    const container = document.createElement('div');
-    container.innerHTML = header + insightsHtml + tableHtml;
-
-    exportHtmlToPdf(container, opt);
+    await exportSectionedTablesToPdf({
+        headerDraw: (pdf, ctx) => drawPendingStoresHeaderNative(pdf, ctx, headerData),
+        opt,
+        sections: [
+            {
+                title: 'Lojas Pendentes / Em Atraso',
+                emptyLabel: 'Nenhuma loja pendente',
+                columns: [
+                    { label: 'Loja', width: '35%' },
+                    { label: 'Rede', width: '20%' },
+                    { label: 'Status', width: '20%' },
+                    { label: 'Última Visita', width: '25%' }
+                ],
+                rows
+            }
+        ]
+    });
 };
 
 window.toggleRuptureFilter = function() {
