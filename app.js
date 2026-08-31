@@ -3293,7 +3293,9 @@ function getFilteredReportVisits() {
     });
 }
 
-function buildReportInsightsHTML(filteredVisits) {
+// Retorna os dados dos "Principais Insights" como texto puro (sentences + details),
+// para desenho nativo no jsPDF — sem depender de rasterizar HTML (ver drawVisitsReportHeaderNative).
+function computeReportInsights(filteredVisits) {
     const storeMap = new Map();
     const networkCounts = {};
     let totalRuptureItems = 0;
@@ -3369,39 +3371,31 @@ function buildReportInsightsHTML(filteredVisits) {
     const highlightWorse = worsenedStores[0];
 
     const sentences = [];
-    sentences.push(`Total de visitas no relatório: <strong>${filteredVisits.length}</strong>.`);
-    sentences.push(`Lojas diferentes no recorte: <strong>${storeMap.size}</strong>.`);
-    sentences.push(`Rede mais registrada: <strong>${topNetwork[0]}</strong> (${topNetwork[1]} visitas).`);
-    sentences.push(`Taxa Geral de Ruptura: <strong style="color: #E31E24;">${generalRuptureRate}%</strong> (Média de ${(totalRuptureItems / Math.max(1, filteredVisits.length)).toFixed(1)} Itens/visita).`);
+    sentences.push(`Total de visitas no relatório: ${filteredVisits.length}.`);
+    sentences.push(`Lojas diferentes no recorte: ${storeMap.size}.`);
+    sentences.push(`Rede mais registrada: ${topNetwork[0]} (${topNetwork[1]} visitas).`);
+    sentences.push(`Taxa Geral de Ruptura: ${generalRuptureRate}% (Média de ${(totalRuptureItems / Math.max(1, filteredVisits.length)).toFixed(1)} Itens/visita).`);
     sentences.push(improvedText);
     sentences.push(worsenedText);
 
-    let details = '';
-    
+    const details = [];
+
     if (topProducts.length > 0) {
         const topList = topProducts.map(p => `${p.name} (${p.count}x)`).join(', ');
-        details += `<li><strong>Top 5 Produtos Críticos:</strong> ${topList}</li>`;
+        details.push(`Top 5 Produtos Críticos: ${topList}`);
     }
 
     if (highlightImprov) {
-        details += `<li><strong>${highlightImprov.store.name}</strong> apresentou a maior melhora: de ${highlightImprov.firstCount} para ${highlightImprov.lastCount} Itens (${highlightImprov.percent}% de melhoria).</li>`;
+        details.push(`${highlightImprov.store.name} apresentou a maior melhora: de ${highlightImprov.firstCount} para ${highlightImprov.lastCount} Itens (${highlightImprov.percent}% de melhoria).`);
     }
     if (highlightWorse) {
-        details += `<li><strong>${highlightWorse.store.name}</strong> teve a maior piora: de ${highlightWorse.firstCount} para ${highlightWorse.lastCount} Itens.</li>`;
+        details.push(`${highlightWorse.store.name} teve a maior piora: de ${highlightWorse.firstCount} para ${highlightWorse.lastCount} Itens.`);
     }
     if (mostVisitedStore) {
-        details += `<li><strong>${mostVisitedStore.store.name}</strong> foi a loja com mais visitas no período (${mostVisitedStore.visits}).</li>`;
+        details.push(`${mostVisitedStore.store.name} foi a loja com mais visitas no período (${mostVisitedStore.visits}).`);
     }
 
-    return `
-        <div style="background: #f4f8ff; border: 1px solid #d8e7ff; border-radius: 16px; padding: 18px 20px; margin-bottom: 24px; font-family: 'Outfit', sans-serif; color: #24305e; page-break-inside: avoid; break-inside: avoid;">
-            <h2 style="margin: 0 0 12px; font-size: 18px; color: #0d3b7f;">Principais Insights</h2>
-            <div style="display: grid; gap: 10px;">
-                ${sentences.map(text => `<p style="margin: 0; line-height: 1.6; font-size: 13px;">${text}</p>`).join('')}
-            </div>
-            ${details ? `<ul style="margin: 12px 0 0 18px; padding: 0; list-style-type: disc; color: #2d3f69; font-size: 13px;">${details}</ul>` : ''}
-        </div>
-    `;
+    return { sentences, details };
 }
 
 // Retorna as linhas da tabela de visitas como um ARRAY (uma string por linha), não uma
@@ -3559,46 +3553,86 @@ function exportHtmlToPdf(container, options) {
  * bônus o PDF fica menor e com texto selecionável/pesquisável.
  *
  * @param {object} params
- * @param {string} params.headerHtml - cabeçalho/gráficos, renderizado como imagem na 1ª página
+ * @param {string} [params.headerHtml] - cabeçalho/gráficos como HTML, rasterizado via html2canvas (legado —
+ *   preferir headerDraw sempre que possível: rasterizar um cabeçalho pequeno ainda é sujeito ao mesmo tipo
+ *   de falha silenciosa que já causou o bug das páginas em branco na tabela grande).
+ * @param {function(object, {marginH:number, marginV:number, contentWidthMm:number}): Promise<void>} [params.headerDraw]
+ *   - desenha o cabeçalho diretamente no jsPDF (sem rasterizar nada) — forma preferida, 100% confiável
+ *     independente do tamanho da página por trás. Recebe a instância do pdf já criada.
  * @param {Array<{title:string, columns:Array<{label:string,width:string}>, rows:Array<Array<string|number>>, emptyLabel?:string}>} params.sections
  * @param {object} params.opt - { filename, margin:[v,h], jsPDF:{unit,format,orientation}, image:{quality} }
  */
-async function exportSectionedTablesToPdf({ headerHtml, sections, opt }) {
-    if (typeof window.html2pdf !== 'function') {
-        alert('A biblioteca de PDF não está disponível no momento.');
-        return;
-    }
-
+async function exportSectionedTablesToPdf({ headerHtml, headerDraw, sections, opt }) {
     const marginArr = Array.isArray(opt.margin) ? opt.margin : [opt.margin || 10, opt.margin || 10];
     const marginV = marginArr[0];
     const marginH = marginArr[1] !== undefined ? marginArr[1] : marginArr[0];
     const jsPdfOpts = opt.jsPDF || { unit: 'mm', format: 'a4', orientation: 'portrait' };
 
-    const staging = document.createElement('div');
-    staging.style.position = 'fixed';
-    staging.style.left = '-9999px';
-    staging.style.top = '0';
-    staging.innerHTML = `<div style="width:1000px; padding:16px; box-sizing:border-box; background:white; font-family:'Outfit', Arial, sans-serif; color:#24305e;">${headerHtml}</div>`;
-    document.body.appendChild(staging);
-    const cleanup = () => { if (staging.parentNode) staging.parentNode.removeChild(staging); };
+    let pdf;
+    let cleanup = () => {};
 
     try {
-        if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+        if (headerDraw) {
+            if (typeof window.html2pdf !== 'function') {
+                alert('A biblioteca de PDF não está disponível no momento.');
+                return;
+            }
+            // Caminho nativo: a única rasterização de HTML é a de um elemento trivial de
+            // 1 linha, só para obter uma instância válida do jsPDF (o bundle usado aqui
+            // não expõe o construtor jsPDF como global). O cabeçalho em si é desenhado
+            // depois direto no jsPDF — então não existe captura que possa sair em
+            // branco/cortada por causa do tamanho da página real por trás (o bug que
+            // afetava a versão anterior, baseada em html2canvas, em produção).
+            // html2pdf sempre incorpora o elemento capturado como imagem na página (não existe
+            // um jeito de só "pegar uma instância vazia"), então esse elemento precisa ter fundo
+            // branco opaco explícito — sem isso, a área transparente vira preto ao converter pra
+            // JPEG e essa imagem preta acaba esticada pela página inteira, por trás do conteúdo
+            // desenhado nativamente logo em seguida.
+            const bootstrapEl = document.createElement('div');
+            bootstrapEl.style.position = 'fixed';
+            bootstrapEl.style.left = '-9999px';
+            bootstrapEl.style.top = '0';
+            bootstrapEl.style.width = '10px';
+            bootstrapEl.style.height = '10px';
+            bootstrapEl.style.background = '#ffffff';
+            document.body.appendChild(bootstrapEl);
+            try {
+                pdf = await window.html2pdf().set({ margin: 0, jsPDF: jsPdfOpts }).from(bootstrapEl).toPdf().get('pdf');
+            } finally {
+                if (bootstrapEl.parentNode) bootstrapEl.parentNode.removeChild(bootstrapEl);
+            }
+            const contentWidthMm0 = pdf.internal.pageSize.getWidth() - marginH * 2;
+            await headerDraw(pdf, { marginH, marginV, contentWidthMm: contentWidthMm0 });
+        } else {
+            if (typeof window.html2pdf !== 'function') {
+                alert('A biblioteca de PDF não está disponível no momento.');
+                return;
+            }
+            const staging = document.createElement('div');
+            staging.style.position = 'fixed';
+            staging.style.left = '-9999px';
+            staging.style.top = '0';
+            staging.innerHTML = `<div style="width:1000px; padding:16px; box-sizing:border-box; background:white; font-family:'Outfit', Arial, sans-serif; color:#24305e;">${headerHtml}</div>`;
+            document.body.appendChild(staging);
+            cleanup = () => { if (staging.parentNode) staging.parentNode.removeChild(staging); };
 
-        // Única chamada ao html2pdf — só para o cabeçalho/gráficos (pequeno e seguro).
-        // `.get('pdf')` devolve a instância real do jsPDF, que reaproveitamos abaixo
-        // pra desenhar as tabelas nativamente, sem precisar chamar html2pdf de novo.
-        const pdf = await window.html2pdf()
-            .set({
-                margin: marginArr,
-                image: { type: 'jpeg', quality: (opt.image && opt.image.quality) || 0.95 },
-                html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, letterRendering: true },
-                jsPDF: jsPdfOpts,
-                pagebreak: { mode: ['avoid', 'css', 'legacy'] }
-            })
-            .from(staging.firstElementChild)
-            .toPdf()
-            .get('pdf');
+            if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+
+            // Única chamada ao html2pdf — só para o cabeçalho/gráficos (pequeno e seguro).
+            // `.get('pdf')` devolve a instância real do jsPDF, que reaproveitamos abaixo
+            // pra desenhar as tabelas nativamente, sem precisar chamar html2pdf de novo.
+            pdf = await window.html2pdf()
+                .set({
+                    margin: marginArr,
+                    image: { type: 'jpeg', quality: (opt.image && opt.image.quality) || 0.95 },
+                    html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, letterRendering: true },
+                    jsPDF: jsPdfOpts,
+                    pagebreak: { mode: ['avoid', 'css', 'legacy'] }
+                })
+                .from(staging.firstElementChild)
+                .toPdf()
+                .get('pdf');
+        }
 
         const pageWidthMm = pdf.internal.pageSize.getWidth();
         const pageHeightMm = pdf.internal.pageSize.getHeight();
@@ -3736,6 +3770,34 @@ window.exportHistoryCSV = function() {
     document.body.removeChild(link);
 };
 
+async function drawHistoryHeaderNative(pdf, { marginH, marginV, contentWidthMm }) {
+    const y = marginV + 6;
+
+    pdf.setFont(undefined, 'bold');
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 71, 171);
+    pdf.text('Histórico Hiperroll', marginH, y);
+
+    pdf.setFont(undefined, 'normal');
+    pdf.setFontSize(9);
+    pdf.setTextColor(102, 102, 102);
+    pdf.text('Gerado em ' + new Date().toLocaleString(), marginH, y + 5);
+
+    const rightX = marginH + contentWidthMm;
+    pdf.setFont(undefined, 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(0, 71, 171);
+    pdf.text('Nicole Portela', rightX, y, { align: 'right' });
+    pdf.setFont(undefined, 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(102, 102, 102);
+    pdf.text('Trade Marketing', rightX, y + 4.5, { align: 'right' });
+
+    const lineY = y + 8;
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(marginH, lineY, marginH + contentWidthMm, lineY);
+}
+
 window.exportHistoryPDF = async function() {
     let { filteredVisits, filteredResolved } = getFilteredHistoryData();
     filteredVisits = [...filteredVisits].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -3775,21 +3837,8 @@ window.exportHistoryPDF = async function() {
         'Resolvido'
     ]);
 
-    const headerHtml = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
-            <div style="flex: 1; min-width: 0;">
-                <h1 style="color: #0047AB; margin: 0 0 4px; font-size: 20px;">Histórico Hiperroll</h1>
-                <p style="margin: 0; color: #666; font-size: 11px;">Gerado em ${new Date().toLocaleString()}</p>
-            </div>
-            <div style="text-align: right; min-width: 220px; max-width: 260px; color: #0047AB; font-weight: 700; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">
-                <div style="font-size: 13px;">Nicole Portela</div>
-                <div style="font-size: 10px; color: #666; font-weight: 600; margin-top: 4px;">Trade Marketing</div>
-            </div>
-        </div>
-    `;
-
     await exportSectionedTablesToPdf({
-        headerHtml,
+        headerDraw: drawHistoryHeaderNative,
         opt,
         sections: [
             {
@@ -3822,35 +3871,205 @@ window.exportHistoryPDF = async function() {
     });
 };
 
-window.exportVisitsPDF = async function() {
-    const element = document.querySelector('.reports-container');
-    const filteredVisits = getFilteredReportVisits().sort((a, b) => new Date(b.date) - new Date(a.date));
-    const { selectedNetworks, isAllSelected, startDate, endDate } = getReportFilterSettings();
+// Desenha uma caixa com borda arredondada, título e linhas de texto (já quebradas
+// pra caber em `w`), com altura calculada a partir do conteúdo — nunca corta nada,
+// diferente da versão anterior baseada em captura de imagem. Retorna o Y final.
+function drawPdfLegendBox(pdf, x, topY, w, title, lines) {
+    const innerW = w - 10;
+    pdf.setFontSize(8.5);
+    const wrapped = lines.map(l => pdf.splitTextToSize(l, innerW));
+    const totalLines = wrapped.reduce((sum, w2) => sum + w2.length, 0);
+    const boxH = 8 + totalLines * 4 + Math.max(0, lines.length - 1) * 1.5 + 5;
 
-    if (filteredVisits.length === 0) {
-        alert('Não há dados para exportar. Ajuste os filtros ou registre visitas antes.');
-        return;
+    pdf.setFillColor(249, 249, 249);
+    pdf.setDrawColor(238, 238, 238);
+    pdf.roundedRect(x, topY, w, boxH, 2, 2, 'FD');
+
+    let ly = topY + 6;
+    pdf.setFont(undefined, 'bold');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(0, 71, 171);
+    pdf.text(title, x + 5, ly);
+    ly += 4;
+    pdf.setDrawColor(224, 224, 224);
+    pdf.line(x + 5, ly - 2.5, x + w - 5, ly - 2.5);
+    ly += 1.5;
+
+    pdf.setFont(undefined, 'normal');
+    pdf.setTextColor(85, 85, 85);
+    wrapped.forEach(wLines => {
+        pdf.text(wLines, x + 5, ly);
+        ly += wLines.length * 4 + 1.5;
+    });
+
+    return topY + boxH;
+}
+
+// Título "Hiperroll Embalagens" + subtítulo + data + responsável (esquerda) e selo
+// HIPERROLL (direita) + linha divisória — comum a todos os cabeçalhos de PDF do
+// sistema. Retorna o Y logo abaixo da linha, pronto para o próximo bloco.
+function drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle, subtitleColor }) {
+    const y = marginV + 8;
+    const badgeW = 58, badgeH = 15;
+
+    pdf.setFont(undefined, 'bold');
+    pdf.setFontSize(17);
+    pdf.setTextColor(0, 71, 171);
+    pdf.text('Hiperroll Embalagens', marginH, y);
+
+    pdf.setFontSize(12);
+    const [sr, sg, sb] = subtitleColor || [227, 30, 36];
+    pdf.setTextColor(sr, sg, sb);
+    pdf.text(subtitle, marginH, y + 6.5);
+
+    pdf.setFont(undefined, 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(102, 102, 102);
+    pdf.text('Gerado em: ' + new Date().toLocaleString(), marginH, y + 11.5);
+
+    pdf.setFont(undefined, 'bold');
+    pdf.setFontSize(9);
+    pdf.setTextColor(51, 51, 51);
+    pdf.text('Responsável: Nicole Portela - Trade Marketing', marginH, y + 16.5);
+
+    const badgeX = marginH + contentWidthMm - badgeW;
+    const badgeY = y - 6;
+    pdf.setFillColor(0, 71, 171);
+    pdf.roundedRect(badgeX, badgeY, badgeW, badgeH, 3, 3, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont(undefined, 'bold');
+    pdf.setFontSize(13);
+    pdf.text('HIPERROLL', badgeX + badgeW / 2, badgeY + badgeH / 2 + 1.5, { align: 'center' });
+    pdf.setTextColor(0, 71, 171);
+    pdf.setFontSize(7.5);
+    pdf.text('INTELIGÊNCIA EM TRADE', badgeX + badgeW / 2, badgeY + badgeH + 5, { align: 'center' });
+
+    const ruleY = y + 20;
+    pdf.setDrawColor(0, 71, 171);
+    pdf.setLineWidth(0.6);
+    pdf.line(marginH, ruleY, marginH + contentWidthMm, ruleY);
+    pdf.setLineWidth(0.2);
+
+    return ruleY + 8;
+}
+
+// Caixas de filtro em linha (rótulo + valor) — reflete os filtros que o usuário
+// aplicou na tela antes de exportar. Retorna o Y logo abaixo das caixas.
+function drawPdfFilterBoxes(pdf, { marginH, y, contentWidthMm }, filters) {
+    const boxGap = 5;
+    const boxW = (contentWidthMm - boxGap * (filters.length - 1)) / filters.length;
+    const boxH = 15;
+    filters.forEach((f, i) => {
+        const bx = marginH + i * (boxW + boxGap);
+        pdf.setDrawColor(225, 233, 255);
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(bx, y, boxW, boxH, 2, 2, 'FD');
+        pdf.setFont(undefined, 'bold');
+        pdf.setFontSize(9);
+        pdf.setTextColor(13, 59, 127);
+        pdf.text(f.label, bx + 4, y + 6);
+        pdf.setFont(undefined, 'normal');
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(51, 51, 51);
+        const valueLines = pdf.splitTextToSize(f.value, boxW - 8).slice(0, 2);
+        pdf.text(valueLines, bx + 4, y + 11);
+    });
+    return y + boxH + 10;
+}
+
+// Gráfico de rosca + gráfico de barras lado a lado, cada um com sua legenda
+// (ambos opcionais). Retorna o Y logo abaixo do mais alto dos dois.
+function drawPdfChartsRow(pdf, { marginH, y, contentWidthMm }, { donutChartUrl, donutLegendTitle, donutLegendLines, barChartUrl, barLegendTitle, barLegendLines }) {
+    const colGap = 10;
+    const colW = (contentWidthMm - colGap) / 2;
+    const chartsTopY = y;
+
+    const donutAspect = 350 / 250;
+    const donutW = Math.min(colW * 0.7, 68);
+    const donutH = donutW / donutAspect;
+    const donutX = marginH + (colW - donutW) / 2;
+    if (donutChartUrl) { try { pdf.addImage(donutChartUrl, 'PNG', donutX, chartsTopY, donutW, donutH); } catch (e) {} }
+    let leftBottomY = chartsTopY + donutH + 4;
+    if (donutLegendLines && donutLegendLines.length > 0) {
+        const legendW1 = colW * 0.9;
+        const legendX1 = marginH + (colW - legendW1) / 2;
+        leftBottomY = drawPdfLegendBox(pdf, legendX1, leftBottomY, legendW1, donutLegendTitle, donutLegendLines);
     }
 
-    const filenameNetwork = !isAllSelected ? selectedNetworks.join('_').substring(0, 40).replace(/\s+/g, '_') : 'Geral';
-    const opt = {
-        margin:       [10, 10],
-        filename:     `Relatorio_Trade_Hiperroll_${filenameNetwork}_${new Date().toLocaleDateString()}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
+    const barAspect = 500 / 250;
+    const barColX = marginH + colW + colGap;
+    const barW = Math.min(colW * 0.85, 95);
+    const barH = barW / barAspect;
+    const barImgX = barColX + (colW - barW) / 2;
+    if (barChartUrl) { try { pdf.addImage(barChartUrl, 'PNG', barImgX, chartsTopY, barW, barH); } catch (e) {} }
+    let rightBottomY = chartsTopY + barH + 4;
+    if (barLegendLines && barLegendLines.length > 0) {
+        const legendW2 = colW * 0.95;
+        const legendX2 = barColX + (colW - legendW2) / 2;
+        rightBottomY = drawPdfLegendBox(pdf, legendX2, rightBottomY, legendW2, barLegendTitle, barLegendLines);
+    }
 
-    // Calculate Top 5 Products for the Bar Chart
-    // Calculate Top 5 Products for the Bar Chart
+    return Math.max(leftBottomY, rightBottomY) + 8;
+}
+
+// Quadro "Principais Insights" — altura calculada a partir do texto real, então
+// nunca corta; se não couber no resto da página, pula pra próxima automaticamente.
+function drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, insights) {
+    const innerW2 = contentWidthMm - 16;
+    pdf.setFontSize(9.5);
+    const sentenceLines = insights.sentences.map(s => pdf.splitTextToSize(s, innerW2));
+    const detailLines = insights.details.map(d => pdf.splitTextToSize('• ' + d, innerW2 - 4));
+    const sentencesTotalLines = sentenceLines.reduce((s, l) => s + l.length, 0);
+    const detailsTotalLines = detailLines.reduce((s, l) => s + l.length, 0);
+    const insightsH = 10 + sentencesTotalLines * 5 + (insights.details.length > 0 ? (4 + detailsTotalLines * 5) : 0) + 8;
+
+    if (y + insightsH > contentBottomMm) {
+        pdf.addPage();
+        y = marginV + 8;
+    }
+
+    pdf.setFillColor(244, 248, 255);
+    pdf.setDrawColor(216, 231, 255);
+    pdf.roundedRect(marginH, y, contentWidthMm, insightsH, 3, 3, 'FD');
+
+    let iy = y + 9;
+    pdf.setFont(undefined, 'bold');
+    pdf.setFontSize(13);
+    pdf.setTextColor(13, 59, 127);
+    pdf.text('Principais Insights', marginH + 8, iy);
+    iy += 7;
+
+    pdf.setFont(undefined, 'normal');
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(36, 48, 94);
+    sentenceLines.forEach(lines => {
+        pdf.text(lines, marginH + 8, iy);
+        iy += lines.length * 5;
+    });
+
+    if (insights.details.length > 0) {
+        iy += 2;
+        pdf.setTextColor(45, 63, 105);
+        detailLines.forEach(lines => {
+            pdf.text(lines, marginH + 12, iy);
+            iy += lines.length * 5;
+        });
+    }
+
+    return y + insightsH;
+}
+
+// Monta os dois gráficos (rosca "Status das Visitas" + barras "Top 5 Produtos em
+// Ruptura") e o quadro de insights a partir de uma lista de visitas — reaproveitado
+// tanto pelo Relatório de Visitas quanto pelo PDF de Rupturas, cada um com seu
+// próprio recorte de dados (mas o mesmo tipo de gráfico/insight).
+async function buildVisitsChartsAndInsights(filteredVisits) {
     const productRuptureData = {};
     filteredVisits.forEach(v => {
         const store = stores.find(s => s.id === v.storeId);
         const net = store && store.network ? store.network : 'Outros';
         (v.ruptures || []).forEach(pId => {
-            if (!productRuptureData[pId]) {
-                productRuptureData[pId] = { count: 0, networks: {} };
-            }
+            if (!productRuptureData[pId]) productRuptureData[pId] = { count: 0, networks: {} };
             productRuptureData[pId].count += 1;
             productRuptureData[pId].networks[net] = (productRuptureData[pId].networks[net] || 0) + 1;
         });
@@ -3861,89 +4080,46 @@ window.exportVisitsPDF = async function() {
         .slice(0, 5)
         .map(([pId, data]) => {
             const p = products.find(prod => String(prod.id) === String(pId));
-            return { 
-                name: p ? p.name : `Produto ${pId}`, 
-                count: data.count, 
-                networks: data.networks 
-            };
+            return { name: p ? p.name : `Produto ${pId}`, count: data.count, networks: data.networks };
         });
 
-    const formatProductNetStr = (netObj) => {
-        return Object.entries(netObj)
-            .sort((a, b) => b[1] - a[1])
-            .map(([n, c]) => `${n} (${c}x)`)
-            .join(', ');
-    };
-
-    let barLegendHtml = '';
-    if (topProductsList.length > 0) {
-        barLegendHtml += `<div style="text-align: left; font-size: 10px; margin-top: 12px; background: #f9f9f9; padding: 10px 14px; border-radius: 8px; width: 85%; border: 1px solid #eee; font-family: 'Outfit', sans-serif;">`;
-        barLegendHtml += `<strong style="color: #0047AB; display: block; margin-bottom: 6px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px;">Detalhamento das Faltas (Por Rede)</strong>`;
-        topProductsList.forEach(p => {
-            barLegendHtml += `<p style="margin: 0 0 3px; color: #555;"><strong style="color: #333;">${p.name}:</strong> ${formatProductNetStr(p.networks)}</p>`;
-        });
-        barLegendHtml += `</div>`;
-    }
+    const formatProductNetStr = (netObj) => Object.entries(netObj)
+        .sort((a, b) => b[1] - a[1])
+        .map(([n, c]) => `${n} (${c}x)`)
+        .join(', ');
 
     const barChartConfig = {
         type: 'bar',
         data: {
             labels: topProductsList.map(p => p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name),
-            datasets: [{
-                label: 'Faltas Registradas',
-                data: topProductsList.map(p => p.count),
-                backgroundColor: '#0047AB',
-                borderRadius: 4
-            }]
+            datasets: [{ label: 'Faltas Registradas', data: topProductsList.map(p => p.count), backgroundColor: '#0047AB', borderRadius: 4 }]
         },
         options: {
             plugins: { title: { display: true, text: 'Top 5 Produtos em Ruptura', font: { size: 14 } } },
-            scales: { 
-                y: { 
-                    beginAtZero: true, 
-                    ticks: { stepSize: 1 },
-                    title: { display: true, text: 'Lojas Afetadas (Qtd)', font: { size: 11, weight: 'bold' } }
-                } 
-            }
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Lojas Afetadas (Qtd)', font: { size: 11, weight: 'bold' } } } }
         }
     };
 
-    // Calculate visits with/without ruptures for Donut Chart
     const visitsWithRupture = filteredVisits.filter(v => v.ruptures && v.ruptures.length > 0).length;
     const visitsWithout = filteredVisits.length - visitsWithRupture;
 
-    // Calculate network breakdowns for the HTML legend
-    const okNetworks = {};
-    const rupNetworks = {};
+    const okNetworks = {}, rupNetworks = {};
     filteredVisits.forEach(v => {
         const store = stores.find(s => s.id === v.storeId);
         const net = store && store.network ? store.network : 'Outros';
-        if (v.ruptures && v.ruptures.length > 0) {
-            rupNetworks[net] = (rupNetworks[net] || 0) + 1;
-        } else {
-            okNetworks[net] = (okNetworks[net] || 0) + 1;
-        }
+        if (v.ruptures && v.ruptures.length > 0) rupNetworks[net] = (rupNetworks[net] || 0) + 1;
+        else okNetworks[net] = (okNetworks[net] || 0) + 1;
     });
-
-    const formatNetStr = (netObj, totalCat) => {
-        return Object.entries(netObj)
-            .sort((a, b) => b[1] - a[1])
-            .map(([n, c]) => `<strong>${n}</strong> (${Math.round((c/totalCat)*100)}%)`)
-            .join(', ');
-    };
-
+    const formatNetStr = (netObj, totalCat) => Object.entries(netObj)
+        .sort((a, b) => b[1] - a[1])
+        .map(([n, c]) => `${n} (${Math.round((c / totalCat) * 100)}%)`)
+        .join(', ');
     const strOk = visitsWithout > 0 ? formatNetStr(okNetworks, visitsWithout) : 'N/A';
     const strRup = visitsWithRupture > 0 ? formatNetStr(rupNetworks, visitsWithRupture) : 'N/A';
 
     const donutChartConfig = {
         type: 'doughnut',
-        data: {
-            labels: ['Com Ruptura', 'Sem Ruptura'],
-            datasets: [{
-                data: [visitsWithRupture, visitsWithout],
-                backgroundColor: ['#E31E24', '#27ae60']
-            }]
-        },
+        data: { labels: ['Com Ruptura', 'Sem Ruptura'], datasets: [{ data: [visitsWithRupture, visitsWithout], backgroundColor: ['#E31E24', '#27ae60'] }] },
         plugins: [{
             id: 'textInside',
             afterDraw: function(chart) {
@@ -3965,78 +4141,69 @@ window.exportVisitsPDF = async function() {
                 });
             }
         }],
-        options: {
-            plugins: { 
-                title: { display: true, text: 'Status das Visitas', font: { size: 14 } },
-                legend: { position: 'bottom' }
-            }
-        }
+        options: { plugins: { title: { display: true, text: 'Status das Visitas', font: { size: 14 } }, legend: { position: 'bottom' } } }
     };
 
-    // Generate Chart Images
     const barChartUrl = await generateChartImage(barChartConfig, 500, 250);
     const donutChartUrl = await generateChartImage(donutChartConfig, 350, 250);
+    const insights = computeReportInsights(filteredVisits);
 
-    const header = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; font-family: 'Outfit', sans-serif; border-bottom: 2px solid #0047AB; padding-bottom: 14px; width: 100%; box-sizing: border-box;">
-            <div style="text-align: left; flex: 1; padding-right: 20px;">
-                <h1 style="color: #0047AB; margin: 0; font-size: 24px; font-weight: 700;">Hiperroll Embalagens</h1>
-                <h3 style="color: #E31E24; margin: 6px 0 0; font-size: 16px; font-weight: 600;">Relatório de Visitas Trade Marketing</h3>
-                <p style="font-size: 10px; color: #666; margin: 6px 0 0; font-weight: 400;">Gerado em: ${new Date().toLocaleString()}</p>
-                <p style="font-size: 11px; color: #333; margin: 4px 0 0; font-weight: 600; white-space: normal; overflow-wrap: anywhere;">Responsável: Nicole Portela - Trade Marketing</p>
-            </div>
-            <div style="text-align: center; min-width: 220px; max-width: 260px;">
-                <div style="background: #0047AB; color: white; padding: 14px 20px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; display: inline-block; margin-bottom: 8px;">
-                    HIPERROLL
-                </div>
-                <p style="font-size: 11px; color: #0047AB; margin: 0; font-weight: 700; letter-spacing: 0.3px; white-space: normal; overflow-wrap: anywhere; line-height: 1.35;">INTELIGÊNCIA EM TRADE</p>
-            </div>
-        </div>
-    `;
+    return { donutChartUrl, barChartUrl, strOk, strRup, topProductsList, formatProductNetStr, insights };
+}
 
-    const filtersSummary = `
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; font-family: 'Outfit', sans-serif;">
-            <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e1e9ff; min-width: 220px;">
-                <strong style="display:block; margin-bottom: 4px; color: #0d3b7f; font-size: 12px;">Período</strong>
-                <span style="font-size: 12px; color: #333;">${startDate || 'Início'} até ${endDate || 'Fim'}</span>
-            </div>
-            <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e1e9ff; min-width: 220px;">
-                <strong style="display:block; margin-bottom: 4px; color: #0d3b7f; font-size: 12px;">Rede</strong>
-                <span style="font-size: 12px; color: #333;">${isAllSelected ? 'Todas as Redes' : selectedNetworks.join(', ')}</span>
-            </div>
-            <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e1e9ff; min-width: 220px;">
-                <strong style="display:block; margin-bottom: 4px; color: #0d3b7f; font-size: 12px;">Rupturas</strong>
-                <span style="font-size: 12px; color: #333;">${reportFilterOnlyRuptures ? 'Somente visitas com ruptura' : 'Todas as visitas'}</span>
-            </div>
-        </div>
-    `;
+// Desenha o cabeçalho completo do "Relatório de Visitas" (título, badge, filtros,
+// os dois gráficos + legendas e o quadro de Principais Insights) direto no jsPDF,
+// sem rasterizar nenhum HTML — elimina de vez a classe de bug em que a captura de
+// imagem saía em branco/cortada em produção (base grande de dados por trás).
+async function drawVisitsReportHeaderNative(pdf, { marginH, marginV, contentWidthMm }, data) {
+    const { startDate, endDate, isAllSelected, selectedNetworks, reportFilterOnlyRuptures, insights } = data;
+    const pageHeightMm = pdf.internal.pageSize.getHeight();
+    const contentBottomMm = pageHeightMm - marginV;
 
-    const chartsSection = `
-        <div style="display: flex; justify-content: space-around; align-items: flex-start; margin-bottom: 24px; background: white; padding: 16px; border-radius: 16px; border: 1px solid #e8edff; page-break-inside: avoid; break-inside: avoid;">
-            <div style="flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center;">
-                <img src="${donutChartUrl}" style="max-width: 100%; height: auto; max-height: 220px;" />
-                <div style="text-align: left; font-size: 11px; margin-top: 12px; background: #f9f9f9; padding: 10px 14px; border-radius: 8px; width: 85%; border: 1px solid #eee; font-family: 'Outfit', sans-serif;">
-                    <div style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #e0e0e0;">
-                        <strong style="color: #27ae60; display: block; margin-bottom: 2px; white-space: nowrap;">Sem Ruptura (Composição por Rede)</strong>
-                        <span style="color: #555;">${strOk}</span>
-                    </div>
-                    <div>
-                        <strong style="color: #E31E24; display: block; margin-bottom: 2px; white-space: nowrap;">Com Ruptura (Composição por Rede)</strong>
-                        <span style="color: #555;">${strRup}</span>
-                    </div>
-                </div>
-            </div>
-            <div style="flex: 1.2; text-align: center; display: flex; flex-direction: column; align-items: center;">
-                <img src="${barChartUrl}" style="max-width: 100%; height: auto; max-height: 220px;" />
-                ${barLegendHtml}
-            </div>
-        </div>
-    `;
+    let y = drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle: 'Relatório de Visitas Trade Marketing', subtitleColor: [227, 30, 36] });
 
-    const insightsSection = buildReportInsightsHTML(filteredVisits);
+    y = drawPdfFilterBoxes(pdf, { marginH, y, contentWidthMm }, [
+        { label: 'Período', value: `${startDate || 'Início'} até ${endDate || 'Fim'}` },
+        { label: 'Rede', value: isAllSelected ? 'Todas as Redes' : selectedNetworks.join(', ') },
+        { label: 'Rupturas', value: reportFilterOnlyRuptures ? 'Somente visitas com ruptura' : 'Todas as visitas' }
+    ]);
+
+    y = drawPdfChartsRow(pdf, { marginH, y, contentWidthMm }, {
+        donutChartUrl: data.donutChartUrl,
+        donutLegendTitle: 'Composição por Rede (Sem/Com Ruptura)',
+        donutLegendLines: [`Sem Ruptura: ${data.strOk}`, `Com Ruptura: ${data.strRup}`],
+        barChartUrl: data.barChartUrl,
+        barLegendTitle: 'Detalhamento das Faltas (Por Rede)',
+        barLegendLines: data.topProductsList.map(p => `${p.name}: ${data.formatProductNetStr(p.networks)}`)
+    });
+
+    drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, insights);
+}
+
+window.exportVisitsPDF = async function() {
+    const element = document.querySelector('.reports-container');
+    const filteredVisits = getFilteredReportVisits().sort((a, b) => new Date(b.date) - new Date(a.date));
+    const { selectedNetworks, isAllSelected, startDate, endDate } = getReportFilterSettings();
+
+    if (filteredVisits.length === 0) {
+        alert('Não há dados para exportar. Ajuste os filtros ou registre visitas antes.');
+        return;
+    }
+
+    const filenameNetwork = !isAllSelected ? selectedNetworks.join('_').substring(0, 40).replace(/\s+/g, '_') : 'Geral';
+    const opt = {
+        margin:       [10, 10],
+        filename:     `Relatorio_Trade_Hiperroll_${filenameNetwork}_${new Date().toLocaleDateString()}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    const chartsData = await buildVisitsChartsAndInsights(filteredVisits);
+    const headerData = { startDate, endDate, isAllSelected, selectedNetworks, reportFilterOnlyRuptures, ...chartsData };
 
     await exportSectionedTablesToPdf({
-        headerHtml: header + filtersSummary + chartsSection + insightsSection,
+        headerDraw: (pdf, ctx) => drawVisitsReportHeaderNative(pdf, ctx, headerData),
         opt,
         sections: [
             {
