@@ -3408,6 +3408,18 @@ function buildReportInsightsHTML(filteredVisits) {
 // tabela HTML já montada — assim exportVisitsPDF pode dividi-las em lotes menores antes
 // de rasterizar (ver exportSectionedTablesToPdf), evitando páginas em branco quando o
 // histórico é muito grande (milhares de visitas).
+// Texto da célula "Rupturas" nos PDFs: mantém a contagem e acrescenta os nomes
+// dos itens entre parênteses, sem precisar de coluna extra (a tabela já quebra
+// linha automaticamente em células com texto longo).
+function formatRupturesCellText(ruptures) {
+    if (!ruptures || ruptures.length === 0) return '0';
+    const names = ruptures.map(pId => {
+        const prod = products.find(p => p.id === pId);
+        return prod ? prod.name : 'Produto Desconhecido';
+    });
+    return `${ruptures.length} (${names.join(', ')})`;
+}
+
 function buildReportTableRows(filteredVisits) {
     return filteredVisits.map(v => {
         const store = stores.find(s => s.id === v.storeId) || { name: 'Loja Removida', network: 'N/A' };
@@ -3416,7 +3428,7 @@ function buildReportTableRows(filteredVisits) {
             formatDate(v.date),
             store.name,
             store.network,
-            (v.ruptures || []).length,
+            formatRupturesCellText(v.ruptures),
             extraPts,
             v.notes || '-'
         ];
@@ -3748,7 +3760,7 @@ window.exportHistoryPDF = async function() {
             formatDate(v.date),
             store.name,
             store.network,
-            (v.ruptures || []).length,
+            formatRupturesCellText(v.ruptures),
             summary.label,
             extraPts,
             v.notes || '-'
