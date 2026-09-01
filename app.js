@@ -2369,8 +2369,9 @@ function renderRouteBuilderManualHtml() {
             ${storeRows}
             <p id="routeStoreChecklistEmpty" class="empty-state" style="display:none; padding: 1.5rem 0;">Nenhuma loja encontrada para os filtros atuais.</p>
         </div>
-        <div class="form-actions">
-            <button class="btn btn-secondary" style="width:100%; margin-top: 10px;" onclick="optimizeManualRoute()"><i class="fa-solid fa-route"></i> Otimizar Ordem</button>
+        <div class="form-actions" style="display:flex; gap:10px; margin-top: 10px;">
+            <button class="btn btn-secondary" style="flex:1;" onclick="clearRouteStoreSelection()"><i class="fa-solid fa-eraser"></i> Limpar Seleção</button>
+            <button class="btn btn-secondary" style="flex:1;" onclick="optimizeManualRoute()"><i class="fa-solid fa-route"></i> Otimizar Ordem</button>
         </div>
         <div id="routeManualResult"></div>
         <div id="routeManualDraftSummary"></div>
@@ -2409,6 +2410,13 @@ window.updateRouteStoreChecklist = function() {
 
     const emptyMsg = document.getElementById('routeStoreChecklistEmpty');
     if (emptyMsg) emptyMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+};
+
+window.clearRouteStoreSelection = function() {
+    document.querySelectorAll('.route-store-checkbox').forEach(cb => { cb.checked = false; });
+    window._routeManualOrder = [];
+    const resultArea = document.getElementById('routeManualResult');
+    if (resultArea) resultArea.innerHTML = '';
 };
 
 window.optimizeManualRoute = function() {
