@@ -7,7 +7,7 @@
 //            "bairro" = endereço exato não encontrado; usada a localização central do bairro (via CEP).
 //            "cidade" = nem endereço nem bairro encontrados; usada a localização central da cidade (fallback grosseiro).
 //
-// Redes já processadas: BAHAMAS JF (25/25), BAHAMAS (46/46), ATACADAO BA (40/40), BRAMIL (23/23), ATACADAO MG (10/10), SUPER BOM (19/19)
+// Redes já processadas: BAHAMAS JF (25/25), BAHAMAS (46/46), ATACADAO BA (40/40), BRAMIL (23/23), ATACADAO MG (10/10), SUPER BOM (19/19), BARCELOS ATACADISTA (3/3)
 const STORE_GEO_DATA = {
   "atacadao-ba-16-atacadao-rotula": { address: "Estr. do Coqueiro Grande, 614 - Cajazeiras, Salvador - BA, 41342-846", lat: -12.9084179, lng: -38.3939193, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-274-atacadao-aracaju-tancredo-neves": { address: "Av. Pres. Tancredo Neves, 3550 - Ponto Novo, Aracaju - SE, 49025-620", lat: -10.9563657, lng: -37.0532853, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
@@ -130,6 +130,9 @@ const STORE_GEO_DATA = {
   "bahamas-jf-86-bahamas-mix-jf-retiro": { address: "AV DOUTOR FRANCISCO ALVARES DE ASSIS - N° 3000 - KM 87 LOJA 5 - BARAO DO RETIRO / CEP: 36.073-130", lat: -21.7819825, lng: -43.2989466, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
   "bahamas-jf-9-hiper-bahamas-manoel-honorio": { address: "AV RIO BRANCO - N° 700 - MANOEL HONORIO / CEP: 36.045-120", lat: -21.7455191, lng: -43.3541666, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
   "bahamas-jf-92-supermercado-bahamas-jf-linhares": { address: "R DIVA GARCIA - N° 1160 - LOTE B2 - LINHARES / CEP: 36.060-300", lat: -21.7383411, lng: -43.3317314, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
+  "barcelos-atacadista-barcelos-atacadista-guarus-plaza": { address: "Av. Lourival Martins Beda, 1235/1275 - Campos dos Goytacazes, RJ (Guarus Plaza Shopping)", lat: -21.7389014, lng: -41.3124307, geocodedAt: "2026-09-01T16:00:00Z", precision: "endereco" },
+  "barcelos-atacadista-barcelos-atacadista-itaborai": { address: "Av. Vinte e Dois de Maio, 4.908 - Rio Várzea, Itaboraí - RJ, 24812-082", lat: -22.7481656, lng: -42.8658748, geocodedAt: "2026-09-01T16:30:00Z", precision: "endereco" },
+  "barcelos-atacadista-barcelos-atacadista-sao-goncalo": { address: "Av. Pres. Roosevelt, 885 - Vista Alegre, São Gonçalo - RJ, 24722-110", lat: -22.8053827, lng: -42.9679142, geocodedAt: "2026-09-01T16:30:00Z", precision: "endereco" },
   "bramil-bramil-areal": { address: "PR PRES CASTELO BRANCO, 429 - LOT PROJETADO - AREAL/RJ - 25845-000", lat: -22.2314922, lng: -43.1056264, geocodedAt: "2026-08-24T18:57:51Z", precision: "cidade" },
   "bramil-bramil-barra-do-pirai": { address: "R JOAO PESSOA, 1097 - VILA SUICA - BARRA DO PIRAI/RJ - 27120-170", lat: -22.4695197, lng: -43.8248559, geocodedAt: "2026-08-24T18:57:51Z", precision: "endereco" },
   "bramil-bramil-miguel-pereira": { address: "R FRANCISCO COSTA MACHADO, 55 - CENTRO - MIGUEL PEREIRA/RJ - 26900-000", lat: -22.5309482, lng: -43.5166051, geocodedAt: "2026-08-24T18:57:51Z", precision: "cidade" },
@@ -158,7 +161,7 @@ const STORE_GEO_DATA = {
   "super-bom-super-bom-colubande": { address: "Rua Augusto Rush, 59 - Almerinda, São Gonçalo - RJ, 24451-650", lat: -22.8341415, lng: -43.0080814, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
   "super-bom-super-bom-curicica": { address: "Estr. dos Bandeirantes, 7150 - Curicica, Rio de Janeiro - RJ, 22780-084", lat: -22.9625112, lng: -43.4002871, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
   "super-bom-super-bom-goytacazes": { address: "Rodovia Raul Souto Maior, 326 - Goytacazes, Campos dos Goytacazes - RJ, 28110-000", lat: -21.8313391, lng: -41.2721019, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
-  "super-bom-super-bom-guarus-plaza": { address: "Av. Sen. José Carlos Pereira Pinto, 454 - Parque Calabouco, Campos dos Goytacazes - RJ, 28083-102", lat: -21.7546, lng: -41.3242, geocodedAt: "2026-09-01T15:00:00Z", precision: "cidade" },
+  "super-bom-super-bom-guarus-plaza": { address: "Av. Sen. José Carlos Pereira Pinto, 454 - Parque Calabouco, Campos dos Goytacazes - RJ, 28083-102 (Guarus Plaza Shopping)", lat: -21.7389014, lng: -41.3124307, geocodedAt: "2026-09-01T16:00:00Z", precision: "endereco" },
   "super-bom-super-bom-ips": { address: "R. Visc. de Itaboraí, 595 - Parque Rosario, Campos dos Goytacazes - RJ, 28026", lat: -21.7760926, lng: -41.3297907, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
   "super-bom-super-bom-nova-iguacu": { address: "Av. Carlos Marques Rollo, 995 - Vila Nova, Nova Iguaçu - RJ, 26225-490", lat: -22.7662684, lng: -43.4326957, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
   "super-bom-super-bom-partage-shopping": { address: "Av. Pres. Kennedy, 425 - Centro, São Gonçalo - RJ, 24445-000", lat: -22.8215532, lng: -43.0426462, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
