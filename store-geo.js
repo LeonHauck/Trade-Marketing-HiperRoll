@@ -7,7 +7,7 @@
 //            "bairro" = endereço exato não encontrado; usada a localização central do bairro (via CEP).
 //            "cidade" = nem endereço nem bairro encontrados; usada a localização central da cidade (fallback grosseiro).
 //
-// Redes já processadas: BAHAMAS JF (25/25), BAHAMAS (46/46), ATACADAO BA (40/40), BRAMIL (23/23), ATACADAO MG (10/10)
+// Redes já processadas: BAHAMAS JF (25/25), BAHAMAS (46/46), ATACADAO BA (40/40), BRAMIL (23/23), ATACADAO MG (10/10), SUPER BOM (19/19)
 const STORE_GEO_DATA = {
   "atacadao-ba-16-atacadao-rotula": { address: "Estr. do Coqueiro Grande, 614 - Cajazeiras, Salvador - BA, 41342-846", lat: -12.9084179, lng: -38.3939193, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-274-atacadao-aracaju-tancredo-neves": { address: "Av. Pres. Tancredo Neves, 3550 - Ponto Novo, Aracaju - SE, 49025-620", lat: -10.9563657, lng: -37.0532853, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
@@ -152,5 +152,24 @@ const STORE_GEO_DATA = {
   "bramil-pinheiral-i": { address: "R DAS ACACIAS, 17-19 - ORIENTE - PINHEIRAL/RJ - 27197-000", lat: -22.5213673, lng: -44.0004394, geocodedAt: "2026-08-24T18:57:51Z", precision: "endereco" },
   "bramil-pinheiral-ii": { address: "AV NILTON PENNA BOTELHO, 97 - SAO JORGE - PINHEIRAL/RJ - 27197-000", lat: -22.4989614, lng: -44.030833, geocodedAt: "2026-08-24T18:57:51Z", precision: "endereco" },
   "bramil-valenca": { address: "PRACA DR PAULO DE FRONTIN, 249 - CENTRO - VALENCA/RJ - 27600-000", lat: -22.247427, lng: -43.7073408, geocodedAt: "2026-08-24T18:57:51Z", precision: "endereco" },
-  "bramil-volta-redonda": { address: "R BARTOLOMEU BUENO DA RIBEIRA, 250 - SANTO AGOSTINHO - VOLTA REDONDA/RJ - 27211-290", lat: -22.4875125, lng: -44.0844208, geocodedAt: "2026-08-24T18:57:51Z", precision: "endereco" }
+  "bramil-volta-redonda": { address: "R BARTOLOMEU BUENO DA RIBEIRA, 250 - SANTO AGOSTINHO - VOLTA REDONDA/RJ - 27211-290", lat: -22.4875125, lng: -44.0844208, geocodedAt: "2026-08-24T18:57:51Z", precision: "endereco" },
+  "super-bom-super-bom-13-de-maio": { address: "R. Treze de Maio, 296 - Centro, Campos dos Goytacazes - RJ, 28013-260", lat: -21.7618477, lng: -41.3238686, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-campo-grande": { address: "Av. Cesário de Melo, 5400 - Campo Grande, Rio de Janeiro - RJ, 23050-101", lat: -22.9074363, lng: -43.5618028, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-colubande": { address: "Rua Augusto Rush, 59 - Almerinda, São Gonçalo - RJ, 24451-650", lat: -22.8341415, lng: -43.0080814, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-curicica": { address: "Estr. dos Bandeirantes, 7150 - Curicica, Rio de Janeiro - RJ, 22780-084", lat: -22.9625112, lng: -43.4002871, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-goytacazes": { address: "Rodovia Raul Souto Maior, 326 - Goytacazes, Campos dos Goytacazes - RJ, 28110-000", lat: -21.8313391, lng: -41.2721019, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-guarus-plaza": { address: "Av. Sen. José Carlos Pereira Pinto, 454 - Parque Calabouco, Campos dos Goytacazes - RJ, 28083-102", lat: -21.7546, lng: -41.3242, geocodedAt: "2026-09-01T15:00:00Z", precision: "cidade" },
+  "super-bom-super-bom-ips": { address: "R. Visc. de Itaboraí, 595 - Parque Rosario, Campos dos Goytacazes - RJ, 28026", lat: -21.7760926, lng: -41.3297907, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-nova-iguacu": { address: "Av. Carlos Marques Rollo, 995 - Vila Nova, Nova Iguaçu - RJ, 26225-490", lat: -22.7662684, lng: -43.4326957, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-partage-shopping": { address: "Av. Pres. Kennedy, 425 - Centro, São Gonçalo - RJ, 24445-000", lat: -22.8215532, lng: -43.0426462, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-sao-pedro-da-aldeia": { address: "RJ-140, 3000 - Nova São Pedro, São Pedro da Aldeia - RJ, 28940-000", lat: -22.8384835, lng: -42.1031604, geocodedAt: "2026-09-01T15:00:00Z", precision: "cidade" },
+  "super-bom-super-bom-28-de-marco": { address: "Av. Vinte e Oito de Março, 131 - Centro, Campos dos Goytacazes - RJ, 28024-600", lat: -21.7661312, lng: -41.3260625, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-tarcisio-miranda": { address: "Avenida Tarcísio Miranda, 680 - Parque Turf Club, Campos dos Goytacazes - RJ, 28020-802", lat: -21.7705072, lng: -41.3097663, geocodedAt: "2026-09-01T15:00:00Z", precision: "bairro" },
+  "super-bom-super-bom-campista": { address: "Av. Campista, 460 - Parque Guarus, Campos dos Goytacazes - RJ, 28070-010", lat: -21.7265664, lng: -41.3229817, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-bartolomeu": { address: "Av. Dep. Bartolomeu Lizandro, 952 - Jardim Carioca, Campos dos Goytacazes - RJ, 28080-390", lat: -21.7469231, lng: -41.325207, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-alberto-torres": { address: "Av. Alberto Torres, 450 - Centro, Campos dos Goytacazes - RJ, 28035-582", lat: -21.7509711, lng: -41.3360191, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-visconde-jose-alves-de-azevedo": { address: "Av. José Alves de Azevedo, 266 - Centro, Campos dos Goytacazes - RJ, 28025-497", lat: -21.7618296, lng: -41.328294, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-uebe-turf": { address: "R. Dr. Felipe Uebe, 451 - Parque California, Campos dos Goytacazes - RJ, 28013-140", lat: -21.7698079, lng: -41.3140463, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-alberto-lamego": { address: "Av. Alberto Lamego, 948 - Parque California, Campos dos Goytacazes - RJ, 28013-601", lat: -21.760733, lng: -41.3044444, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" },
+  "super-bom-super-bom-sao-joao-da-barra": { address: "Av. Rotary, 383 - Centro, São João da Barra - RJ, 28200", lat: -21.6352291, lng: -41.0429093, geocodedAt: "2026-09-01T15:00:00Z", precision: "endereco" }
 };
