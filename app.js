@@ -2000,19 +2000,56 @@ function getStoreLatestExtraPoints(storeId) {
     return [];
 }
 
+// Período usado para calcular o status das lojas na tela "Gestão de Lojas": se o
+// usuário não escolheu datas, usa os últimos 7 dias corridos até hoje (mesma janela
+// rolante que checkOverdueStores() já usa pra definir o status "atual" das lojas —
+// então sem filtro de data o resultado é idêntico ao status global de sempre). Se só
+// uma ponta foi preenchida, a outra usa esse mesmo padrão de 7 dias / hoje.
+function getStoreListPeriod() {
+    const startDateVal = document.getElementById('storeFilterStartDate')?.value;
+    const endDateVal = document.getElementById('storeFilterEndDate')?.value;
+
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+    const periodEnd = endDateVal ? new Date(endDateVal + 'T23:59:59') : now;
+
+    let periodStart;
+    if (startDateVal) {
+        periodStart = new Date(startDateVal + 'T00:00:00');
+    } else {
+        periodStart = new Date(periodEnd);
+        periodStart.setDate(periodStart.getDate() - 7);
+        periodStart.setHours(0, 0, 0, 0);
+    }
+
+    return { periodStart, periodEnd };
+}
+
+// Status da loja dentro de um período específico (em vez do status global "de hoje"):
+// nunca visitada = pending; teve visitas suficientes (>= frequência) dentro do
+// período = visited; teve histórico mas não o suficiente nesse período = overdue.
+// Mesma lógica de checkOverdueStores(), só que parametrizada pelo período em vez de
+// fixa nos últimos 7 dias a partir de agora.
+function computeStorePeriodStatus(store, periodStart, periodEnd) {
+    if (!store.lastVisit) return 'pending';
+    const freq = store.frequency || 1;
+    const visitsInPeriod = getStoreVisitsIndexed(store.id).filter(v => {
+        const vDate = new Date(v.date + 'T12:00:00');
+        return vDate >= periodStart && vDate <= periodEnd;
+    }).length;
+    return visitsInPeriod >= freq ? 'visited' : 'overdue';
+}
+
 function getFilteredStoresList() {
     const searchInput = document.getElementById('storePageSearch');
     const filterText = searchInput ? searchInput.value.toLowerCase() : '';
-    
+
     const netCheckboxes = document.querySelectorAll('.store-network-checkbox:checked');
     const checkedNets = Array.from(netCheckboxes).map(cb => cb.value);
     const statusCheckboxes = document.querySelectorAll('.store-status-checkbox:checked');
     const checkedStatus = Array.from(statusCheckboxes).map(cb => cb.value);
-    
-    const startDateVal = document.getElementById('storeFilterStartDate')?.value;
-    const endDateVal = document.getElementById('storeFilterEndDate')?.value;
-    const startDate = startDateVal ? new Date(startDateVal + 'T00:00:00') : null;
-    const endDate = endDateVal ? new Date(endDateVal + 'T23:59:59') : null;
+
+    const { periodStart, periodEnd } = getStoreListPeriod();
 
     return stores.filter(s => {
         // Search Filter
@@ -2023,18 +2060,11 @@ function getFilteredStoresList() {
         if (checkedNets.length > 0 && !checkedNets.includes(s.network)) return false;
         if (checkedNets.length === 0) return false;
 
-        // Status Filter
-        const sStatus = s.currentStatus || 'pending';
+        // Status Filter — calculado dentro do período selecionado (ou dos últimos
+        // 7 dias, se nenhuma data foi escolhida), não mais o status global da loja.
+        const sStatus = computeStorePeriodStatus(s, periodStart, periodEnd);
         if (checkedStatus.length > 0 && !checkedStatus.includes(sStatus)) return false;
         if (checkedStatus.length === 0) return false;
-
-        // Date Filter (Last Visit)
-        if (startDate || endDate) {
-            if (!s.lastVisit) return false;
-            const lvDate = new Date(s.lastVisit + 'T12:00:00');
-            if (startDate && lvDate < startDate) return false;
-            if (endDate && lvDate > endDate) return false;
-        }
 
         return true;
     });
@@ -2045,8 +2075,9 @@ function renderStorePageItems() {
     if (!container) return;
 
     container.innerHTML = '';
-    
+
     const filtered = getFilteredStoresList();
+    const { periodStart, periodEnd } = getStoreListPeriod();
 
     const storePageCount = document.getElementById('storePageCount');
     if (storePageCount) storePageCount.textContent = filtered.length;
@@ -2054,10 +2085,11 @@ function renderStorePageItems() {
     filtered.forEach(store => {
         const item = document.createElement('div');
         const eps = getStoreLatestExtraPoints(store.id);
+        const periodStatus = computeStorePeriodStatus(store, periodStart, periodEnd);
         item.className = 'store-card-full' + (eps.length > 0 ? ' has-extra-point' : '');
         item.innerHTML = `
             <div class="store-main-info">
-                <span class="status-indicator ${store.currentStatus || 'pending'}"></span>
+                <span class="status-indicator ${periodStatus}"></span>
                 <strong>${store.name}</strong>
                 <span class="network-tag">${store.network}</span>
                 ${eps.map(ep => `<span class="badge-extra-point">${ep}</span>`).join('')}
@@ -5437,11 +5469,13 @@ window.exportStoresCSV = function() {
     
     let csvContent = 'data:text/csv;charset=utf-8,\uFEFFLoja;Rede;Status Atual;Última Visita;Frequência;Rupturas (última visita)\n';
     
+    const { periodStart, periodEnd } = getStoreListPeriod();
     fStores.forEach(s => {
+        const periodStatus = computeStorePeriodStatus(s, periodStart, periodEnd);
         let statusStr = "Sem Visita";
-        if (s.currentStatus === 'overdue') statusStr = "Em Atraso";
-        if (s.currentStatus === 'visited' || s.status === 'visited') statusStr = "Visitada";
-        
+        if (periodStatus === 'overdue') statusStr = "Em Atraso";
+        if (periodStatus === 'visited') statusStr = "Visitada";
+
         let ruptureText = "Sem registro";
         const lastVisit = getStoreVisitsIndexed(s.id)[0];
         if (lastVisit) {
@@ -5506,12 +5540,14 @@ window.exportStoresPDF = function() {
     `;
     
     let tableRows = '';
+    const { periodStart, periodEnd } = getStoreListPeriod();
     fStores.forEach(s => {
+        const periodStatus = computeStorePeriodStatus(s, periodStart, periodEnd);
         let statusStr = "Sem Visita";
         let statusColor = "#f39c12"; // yellow
-        if (s.currentStatus === 'overdue') { statusStr = "Em Atraso"; statusColor = "#e74c3c"; }
-        if (s.currentStatus === 'visited' || s.status === 'visited') { statusStr = "Visitada"; statusColor = "#27ae60"; }
-        
+        if (periodStatus === 'overdue') { statusStr = "Em Atraso"; statusColor = "#e74c3c"; }
+        if (periodStatus === 'visited') { statusStr = "Visitada"; statusColor = "#27ae60"; }
+
         let ruptureText = "<span style='color:#999; font-style:italic;'>Sem registro</span>";
         const lastVisit = getStoreVisitsIndexed(s.id)[0];
         if (lastVisit) {
