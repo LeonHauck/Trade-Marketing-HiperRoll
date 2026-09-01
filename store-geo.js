@@ -7,7 +7,7 @@
 //            "bairro" = endereço exato não encontrado; usada a localização central do bairro (via CEP).
 //            "cidade" = nem endereço nem bairro encontrados; usada a localização central da cidade (fallback grosseiro).
 //
-// Redes já processadas: BAHAMAS JF (24/24), BAHAMAS (45/45), ATACADAO BA (39/39), BRAMIL (23/23)
+// Redes já processadas: BAHAMAS JF (25/25), BAHAMAS (46/46), ATACADAO BA (40/40), BRAMIL (23/23), ATACADAO MG (10/10)
 const STORE_GEO_DATA = {
   "atacadao-ba-16-atacadao-rotula": { address: "Estr. do Coqueiro Grande, 614 - Cajazeiras, Salvador - BA, 41342-846", lat: -12.9084179, lng: -38.3939193, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-274-atacadao-aracaju-tancredo-neves": { address: "Av. Pres. Tancredo Neves, 3550 - Ponto Novo, Aracaju - SE, 49025-620", lat: -10.9563657, lng: -37.0532853, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
@@ -49,6 +49,16 @@ const STORE_GEO_DATA = {
   "atacadao-ba-926-atacadao-barreiras": { address: "Av. Clériston Andrade, 3707 - Mimoso, Barreiras - BA, 47803-550", lat: -12.1425474, lng: -44.9809315, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-932-atacadao-ilheus-praia": { address: "Av. Tancredo Neves, 3413 - Caminho das Árvores, Salvador - BA, 41820-780", lat: -12.9828894, lng: -38.4660429, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-942-atacadao-ssa-campinas-brotas": { address: "R. Campinas de Brotas, 60 - Brotas, Salvador - BA, 40275-160", lat: -12.9857637, lng: -38.4785721, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
+  "atacadao-mg-atacadao-mg-uberlandia": { address: "Avenida Cesário Crosera, 925 - Presidente Roosevelt, Uberlândia - MG, 38401-119", lat: -18.8922379, lng: -48.2903065, geocodedAt: "2026-09-01T13:00:00Z", precision: "endereco" },
+  "atacadao-mg-atacadao-mg-juiz-de-fora": { address: "Avenida Rodrigues Paes, 12415 - Industrial, Juiz de Fora - MG, 36081-000", lat: -21.7321916, lng: -43.3925353, geocodedAt: "2026-09-01T13:00:00Z", precision: "bairro" },
+  "atacadao-mg-atacadao-mg-contagem": { address: "BR-040, 2420 - Morada Nova, Contagem - MG, 32145-450", lat: -19.9042153, lng: -44.0485897, geocodedAt: "2026-09-01T13:00:00Z", precision: "endereco" },
+  "atacadao-mg-atacadao-mg-uberaba": { address: "Av. Santos Dumont, 1730 - Santa Maria, Uberaba - MG, 38050-400", lat: -19.7587957, lng: -47.9559443, geocodedAt: "2026-09-01T13:00:00Z", precision: "endereco" },
+  "atacadao-mg-atacadao-mg-sete-lagoas": { address: "Rua Policarpo Massaranhas, 33 - São Geraldo, Sete Lagoas - MG, 35700-184", lat: -19.4768851, lng: -44.2268236, geocodedAt: "2026-09-01T13:00:00Z", precision: "bairro" },
+  "atacadao-mg-atacadao-mg-patos-de-minas": { address: "Av. Marabá, 621 - Bela Vista, Patos de Minas - MG, 38703-236", lat: -18.5709572, lng: -46.499725, geocodedAt: "2026-09-01T13:00:00Z", precision: "endereco" },
+  "atacadao-mg-atacadao-mg-betim": { address: "Rua da Sertaneja, 100 - Morada do Trevo, Betim - MG, 32600-834", lat: -19.9779536, lng: -44.2012578, geocodedAt: "2026-09-01T14:00:00Z", precision: "endereco" },
+  "atacadao-mg-atacadao-mg-governador-valadares": { address: "Travessa Rio Bahia, 667 - Itaobim, Governador Valadares - MG, 35044-000", lat: -18.8893734, lng: -41.9464178, geocodedAt: "2026-09-01T13:00:00Z", precision: "endereco" },
+  "atacadao-mg-atacadao-mg-pampulha": { address: "Avenida Portugal, 3500 - Itapoã, Belo Horizonte - MG, 31710-400", lat: -19.8420094, lng: -43.9658274, geocodedAt: "2026-09-01T13:00:00Z", precision: "endereco" },
+  "atacadao-mg-atacadao-mg-contagem-shopping": { address: "Av. General David Sarno, 5230 - Cidade Industrial, Contagem - MG, 32210-110", lat: -19.9485721, lng: -44.0209717, geocodedAt: "2026-09-01T13:00:00Z", precision: "endereco" },
   "bahamas-10-supermercado-bahamas-vicosa": { address: "AV DR MILTON BANDEIRA - N° 380 - CENTRO / CEP: 36.570-001", lat: -20.7555074, lng: -42.8790139, geocodedAt: "2026-08-24T14:18:23Z", precision: "bairro" },
   "bahamas-11-supermercado-bahamas-ponte-nova": { address: "AV DR OTAVIO SOARES - N° 21 - PALMEIRAS / CEP: 35.430-229", lat: -20.4110333, lng: -42.8922506, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-14-bahamas-mix-cataguases": { address: "AV VERISSIMO MENDONCA - N° 255 - BEIRA RIO / CEP: 36.772-022", lat: -21.4004583, lng: -42.6929314, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
