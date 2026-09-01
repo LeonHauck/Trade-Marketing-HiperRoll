@@ -86,6 +86,7 @@ const STORE_GEO_DATA = {
   "bahamas-72-bahamas-mix-frutal": { address: "Av. José de Alencar, 1333 - Eldourado, Frutal - MG, 38200-000", lat: -20.0096665, lng: -48.9356999, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-74-bahamas-mix-uberlandia-zona-sul": { address: "Av. Lidormira Borges Do Nascimento, 134 - Gávea, Uberlândia - MG, 38425-270", lat: -18.976179, lng: -48.2923807, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-75-bahamas-mix-visconde-do-rio-branco": { address: "R RUA VEREADOR JOSE SOARES FERREIRA - N° 190 - BARRA DOS COUTOS / CEP: 36.520-000", lat: -21.01, lng: -42.840833, geocodedAt: "2026-08-24T14:18:23Z", precision: "cidade" },
+  "bahamas-76-emporio-bahamas-uba": { address: "Av. Governador Valadares, 841 - Centro, Ubá - MG", lat: -21.1175028, lng: -42.9496439, geocodedAt: "2026-09-01T12:00:00Z", precision: "bairro" },
   "bahamas-79-bahamas-mix-rio-pomba": { address: "AV LUCIANO RANGEL DE AZEVEDO - N° 770 - AREA 3 - JOSE MENDONÇA DOS REIS / CEP: 36.180-000", lat: -21.2345, lng: -43.1818341, geocodedAt: "2026-08-24T14:18:23Z", precision: "cidade" },
   "bahamas-80-bahamas-mix-iturama": { address: "Av. das Mangabeiras, 738 - Jaoquim Deodato, Iturama - MG, 38280-000", lat: -19.7272733, lng: -50.193488, geocodedAt: "2026-08-24T14:18:23Z", precision: "cidade" },
   "bahamas-82-bahamas-mix-araxa-santo-antonio": { address: "R. Santo Antônio, 1305 - Santo Antônio, Araxá - MG, 38182-106", lat: -19.6019972, lng: -46.9269516, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
