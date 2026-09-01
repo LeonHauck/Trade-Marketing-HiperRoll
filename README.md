@@ -13,10 +13,12 @@ A plataforma centraliza todo o workflow de trade marketing:
 - ✅ Identificação e validação inteligente de rupturas (produtos fora de estoque)
 - ✅ Captura de evidências fotográficas com otimização de cache
 - ✅ Análise visual com gráficos interativos (composição por rede, distribuição de status)
-- ✅ Geração automatizada de relatórios em PDF com KPIs e percentuais
+- ✅ Geração automatizada de relatórios em PDF com KPIs, gráficos e insights — preparada para grandes volumes de dados (milhares de visitas) sem perda de páginas
+- ✅ Planejamento de rotas de visita para promotores, com sugestão automática, montagem manual e integração com Google Maps
 - ✅ Sistema persistente de dados com sincronização local
 - ✅ Autenticação segura com gerenciamento de sessão
 - ✅ Sincronização com API backend para consolidação de dados
+- ✅ Identidade visual alinhada à marca oficial HiperRoll
 
 ---
 
@@ -62,6 +64,7 @@ trade-marketing-hiperroll/
 ├── index.html              # Interface principal
 ├── app.js                  # Lógica da aplicação (state, eventos, renderização)
 ├── data.js                 # Dados de produtos e lojas
+├── store-geo.js            # Coordenadas geocodificadas das lojas (usadas na aba Rotas)
 ├── storage.js              # Gerenciamento de localStorage
 ├── style.css               # Estilos CSS responsivos
 │
@@ -119,14 +122,23 @@ trade-marketing-hiperroll/
 ### 3. Análise de Dados
 - Gráficos de composição por rede
 - Distribuição de rupturas vs. sem ruptura
-- Relatórios PDF automáticos com cálculos de percentual
+- Relatórios PDF automáticos com cálculos de percentual, gráficos e quadro de insights (Relatório de Visitas, Rupturas e Lojas Pendentes)
 - Filtros por período e rede
+- Visualização rápida dos itens em ruptura via tooltip, sem precisar abrir o detalhe da visita
 
 ### 4. Segurança
 - Autenticação por login/senha
 - Token de API para comunicação backend
 - `.gitignore` para proteção de credenciais
 - CORS e validação de requisições
+
+### 5. Planejamento de Rotas
+- Sugestão automática de rotas semanais, priorizando lojas em atraso e/ou com rupturas ativas
+- Montagem manual de rota por rede/loja, com otimização automática da ordem de visita (heurística vizinho-mais-próximo + refinamento 2-opt)
+- Estimativa de tempo por parada com base na quantidade de itens cadastrados na loja (tempo base + tempo por item), somada ao deslocamento estimado entre lojas
+- Cálculo de distância via coordenadas geocodificadas (`store-geo.js`), sem dependência de API paga de mapas
+- Abertura da rota do dia direto no Google Maps, pronta para navegação
+- Cobertura de coordenadas em 100% das lojas ativas no sistema, atualizada incrementalmente conforme novas lojas/redes são cadastradas
 
 ---
 
@@ -152,12 +164,14 @@ trade-marketing-hiperroll/
 - **Lazy Loading:** Imagens carregam sob demanda
 - **Compressão de Dados:** Apenas metadados são persistidos
 - **Fallbacks Robustos:** Tratamento de erros e localStorage bloqueado
+- **Índices em Memória:** Visitas indexadas por loja para consultas O(1) em telas com grande volume de histórico
 
 ### Arquitetura
 - **Padrão de Atualizações Leves:** Apenas campos voláteis sincronizam
 - **Separação de Camadas:** Frontend (app.js) e Backend (api.php)
 - **State Management:** Sincronização automática de localStorage
 - **Validação Dual:** Client-side + Server-side
+- **Exportação de PDF Nativa:** Tabelas e cabeçalhos de relatório desenhados diretamente via jsPDF (texto/formas vetoriais), em vez de capturar a tela como imagem — elimina falhas de renderização em relatórios com milhares de registros e mantém o PDF leve e com texto pesquisável
 
 ### UX/UI
 - **Responsivo:** Funciona em desktop, tablet e mobile
@@ -241,7 +255,8 @@ Este projeto é propriedade da **HiperRoll Embalagens**. Uso interno apenas.
 
 Desenvolvido por **Leon Hauck**  
 Empresa: **HiperRoll Embalagens**  
-Data: Junho 2026
+Data: Junho 2026  
+Em manutenção e evolução contínua desde então (identidade visual, planejamento de rotas, robustez de exportação em PDF, entre outras melhorias).
 
 ---
 
