@@ -2483,7 +2483,17 @@ function renderManualRouteResult() {
 // orçamento diário de 8h, sem reordenar nada — só corta a sequência já otimizada
 // em pontos de tempo acumulado, preenchendo os dias a partir da data de início do
 // plano. Sobras que não couberem nos dias do plano ficam de fora, com aviso.
+// O botão funciona como alternância: um segundo clique desfaz, restaurando
+// exatamente o estado (dias/travamento da data) de antes do primeiro clique —
+// útil caso o usuário tenha clicado sem querer.
 window.splitManualRouteAcrossDays = function() {
+    const splitBtn = document.getElementById('splitAcrossDaysBtn');
+
+    if (splitBtn && splitBtn.dataset.applied === '1') {
+        undoSplitManualRouteAcrossDays();
+        return;
+    }
+
     const orderedStores = window._routeManualOrder.map(id => stores.find(s => s.id === id)).filter(Boolean);
     if (orderedStores.length === 0) return;
 
@@ -2511,6 +2521,15 @@ window.splitManualRouteAcrossDays = function() {
     const usableBuckets = dayBuckets.slice(0, ROUTE_PLAN_LENGTH_DAYS);
     const unscheduledCount = dayBuckets.slice(ROUTE_PLAN_LENGTH_DAYS).reduce((sum, b) => sum + b.length, 0);
 
+    // Snapshot de tudo que este clique vai mexer, pra "Desfazer" conseguir voltar
+    // exatamente ao estado anterior (inclusive destravar a data, se foi este
+    // clique que criou o plano rascunho e travou o campo).
+    const planExistedBefore = !!window._routeManualDraftPlan;
+    window._routeManualSplitUndo = {
+        planExistedBefore,
+        daysSnapshotBefore: planExistedBefore ? window._routeManualDraftPlan.days.slice() : null
+    };
+
     if (!window._routeManualDraftPlan) {
         window._routeManualDraftPlan = {
             id: 'route-' + Date.now(),
@@ -2532,18 +2551,43 @@ window.splitManualRouteAcrossDays = function() {
     renderRouteBuilderManualFormOnly();
 
     // Feedback visual: o botão sai do estilo "contorno" e vira sólido, deixando
-    // claro que o clique já surtiu efeito (some quando a rota é reotimizada).
-    const splitBtn = document.getElementById('splitAcrossDaysBtn');
+    // claro que o clique já surtiu efeito. Clicar de novo desfaz.
     if (splitBtn) {
+        splitBtn.dataset.applied = '1';
         splitBtn.classList.remove('btn-outline-danger');
         splitBtn.classList.add('btn-danger');
-        splitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Dividido pelos Dias';
+        splitBtn.title = 'Clique para desfazer a divisão';
+        splitBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Dividido pelos Dias';
     }
 
     if (unscheduledCount > 0) {
         alert(`${unscheduledCount} loja(s) não couberam nos ${ROUTE_PLAN_LENGTH_DAYS} dias deste plano, mesmo dividindo pelo orçamento diário de 8h. Elas ficaram de fora — considere criar um novo plano pra elas a partir da próxima semana.`);
     }
 };
+
+function undoSplitManualRouteAcrossDays() {
+    const snap = window._routeManualSplitUndo;
+    if (!snap) return;
+
+    if (!snap.planExistedBefore) {
+        window._routeManualDraftPlan = null;
+    } else {
+        window._routeManualDraftPlan.days = snap.daysSnapshotBefore;
+    }
+    window._routeManualSplitUndo = null;
+
+    renderManualDraftSummary();
+    renderRouteBuilderManualFormOnly();
+
+    const splitBtn = document.getElementById('splitAcrossDaysBtn');
+    if (splitBtn) {
+        splitBtn.dataset.applied = '0';
+        splitBtn.classList.remove('btn-danger');
+        splitBtn.classList.add('btn-outline-danger');
+        splitBtn.title = '';
+        splitBtn.innerHTML = '<i class="fa-solid fa-calendar-week"></i> Dividir Automaticamente pelos Dias';
+    }
+}
 
 window.moveManualRouteStop = function(index, direction) {
     const target = index + direction;
@@ -2573,6 +2617,19 @@ window.assignManualRouteToDay = function() {
     const dateStr = formatISODate(addDays(window._routeManualDraftPlan.weekStart, dayIndex));
     window._routeManualDraftPlan.days[dayIndex] = buildDayFromStores(orderedStores, dateStr, null);
 
+    // Essa atribuição manual pode mexer num dia que uma divisão automática anterior
+    // também usou — invalida o "desfazer" dela pra nunca apagar por engano algo
+    // que o usuário fez depois, e destrava o botão de divisão pra um novo uso.
+    window._routeManualSplitUndo = null;
+    const splitBtn = document.getElementById('splitAcrossDaysBtn');
+    if (splitBtn && splitBtn.dataset.applied === '1') {
+        splitBtn.dataset.applied = '0';
+        splitBtn.classList.remove('btn-danger');
+        splitBtn.classList.add('btn-outline-danger');
+        splitBtn.title = '';
+        splitBtn.innerHTML = '<i class="fa-solid fa-calendar-week"></i> Dividir Automaticamente pelos Dias';
+    }
+
     renderManualDraftSummary();
     // A data de início trava assim que o primeiro dia é atribuído — reabre o formulário
     // já refletindo isso (campo desabilitado) pra não desalinhar dias já salvos.
@@ -2581,20 +2638,26 @@ window.assignManualRouteToDay = function() {
 
 // Reaplica só a parte de filtro/checklist do modo manual, preservando o resultado já otimizado
 // (evita perder a rota calculada ao travar o campo de data após o primeiro dia ser atribuído).
+// Renderiza o campo "Data de início do plano" de acordo com o estado atual —
+// travado (somente leitura) se já existe um plano rascunho com dias atribuídos,
+// ou editável caso contrário. Chamada tanto ao travar (após atribuir um dia)
+// quanto ao destravar (ex: usuário desfez a última atribuição/divisão).
 function renderRouteBuilderManualFormOnly() {
     const startGroup = document.getElementById('routeManualWeekStart')?.closest('.form-group');
-    if (!startGroup || !window._routeManualDraftPlan) return;
-    const d = window._routeManualDraftPlan.weekStart;
+    if (!startGroup) return;
+    const locked = !!window._routeManualDraftPlan;
+    const d = locked ? window._routeManualDraftPlan.weekStart : (document.getElementById('routeManualWeekStart')?.value || nextMondayISO());
     startGroup.innerHTML = `
         <label>Data de início do plano</label>
-        <input type="date" id="routeManualWeekStart" value="${d}" disabled>
-        <p id="routeManualWeekdayHint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">${weekdayLabelPtBR(d)} — já travada, pois este plano já tem dias atribuídos.</p>
+        <input type="date" id="routeManualWeekStart" value="${d}" oninput="updateRouteManualWeekdayHint()" ${locked ? 'disabled' : ''}>
+        <p id="routeManualWeekdayHint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">${weekdayLabelPtBR(d)}${locked ? ' — já travada, pois este plano já tem dias atribuídos' : ` — o plano cobre ${ROUTE_PLAN_LENGTH_DAYS} dias corridos a partir desta data`}.</p>
     `;
 }
 
 function renderManualDraftSummary() {
     const area = document.getElementById('routeManualDraftSummary');
-    if (!area || !window._routeManualDraftPlan) return;
+    if (!area) return;
+    if (!window._routeManualDraftPlan) { area.innerHTML = ''; return; }
     const plan = window._routeManualDraftPlan;
     const assignedLabels = plan.days
         .map((day, idx) => day ? weekdayLabelPtBR(formatISODate(addDays(plan.weekStart, idx))) : null)
