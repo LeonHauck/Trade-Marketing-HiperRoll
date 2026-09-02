@@ -245,12 +245,6 @@ O sistema gera PDFs com:
 
 ---
 
-## 📝 Licença
-
-Este projeto é propriedade da **HiperRoll Embalagens**. Uso interno apenas.
-
----
-
 ## 👤 Autor
 
 Desenvolvido por **Leon Hauck**  
