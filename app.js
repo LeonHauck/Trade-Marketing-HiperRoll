@@ -2458,11 +2458,19 @@ function renderManualRouteResult() {
         return `<option value="${i}">${weekdayLabelPtBR(d)} — ${formatDate(d)}</option>`;
     }).join('');
 
+    const overBudget = totalMin > DAILY_BUDGET_MIN;
+
     resultArea.innerHTML = `
-        <p style="margin-top: 14px; font-weight: 700; color: var(--navy-deep);">Duração total estimada: ${formatDurationHuman(totalMin)} ${totalMin > DAILY_BUDGET_MIN ? '<span style="color: var(--primary-red);">(acima do orçamento diário de 8h)</span>' : ''}</p>
+        <p style="margin-top: 14px; font-weight: 700; color: var(--navy-deep);">Duração total estimada: ${formatDurationHuman(totalMin)} ${overBudget ? '<span style="color: var(--primary-red);">(acima do orçamento diário de 8h)</span>' : ''}</p>
         <div class="route-manual-list">${rowsHtml}</div>
+        ${overBudget ? `
+        <div style="margin-top: 14px; padding: 12px; background: #fff3f2; border: 1px solid #ffd6d3; border-radius: var(--radius-sm);">
+            <p style="font-size: 0.82rem; color: var(--navy-deep); margin: 0 0 8px;">Essa seleção não cabe em um único dia. Em vez de atribuir tudo a um dia só, o sistema pode dividir automaticamente pelos dias seguintes, respeitando o orçamento de 8h/dia e mantendo a ordem já otimizada.</p>
+            <button id="splitAcrossDaysBtn" class="btn btn-outline-danger" style="width:100%;" onclick="splitManualRouteAcrossDays()"><i class="fa-solid fa-calendar-week"></i> Dividir Automaticamente pelos Dias</button>
+        </div>
+        ` : ''}
         <div class="form-group" style="margin-top: 14px;">
-            <label>Atribuir esta rota ao dia</label>
+            <label>Ou atribuir a rota inteira a um único dia</label>
             <select id="routeManualDaySelect">
                 ${dayOptions}
             </select>
@@ -2470,6 +2478,72 @@ function renderManualRouteResult() {
         <button class="btn btn-secondary" style="width:100%;" onclick="assignManualRouteToDay()"><i class="fa-solid fa-calendar-plus"></i> Adicionar a este dia</button>
     `;
 }
+
+// Divide a rota já otimizada (window._routeManualOrder) em blocos que cabem no
+// orçamento diário de 8h, sem reordenar nada — só corta a sequência já otimizada
+// em pontos de tempo acumulado, preenchendo os dias a partir da data de início do
+// plano. Sobras que não couberem nos dias do plano ficam de fora, com aviso.
+window.splitManualRouteAcrossDays = function() {
+    const orderedStores = window._routeManualOrder.map(id => stores.find(s => s.id === id)).filter(Boolean);
+    if (orderedStores.length === 0) return;
+
+    const weekStart = (window._routeManualDraftPlan && window._routeManualDraftPlan.weekStart)
+        || document.getElementById('routeManualWeekStart')?.value
+        || nextMondayISO();
+
+    const dayBuckets = [];
+    let current = [];
+    let currentMin = 0;
+    orderedStores.forEach(store => {
+        const lastStore = current[current.length - 1];
+        const addMin = estimateVisitDurationMin(store) + (lastStore ? (travelTimeMin(lastStore, store) || 0) : 0);
+        if (current.length > 0 && currentMin + addMin > DAILY_BUDGET_MIN) {
+            dayBuckets.push(current);
+            current = [store];
+            currentMin = estimateVisitDurationMin(store);
+        } else {
+            current.push(store);
+            currentMin += addMin;
+        }
+    });
+    if (current.length > 0) dayBuckets.push(current);
+
+    const usableBuckets = dayBuckets.slice(0, ROUTE_PLAN_LENGTH_DAYS);
+    const unscheduledCount = dayBuckets.slice(ROUTE_PLAN_LENGTH_DAYS).reduce((sum, b) => sum + b.length, 0);
+
+    if (!window._routeManualDraftPlan) {
+        window._routeManualDraftPlan = {
+            id: 'route-' + Date.now(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            weekStart,
+            promoterName: '',
+            mode: 'manual',
+            days: new Array(ROUTE_PLAN_LENGTH_DAYS).fill(null)
+        };
+    }
+
+    usableBuckets.forEach((bucketStores, idx) => {
+        const dateStr = formatISODate(addDays(window._routeManualDraftPlan.weekStart, idx));
+        window._routeManualDraftPlan.days[idx] = buildDayFromStores(bucketStores, dateStr, null);
+    });
+
+    renderManualDraftSummary();
+    renderRouteBuilderManualFormOnly();
+
+    // Feedback visual: o botão sai do estilo "contorno" e vira sólido, deixando
+    // claro que o clique já surtiu efeito (some quando a rota é reotimizada).
+    const splitBtn = document.getElementById('splitAcrossDaysBtn');
+    if (splitBtn) {
+        splitBtn.classList.remove('btn-outline-danger');
+        splitBtn.classList.add('btn-danger');
+        splitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Dividido pelos Dias';
+    }
+
+    if (unscheduledCount > 0) {
+        alert(`${unscheduledCount} loja(s) não couberam nos ${ROUTE_PLAN_LENGTH_DAYS} dias deste plano, mesmo dividindo pelo orçamento diário de 8h. Elas ficaram de fora — considere criar um novo plano pra elas a partir da próxima semana.`);
+    }
+};
 
 window.moveManualRouteStop = function(index, direction) {
     const target = index + direction;
