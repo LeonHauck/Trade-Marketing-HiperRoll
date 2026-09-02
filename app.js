@@ -2201,10 +2201,8 @@ function renderRouteWeekGridHtml(plan) {
                 return `
                     <div class="route-stop">
                         <span class="route-stop-time">${formatMinutesAsClock(stop.arrivalEstimateMin)}</span>
-                        <div>
-                            <div class="route-stop-name">${store ? store.name : 'Loja removida'}</div>
-                            <div class="route-stop-network">${store ? store.network : ''}</div>
-                        </div>
+                        <div class="route-stop-name">${store ? store.name : 'Loja removida'}</div>
+                        <span class="route-stop-network">${store ? store.network : ''}</span>
                     </div>
                 `;
             }).join('');
