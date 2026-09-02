@@ -318,6 +318,17 @@ body {
     border: 1.5px solid var(--primary-blue) !important;
 }
 
+.btn-outline-danger {
+    background-color: transparent;
+    color: var(--primary-red);
+    border: 1.5px solid var(--primary-red) !important;
+}
+
+.btn-outline-danger:hover {
+    background-color: rgba(227, 30, 36, 0.06);
+    transform: translateY(-2px);
+}
+
 .btn-secondary:hover {
     background-color: var(--accent-blue);
     transform: translateY(-2px);
