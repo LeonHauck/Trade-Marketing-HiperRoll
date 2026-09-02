@@ -2084,7 +2084,7 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-862-atacadao-aracaju-goni-alo-prado",
-        "name":  "862 ATACADAO - ARACAJU GON?ALO PRADO",
+        "name":  "862 ATACADAO - ARACAJU GONÇALO PRADO",
         "network":  "ATACADAO BA",
         "frequency": 2,
         "productIds":  [
@@ -2147,7 +2147,7 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-845-atacadao-camai-ari-centro",
-        "name":  "845 ATACADAO - CAMA?ARI CENTRO",
+        "name":  "845 ATACADAO - CAMAÇARI CENTRO",
         "network":  "ATACADAO BA",
         "productIds":  [
                            "bobina-20x30",
@@ -2166,7 +2166,7 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-915-atacadao-camai-ari-via-parafuso",
-        "name":  "915 ATACADAO - CAMA?ARI VIA PARAFUSO",
+        "name":  "915 ATACADAO - CAMAÇARI VIA PARAFUSO",
         "network":  "ATACADAO BA",
         "frequency": 2,
         "productIds":  [
