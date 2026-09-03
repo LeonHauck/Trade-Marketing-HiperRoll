@@ -2266,11 +2266,37 @@ function nextMondayISO() {
 function renderRouteBuilderAutoHtml() {
     const geoCount = stores.filter(s => s.lat && s.lng).length;
     const defaultStart = nextMondayISO();
+
+    const uniqueNetworks = [...new Set(stores.map(s => s.network))].filter(n => n).sort();
+    const networkOptions = `
+        <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid var(--border-color); margin-bottom: 4px;">
+            <input type="checkbox" id="routeAutoSelectAllNetworks" checked onchange="toggleAllRouteAutoNetworks(this)" style="margin-right: 8px; width: 16px; height: 16px;">
+            <strong style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">Todas as Redes</strong>
+        </label>
+    ` + uniqueNetworks.map(net => `
+        <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer;">
+            <input type="checkbox" class="route-auto-network-checkbox" value="${net}" checked onchange="updateRouteAutoNetworkLabel()" style="margin-right: 8px; width: 16px; height: 16px;">
+            <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">${net}</span>
+        </label>
+    `).join('');
+
     return `
         <div class="form-group">
             <label>Data de início do plano</label>
             <input type="date" id="routeAutoWeekStart" value="${defaultStart}" oninput="updateRouteAutoWeekdayHint()">
             <p id="routeAutoWeekdayHint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">${weekdayLabelPtBR(defaultStart)} — o plano cobre ${ROUTE_PLAN_LENGTH_DAYS} dias corridos a partir desta data.</p>
+        </div>
+        <div class="form-group">
+            <label>Redes incluídas na sugestão</label>
+            <div class="checkbox-dropdown filter-select" id="routeAutoNetworkDropdownContainer" style="height: 40px; background: white; border: 1px solid var(--border-color); border-radius: 8px; min-width: 200px; position: relative;">
+                <div class="dropdown-header" onclick="toggleDropdown('routeAutoNetworkOptions')" style="height: 100%; display: flex; align-items: center; padding: 0 15px; cursor: pointer; justify-content: space-between;">
+                    <span id="routeAutoNetworkFilterLabel" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;">Todas as Redes</span>
+                    <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem;"></i>
+                </div>
+                <div class="dropdown-options" id="routeAutoNetworkOptions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 1000; max-height: 220px; overflow-y: auto; padding: 10px;">
+                    ${networkOptions}
+                </div>
+            </div>
         </div>
         <div class="form-group">
             <label>Promotor (opcional)</label>
@@ -2282,6 +2308,25 @@ function renderRouteBuilderAutoHtml() {
         </div>
     `;
 }
+
+window.toggleAllRouteAutoNetworks = function(master) {
+    document.querySelectorAll('.route-auto-network-checkbox').forEach(cb => cb.checked = master.checked);
+    updateRouteAutoNetworkLabel();
+};
+
+window.updateRouteAutoNetworkLabel = function() {
+    const netBoxes = document.querySelectorAll('.route-auto-network-checkbox');
+    const checkedBoxes = Array.from(netBoxes).filter(cb => cb.checked);
+    const label = document.getElementById('routeAutoNetworkFilterLabel');
+    if (label) {
+        if (checkedBoxes.length === 0) label.textContent = 'Nenhuma rede';
+        else if (checkedBoxes.length === netBoxes.length) label.textContent = 'Todas as Redes';
+        else if (checkedBoxes.length === 1) label.textContent = checkedBoxes[0].value;
+        else label.textContent = `${checkedBoxes.length} redes selecionadas`;
+    }
+    const allBtn = document.getElementById('routeAutoSelectAllNetworks');
+    if (allBtn) allBtn.checked = (checkedBoxes.length === netBoxes.length);
+};
 
 window.updateRouteAutoWeekdayHint = function() {
     const input = document.getElementById('routeAutoWeekStart');
@@ -2304,8 +2349,11 @@ window.generateAndSaveAutoPlan = function() {
     const promoterName = document.getElementById('routeAutoPromoterName').value.trim();
     if (!weekStart) { alert('Selecione a data de início do plano.'); return; }
 
-    const eligibleStores = stores.filter(s => s.lat && s.lng);
-    if (eligibleStores.length === 0) { alert('Nenhuma loja com coordenadas cadastradas ainda.'); return; }
+    const checkedNets = Array.from(document.querySelectorAll('.route-auto-network-checkbox:checked')).map(cb => cb.value);
+    if (checkedNets.length === 0) { alert('Selecione ao menos uma rede.'); return; }
+
+    const eligibleStores = stores.filter(s => s.lat && s.lng && checkedNets.includes(s.network));
+    if (eligibleStores.length === 0) { alert('Nenhuma loja com coordenadas cadastradas nas redes selecionadas.'); return; }
 
     const plan = generateAutoWeekPlan(weekStart, promoterName, eligibleStores);
     routePlans.push(plan);
