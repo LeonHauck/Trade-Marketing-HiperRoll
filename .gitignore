@@ -30,3 +30,43 @@ desktop.ini
 # Uploads temporários (manter apenas a pasta)
 uploads/*
 !uploads/.gitkeep
+
+# Dados operacionais reais — histórico de visitas/status das lojas não deve
+# ficar versionado (isso é dado do negócio, não código)
+visits.json
+store_updates.json
+
+# Planilhas de endereço enviadas para geocodificação (já incorporadas ao
+# store-geo.js — servem só de registro local, não precisam ir pro repositório)
+Lojas *.xlsx
+Dados*.csv
+
+# Scripts pontuais de correção/migração de dados (já cumpriram o papel;
+# mantidos localmente por histórico, mas não fazem parte do app)
+*.cs
+check.ps1
+check_syntax.js
+count_data.ps1
+verify_data.ps1
+fix_all.ps1
+fix_chars.py
+fix_data.py
+fix_encoding.ps1
+fix_words.ps1
+fix_words2.ps1
+final_cleanup.ps1
+restore_backup.ps1
+generate_full_data.ps1
+regen_data*.ps1
+migrate.ps1
+migrate_app.js
+patch.ps1
+patch_app.js
+update.js
+update.ps1
+parseAppJs.js
+parse_csv.js
+remove_atacadao_items.py
+tmp_add_bahamas_items.py
+test_render.js
+data.js.bak
