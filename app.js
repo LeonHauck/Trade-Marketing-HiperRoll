@@ -197,6 +197,7 @@ let dismissedNotifications = [];
 let resolvedRupturesHistory = [];
 let historyBackfillNotice = '';
 let routePlans = []; // planos de rota semanal (aba "Rotas") — persistência local, sem sync com servidor
+let pedidos = []; // pedidos comerciais (aba "Pedidos") — sincroniza com o servidor
 
 // Funções auxiliares para o padrão de atualizações leves de lojas
 async function loadStoreUpdates() {
@@ -234,6 +235,24 @@ async function saveAppStateLocally() {
         await IndexedDBHelper.set('hr_route_plans', routePlans);
     } catch (e) {
         console.warn('Falha ao salvar estado local:', e);
+    }
+}
+
+// Persistência dos pedidos — separada do resto do estado (saveAppStateLocally/
+// syncAppStateServer) pra não precisar re-sincronizar visitas/rupturas/etc. toda
+// vez que um pedido é criado, editado ou excluído.
+async function persistPedidos() {
+    try {
+        await IndexedDBHelper.set('hr_pedidos', pedidos);
+    } catch (e) {
+        console.warn('Falha ao salvar pedidos localmente:', e);
+    }
+    if (typeof Storage !== 'undefined' && Storage.isServer) {
+        try {
+            await Storage.syncPedidos(pedidos);
+        } catch (err) {
+            console.warn('[Storage] Falha ao sincronizar pedidos:', err);
+        }
     }
 }
 
@@ -321,6 +340,7 @@ async function initializeAppDatabase() {
     dismissedNotifications = (await IndexedDBHelper.get('hr_dismissed')) || [];
     resolvedRupturesHistory = (await IndexedDBHelper.get('hr_resolved_ruptures_history')) || [];
     routePlans = (await IndexedDBHelper.get('hr_route_plans')) || [];
+    pedidos = (await IndexedDBHelper.get('hr_pedidos')) || [];
 
     const _storeUpdates = await loadStoreUpdates();
     stores = (initialData.stores || []).map(s => applyStoreGeo(
@@ -670,6 +690,10 @@ async function init() {
             resolvedRupturesHistory = Array.from(histMap.values()).slice(0, 500);
 
             if (serverData.dismissed) dismissedNotifications = serverData.dismissed;
+            if (Array.isArray(serverData.pedidos)) {
+                pedidos = serverData.pedidos;
+                await persistLocalStorageJson('hr_pedidos', pedidos);
+            }
 
             const sUpdates = serverData.store_updates || {};
             stores = STORES_DATA.map(s => {
@@ -1442,6 +1466,8 @@ function renderPage(page) {
     } else if (page === 'routes') {
         checkOverdueStores();
         renderRoutesView();
+    } else if (page === 'pedidos') {
+        renderPedidosView();
     }
 }
 
@@ -4087,6 +4113,629 @@ window.exportHistoryPDF = async function() {
                     { label: 'Status', width: '20%' }
                 ],
                 rows: resolvedRows
+            }
+        ]
+    });
+};
+
+// ===================================================================
+// PEDIDOS — acompanhamento de pedidos comerciais (aba "Pedidos")
+// ===================================================================
+
+// Produtos do catálogo comercial (products-hiperroll.js) que casam com o termo
+// buscado, por descrição ou código — usado na busca de itens do modal de pedido.
+function searchHiperrollProducts(term) {
+    const catalog = (typeof HIPERROLL_PRODUCTS_CATALOG !== 'undefined') ? HIPERROLL_PRODUCTS_CATALOG : [];
+    const norm = normalizeText(term);
+    if (!norm) return [];
+    return catalog.filter(p =>
+        normalizeText(p.descricao || '').includes(norm) || normalizeText(p.codigo || '').includes(norm)
+    ).slice(0, 15);
+}
+
+function getFilteredPedidosList() {
+    const netCheckboxes = document.querySelectorAll('.pedido-network-checkbox:checked');
+    const checkedNets = Array.from(netCheckboxes).map(cb => cb.value);
+    const searchTerm = normalizeText(document.getElementById('pedidoClienteSearch')?.value || '');
+    const startVal = document.getElementById('pedidoFilterStartDate')?.value;
+    const endVal = document.getElementById('pedidoFilterEndDate')?.value;
+    const startDate = startVal ? new Date(startVal + 'T00:00:00') : null;
+    const endDate = endVal ? new Date(endVal + 'T23:59:59') : null;
+
+    return pedidos.filter(p => {
+        const store = stores.find(s => s.id === p.storeId);
+        const network = store ? store.network : '';
+        if (checkedNets.length > 0 && !checkedNets.includes(network)) return false;
+        if (checkedNets.length === 0) return false;
+
+        if (searchTerm) {
+            const haystack = normalizeText(`${p.numeroPedido || ''} ${p.clienteNome || ''} ${p.clienteCodigo || ''}`);
+            if (!haystack.includes(searchTerm)) return false;
+        }
+
+        if (startDate || endDate) {
+            if (!p.dataPedido) return false;
+            const d = new Date(p.dataPedido + 'T12:00:00');
+            if (startDate && d < startDate) return false;
+            if (endDate && d > endDate) return false;
+        }
+
+        return true;
+    }).sort((a, b) => (b.dataPedido || '').localeCompare(a.dataPedido || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+}
+
+function renderPedidosView() {
+    const uniqueNetworks = [...new Set(stores.map(s => s.network))].filter(Boolean).sort();
+    const networkOptionsHtml = `
+        <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid #eee; margin-bottom: 4px;">
+            <input type="checkbox" id="pedidoSelectAllNetworks" checked onchange="toggleAllPedidoNetworks(this)" style="margin-right: 8px; width: 16px; height: 16px;">
+            <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">Todas as Redes</span>
+        </label>
+    ` + uniqueNetworks.map(net => `
+        <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer;">
+            <input type="checkbox" class="pedido-network-checkbox" value="${net}" checked onchange="updatePedidoNetworkLabel(); renderPedidosTable();" style="margin-right: 8px; width: 16px; height: 16px;">
+            <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem;">${net}</span>
+        </label>
+    `).join('');
+
+    contentArea.innerHTML = `
+        <div class="panel">
+            <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 15px;">
+                <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <h2>Pedidos (<span id="pedidosCount">0</span>)</h2>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <button class="btn btn-secondary btn-small" onclick="exportPedidosCSV()"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+                        <button class="btn btn-primary btn-small" onclick="exportPedidosPDF()"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
+                        <button class="btn btn-danger" onclick="openPedidoModal()"><i class="fa-solid fa-plus"></i> Novo Pedido</button>
+                    </div>
+                </div>
+
+                <div class="store-filters" style="display: flex; gap: 15px; width: 100%; align-items: center; background: #f9f9f9; padding: 10px 15px; border-radius: 12px; border: 1px solid #eee; flex-wrap: wrap;">
+                    <div class="checkbox-dropdown filter-select" id="pedidoNetworkDropdownContainer" style="height: 40px; background: white; border: 1px solid #eee; border-radius: 8px; min-width: 180px; position: relative;">
+                        <div class="dropdown-header" onclick="toggleDropdown('pedidoNetworkOptions')" style="height: 100%; display: flex; align-items: center; padding: 0 15px; cursor: pointer; justify-content: space-between;">
+                            <span id="pedidoNetworkFilterLabel" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">Todas as Redes</span>
+                            <i class="fa-solid fa-chevron-down" style="color: var(--text-light); font-size: 0.8rem;"></i>
+                        </div>
+                        <div class="dropdown-options" id="pedidoNetworkOptions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #eee; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 1000; max-height: 250px; overflow-y: auto; padding: 10px;">
+                            ${networkOptionsHtml}
+                        </div>
+                    </div>
+
+                    <div class="search-bar" style="width: 240px;">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="pedidoClienteSearch" placeholder="Buscar cliente ou nº pedido..." oninput="renderPedidosTable()">
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #eee; border-radius: 8px; padding: 0 10px; height: 40px;">
+                        <i class="fa-regular fa-calendar" style="color: var(--text-light); font-size: 0.85rem;"></i>
+                        <input type="date" id="pedidoFilterStartDate" onchange="renderPedidosTable()" style="border: none; outline: none; font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark); background: transparent;">
+                        <span style="color: var(--text-light); font-size: 0.85rem;">até</span>
+                        <input type="date" id="pedidoFilterEndDate" onchange="renderPedidosTable()" style="border: none; outline: none; font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text-dark); background: transparent;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table class="reports-table">
+                    <thead>
+                        <tr>
+                            <th>Nº Pedido</th>
+                            <th>Cliente</th>
+                            <th>Loja</th>
+                            <th>Rede</th>
+                            <th>NF</th>
+                            <th>Data Pedido</th>
+                            <th>Agendamento</th>
+                            <th>Entrega</th>
+                            <th>Itens</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pedidosTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    renderPedidosTable();
+}
+
+window.toggleAllPedidoNetworks = function(master) {
+    document.querySelectorAll('.pedido-network-checkbox').forEach(cb => cb.checked = master.checked);
+    updatePedidoNetworkLabel();
+    renderPedidosTable();
+};
+
+window.updatePedidoNetworkLabel = function() {
+    const netBoxes = document.querySelectorAll('.pedido-network-checkbox');
+    const checkedBoxes = Array.from(netBoxes).filter(cb => cb.checked);
+    const label = document.getElementById('pedidoNetworkFilterLabel');
+    if (label) {
+        if (checkedBoxes.length === 0) label.textContent = 'Nenhuma rede';
+        else if (checkedBoxes.length === netBoxes.length) label.textContent = 'Todas as Redes';
+        else if (checkedBoxes.length === 1) label.textContent = checkedBoxes[0].value;
+        else label.textContent = `${checkedBoxes.length} redes selecionadas`;
+    }
+    const allBtn = document.getElementById('pedidoSelectAllNetworks');
+    if (allBtn) allBtn.checked = (checkedBoxes.length === netBoxes.length);
+};
+
+function renderPedidosTable() {
+    const tbody = document.getElementById('pedidosTableBody');
+    if (!tbody) return;
+
+    const filtered = getFilteredPedidosList();
+    const countEl = document.getElementById('pedidosCount');
+    if (countEl) countEl.textContent = filtered.length;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Nenhum pedido encontrado para os filtros atuais.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(p => {
+        const store = stores.find(s => s.id === p.storeId);
+        const itemCount = (p.itens || []).length;
+        return `
+            <tr>
+                <td><strong>${p.numeroPedido || '-'}</strong></td>
+                <td>${p.clienteNome || '-'}${p.clienteCodigo ? ` <span style="color:var(--text-muted); font-size:0.78rem;">(${p.clienteCodigo})</span>` : ''}</td>
+                <td>${store ? store.name : '<span style="color:var(--text-muted);">loja removida</span>'}</td>
+                <td>${store ? `<span class="network-tag">${store.network}</span>` : '-'}</td>
+                <td>${p.numeroNF || '-'}</td>
+                <td>${p.dataPedido ? formatDate(p.dataPedido) : '-'}</td>
+                <td>${p.dataAgendamento ? formatDate(p.dataAgendamento) : '-'}</td>
+                <td>${p.dataEntrega ? formatDate(p.dataEntrega) : '-'}</td>
+                <td>${itemCount} ${itemCount === 1 ? 'item' : 'itens'}</td>
+                <td style="white-space: nowrap;">
+                    <button class="btn-edit-small" onclick="openPedidoModal('${p.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn-edit-small" onclick="deletePedido('${p.id}')" title="Excluir" style="color: var(--primary-red);"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// ---------- Modal: novo/editar pedido ----------
+
+window.openPedidoModal = function(pedidoId) {
+    window._editingPedidoId = pedidoId || null;
+    const editing = pedidoId ? pedidos.find(p => p.id === pedidoId) : null;
+    window._pedidoDraftItems = editing ? (editing.itens || []).map(it => ({ ...it })) : [];
+
+    const titleEl = document.getElementById('pedidoModalTitle');
+    if (titleEl) titleEl.textContent = editing ? 'Editar Pedido' : 'Novo Pedido';
+
+    renderPedidoModalBody();
+    const modal = document.getElementById('pedidoModal');
+    if (modal) modal.style.display = 'flex';
+};
+
+function renderPedidoModalBody() {
+    const body = document.getElementById('pedidoModalBody');
+    if (!body) return;
+    const editing = window._editingPedidoId ? pedidos.find(p => p.id === window._editingPedidoId) : null;
+    const editingStore = editing ? stores.find(s => s.id === editing.storeId) : null;
+    const editingStoreLabel = editingStore ? `${editingStore.name} (${editingStore.network})` : '';
+
+    body.innerHTML = `
+        <div class="form-group">
+            <label>Número do Pedido</label>
+            <input type="text" id="pedidoNumero" value="${editing ? (editing.numeroPedido || '') : ''}" placeholder="Ex: 10234">
+        </div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 200px;">
+                <label>Código do Cliente</label>
+                <div class="checklist-search" style="position: relative;">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="pedidoClienteCodigo" value="${editing ? (editing.clienteCodigo || '') : ''}" placeholder="Digite o código do cliente..." oninput="updatePedidoClienteSuggestions()" onfocus="updatePedidoClienteSuggestions()" autocomplete="off">
+                    <div id="pedidoClienteSuggestions" class="pedido-product-suggestions" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="form-group" style="flex: 2; min-width: 220px;">
+                <label>Nome do Cliente</label>
+                <input type="text" id="pedidoClienteNome" value="${editing ? (editing.clienteNome || '') : ''}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Loja</label>
+            <div class="checklist-search" style="position: relative;">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="pedidoStoreSearch" value="${editingStoreLabel}" placeholder="Buscar loja por nome ou código..." oninput="updatePedidoStoreSuggestions()" onfocus="updatePedidoStoreSuggestions()" autocomplete="off">
+                <div id="pedidoStoreSuggestions" class="pedido-product-suggestions" style="display: none;"></div>
+            </div>
+            <input type="hidden" id="pedidoStoreId" value="${editing ? (editing.storeId || '') : ''}">
+        </div>
+        <div class="form-group">
+            <label>Número da NF</label>
+            <input type="text" id="pedidoNumeroNF" value="${editing ? (editing.numeroNF || '') : ''}">
+        </div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 150px;">
+                <label>Data do Pedido</label>
+                <input type="date" id="pedidoDataPedido" value="${editing ? (editing.dataPedido || '') : ''}">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 150px;">
+                <label>Data de Agendamento</label>
+                <input type="date" id="pedidoDataAgendamento" value="${editing ? (editing.dataAgendamento || '') : ''}">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 150px;">
+                <label>Data de Entrega</label>
+                <input type="date" id="pedidoDataEntrega" value="${editing ? (editing.dataEntrega || '') : ''}">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Itens do Pedido</label>
+            <div class="checklist-search" style="position: relative;">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="pedidoProductSearch" placeholder="Buscar produto por nome ou código..." oninput="updatePedidoProductSuggestions()" autocomplete="off">
+                <div id="pedidoProductSuggestions" class="pedido-product-suggestions" style="display: none;"></div>
+            </div>
+            <div id="pedidoItemsList" class="pedido-items-list"></div>
+        </div>
+
+        <div class="form-group">
+            <label>Observações</label>
+            <textarea id="pedidoObservacoes" rows="3" placeholder="Observações adicionais (opcional)">${editing ? (editing.observacoes || '') : ''}</textarea>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn btn-success" style="width: 100%;" onclick="savePedido()">${editing ? 'Salvar Alterações' : 'Salvar Pedido'}</button>
+        </div>
+    `;
+
+    renderPedidoItemsList();
+}
+
+// Filtra as lojas disponíveis para o campo "Loja" a partir da(s) rede(s) associada(s)
+// ao código de cliente informado, usando o mapeamento em cd-clientes.js (CD_CLIENT_MAP).
+// Códigos sem mapeamento (ou o campo vazio) não restringem nada — mostram todas as lojas.
+function getAllowedStoresForClient(clienteCodigo) {
+    if (typeof CD_CLIENT_MAP !== 'undefined' && clienteCodigo && CD_CLIENT_MAP[clienteCodigo]) {
+        const networks = CD_CLIENT_MAP[clienteCodigo].networks || [];
+        return stores.filter(s => networks.includes(s.network));
+    }
+    return stores;
+}
+
+// Busca de código de cliente (mesmo padrão da busca de loja): mostra sugestões de
+// CD_CLIENT_MAP por código ou nome do cliente enquanto o usuário digita.
+window.updatePedidoClienteSuggestions = function() {
+    const input = document.getElementById('pedidoClienteCodigo');
+    const box = document.getElementById('pedidoClienteSuggestions');
+    if (!input || !box || typeof CD_CLIENT_MAP === 'undefined') return;
+
+    const rawTerm = input.value.trim();
+    const normTerm = normalizeText(rawTerm);
+    const entries = Object.keys(CD_CLIENT_MAP).map(codigo => ({ codigo, ...CD_CLIENT_MAP[codigo] }));
+    const matches = (rawTerm
+        ? entries.filter(e => e.codigo.includes(rawTerm) || normalizeText(e.clienteNome).includes(normTerm))
+        : entries
+    ).slice(0, 20);
+
+    if (matches.length === 0) {
+        box.innerHTML = `<div class="pedido-suggestion-empty">Nenhum cliente encontrado.</div>`;
+        box.style.display = 'block';
+        return;
+    }
+
+    box.innerHTML = matches.map(e => `
+        <div class="pedido-suggestion-item" onclick="selectPedidoCliente('${e.codigo}')">
+            <strong>${e.codigo} — ${e.clienteNome}</strong>
+            <span>${(e.networks || []).join(', ')}</span>
+        </div>
+    `).join('');
+    box.style.display = 'block';
+};
+
+// Seleciona um cliente da lista de sugestões: preenche código + nome, limpa a loja
+// (a rede pode ter mudado) e já reabre a busca de loja com as opções da nova rede.
+window.selectPedidoCliente = function(codigo) {
+    const info = (typeof CD_CLIENT_MAP !== 'undefined') ? CD_CLIENT_MAP[codigo] : null;
+    if (!info) return;
+
+    const codigoInput = document.getElementById('pedidoClienteCodigo');
+    const nomeInput = document.getElementById('pedidoClienteNome');
+    if (codigoInput) codigoInput.value = codigo;
+    if (nomeInput) nomeInput.value = info.clienteNome;
+
+    const box = document.getElementById('pedidoClienteSuggestions');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+
+    const storeSearch = document.getElementById('pedidoStoreSearch');
+    const storeId = document.getElementById('pedidoStoreId');
+    if (storeSearch) storeSearch.value = '';
+    if (storeId) storeId.value = '';
+};
+
+window.updatePedidoStoreSuggestions = function() {
+    const input = document.getElementById('pedidoStoreSearch');
+    const box = document.getElementById('pedidoStoreSuggestions');
+    if (!input || !box) return;
+
+    const term = input.value.trim();
+    const clienteCodigo = document.getElementById('pedidoClienteCodigo')?.value.trim() || '';
+    const norm = normalizeText(term);
+    const candidates = getAllowedStoresForClient(clienteCodigo);
+    const matches = (norm
+        ? candidates.filter(s => normalizeText(s.name).includes(norm) || normalizeText(s.id).includes(norm))
+        : candidates
+    ).slice(0, 20);
+
+    if (matches.length === 0) {
+        box.innerHTML = `<div class="pedido-suggestion-empty">Nenhuma loja encontrada.</div>`;
+        box.style.display = 'block';
+        return;
+    }
+
+    box.innerHTML = matches.map(s => `
+        <div class="pedido-suggestion-item" onclick="selectPedidoStore('${s.id}')">
+            <strong>${s.name}</strong>
+            <span>${s.network}</span>
+        </div>
+    `).join('');
+    box.style.display = 'block';
+};
+
+window.selectPedidoStore = function(storeId) {
+    const store = stores.find(s => s.id === storeId);
+    if (!store) return;
+    const input = document.getElementById('pedidoStoreSearch');
+    const hidden = document.getElementById('pedidoStoreId');
+    if (input) input.value = `${store.name} (${store.network})`;
+    if (hidden) hidden.value = store.id;
+    const box = document.getElementById('pedidoStoreSuggestions');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+};
+
+window.updatePedidoProductSuggestions = function() {
+    const input = document.getElementById('pedidoProductSearch');
+    const box = document.getElementById('pedidoProductSuggestions');
+    if (!input || !box) return;
+
+    const term = input.value.trim();
+    if (!term) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+    const matches = searchHiperrollProducts(term);
+    if (matches.length === 0) {
+        box.innerHTML = `<div class="pedido-suggestion-empty">Nenhum produto encontrado.</div>`;
+        box.style.display = 'block';
+        return;
+    }
+
+    box.innerHTML = matches.map(p => `
+        <div class="pedido-suggestion-item" onclick="addPedidoItem('${p.codigo}')">
+            <strong>${p.descricao}</strong>
+            <span>${p.codigo} · ${p.unidade_venda}</span>
+        </div>
+    `).join('');
+    box.style.display = 'block';
+};
+
+window.addPedidoItem = function(codigo) {
+    const catalog = (typeof HIPERROLL_PRODUCTS_CATALOG !== 'undefined') ? HIPERROLL_PRODUCTS_CATALOG : [];
+    const prod = catalog.find(p => p.codigo === codigo);
+    if (!prod) return;
+
+    const existing = window._pedidoDraftItems.find(it => it.codigo === codigo);
+    if (existing) {
+        existing.quantidade = (existing.quantidade || 0) + 1;
+    } else {
+        window._pedidoDraftItems.push({ codigo: prod.codigo, descricao: prod.descricao, unidade_venda: prod.unidade_venda, quantidade: 1 });
+    }
+
+    const searchInput = document.getElementById('pedidoProductSearch');
+    if (searchInput) searchInput.value = '';
+    const box = document.getElementById('pedidoProductSuggestions');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+
+    renderPedidoItemsList();
+};
+
+window.removePedidoItem = function(index) {
+    window._pedidoDraftItems.splice(index, 1);
+    renderPedidoItemsList();
+};
+
+window.updatePedidoItemQty = function(index, value) {
+    const qty = Math.max(1, parseInt(value, 10) || 1);
+    if (window._pedidoDraftItems[index]) window._pedidoDraftItems[index].quantidade = qty;
+};
+
+function renderPedidoItemsList() {
+    const area = document.getElementById('pedidoItemsList');
+    if (!area) return;
+    const items = window._pedidoDraftItems || [];
+
+    if (items.length === 0) {
+        area.innerHTML = `<p class="empty-state" style="padding: 1rem 0;">Nenhum item adicionado ainda.</p>`;
+        return;
+    }
+
+    area.innerHTML = `
+        <table class="reports-table" style="margin-top: 10px;">
+            <thead>
+                <tr><th>Código</th><th>Produto</th><th>Unidade</th><th style="width: 110px;">Qtd.</th><th></th></tr>
+            </thead>
+            <tbody>
+                ${items.map((it, idx) => `
+                    <tr>
+                        <td>${it.codigo}</td>
+                        <td>${it.descricao}</td>
+                        <td>${it.unidade_venda}</td>
+                        <td><input type="number" min="1" value="${it.quantidade}" style="width: 80px;" onchange="updatePedidoItemQty(${idx}, this.value)"></td>
+                        <td><button type="button" class="btn-edit-small" style="color: var(--primary-red);" onclick="removePedidoItem(${idx})" title="Remover"><i class="fa-solid fa-trash"></i></button></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+// Fecha as listas de sugestões (produto, loja e cliente) ao clicar fora delas.
+document.addEventListener('click', function(event) {
+    [['pedidoProductSuggestions', 'pedidoProductSearch'], ['pedidoStoreSuggestions', 'pedidoStoreSearch'], ['pedidoClienteSuggestions', 'pedidoClienteCodigo']].forEach(([boxId, inputId]) => {
+        const box = document.getElementById(boxId);
+        const input = document.getElementById(inputId);
+        if (!box || box.style.display === 'none') return;
+        if (event.target === input || box.contains(event.target)) return;
+        box.style.display = 'none';
+    });
+});
+
+window.savePedido = function() {
+    const numeroPedido = document.getElementById('pedidoNumero').value.trim();
+    const clienteCodigo = document.getElementById('pedidoClienteCodigo').value.trim();
+    const clienteNome = document.getElementById('pedidoClienteNome').value.trim();
+    const storeId = document.getElementById('pedidoStoreId').value;
+    const numeroNF = document.getElementById('pedidoNumeroNF').value.trim();
+    const dataPedido = document.getElementById('pedidoDataPedido').value;
+    const dataAgendamento = document.getElementById('pedidoDataAgendamento').value;
+    const dataEntrega = document.getElementById('pedidoDataEntrega').value;
+    const observacoes = document.getElementById('pedidoObservacoes').value.trim();
+    const itens = window._pedidoDraftItems || [];
+
+    if (!numeroPedido) { alert('Informe o número do pedido.'); return; }
+    if (!storeId) { alert('Selecione a loja.'); return; }
+    if (itens.length === 0) { alert('Adicione ao menos um item ao pedido.'); return; }
+
+    const editingId = window._editingPedidoId;
+    if (editingId) {
+        const p = pedidos.find(x => x.id === editingId);
+        if (p) {
+            Object.assign(p, { numeroPedido, clienteCodigo, clienteNome, storeId, numeroNF, dataPedido, dataAgendamento, dataEntrega, observacoes, itens });
+            p.updatedAt = new Date().toISOString();
+        }
+    } else {
+        pedidos.push({
+            id: 'pedido-' + Date.now(),
+            numeroPedido, clienteCodigo, clienteNome, storeId, numeroNF,
+            dataPedido, dataAgendamento, dataEntrega, observacoes, itens,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+    }
+
+    persistPedidos();
+    const modal = document.getElementById('pedidoModal');
+    if (modal) modal.style.display = 'none';
+    renderPedidosTable();
+};
+
+window.deletePedido = function(id) {
+    if (!confirm('Tem certeza que deseja excluir este pedido?')) return;
+    pedidos = pedidos.filter(p => p.id !== id);
+    persistPedidos();
+    if (typeof Storage !== 'undefined' && Storage.isServer) {
+        Storage.deletePedidos([id]).catch(() => {});
+    }
+    renderPedidosTable();
+};
+
+// ---------- Exportação CSV ----------
+
+window.exportPedidosCSV = function() {
+    const filtered = getFilteredPedidosList();
+    if (filtered.length === 0) { alert('Não há pedidos para exportar com os filtros atuais.'); return; }
+
+    let csvContent = 'data:text/csv;charset=utf-8,﻿Nº Pedido;Código Cliente;Nome Cliente;Loja;Rede;Nº NF;Data Pedido;Data Agendamento;Data Entrega;Unidade(s);Itens;Observações\n';
+    filtered.forEach(p => {
+        const store = stores.find(s => s.id === p.storeId);
+        const itensStr = (p.itens || []).map(it => `${it.descricao} (${it.quantidade}x)`).join(' | ');
+        const unidadesStr = [...new Set((p.itens || []).map(it => it.unidade_venda).filter(Boolean))].join(', ');
+        csvContent += [
+            p.numeroPedido || '',
+            p.clienteCodigo || '',
+            p.clienteNome || '',
+            store ? store.name : '',
+            store ? store.network : '',
+            p.numeroNF || '',
+            p.dataPedido ? formatDate(p.dataPedido) : '',
+            p.dataAgendamento ? formatDate(p.dataAgendamento) : '',
+            p.dataEntrega ? formatDate(p.dataEntrega) : '',
+            unidadesStr,
+            `"${itensStr.replace(/"/g, '""')}"`,
+            `"${(p.observacoes || '').replace(/"/g, '""')}"`
+        ].join(';') + '\n';
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Pedidos_Hiperroll_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+// ---------- Exportação PDF (arquitetura nativa — sem captura de tela) ----------
+
+async function drawPedidosHeaderNative(pdf, { marginH, marginV, contentWidthMm }, data) {
+    const y = drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle: 'Relatório de Pedidos', subtitleColor: [227, 30, 36] });
+    drawPdfFilterBoxes(pdf, { marginH, y, contentWidthMm }, [
+        { label: 'Rede', value: data.redeLabel },
+        { label: 'Cliente', value: data.clienteLabel },
+        { label: 'Período', value: data.periodoLabel }
+    ]);
+}
+
+window.exportPedidosPDF = async function() {
+    const filtered = getFilteredPedidosList();
+    if (filtered.length === 0) { alert('Não há pedidos para exportar com os filtros atuais.'); return; }
+
+    const netBoxes = document.querySelectorAll('.pedido-network-checkbox');
+    const checkedNets = Array.from(netBoxes).filter(cb => cb.checked);
+    const redeLabel = checkedNets.length === netBoxes.length ? 'Todas as Redes' : (checkedNets.map(cb => cb.value).join(', ') || 'Nenhuma');
+    const clienteLabel = document.getElementById('pedidoClienteSearch')?.value || 'Todos';
+    const startVal = document.getElementById('pedidoFilterStartDate')?.value;
+    const endVal = document.getElementById('pedidoFilterEndDate')?.value;
+    const periodoLabel = `${startVal || 'Início'} até ${endVal || 'Fim'}`;
+
+    const opt = {
+        margin: [10, 10],
+        filename: `Pedidos_Hiperroll_${new Date().toLocaleDateString()}.pdf`,
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    const rows = filtered.map(p => {
+        const store = stores.find(s => s.id === p.storeId);
+        const itensStr = (p.itens || []).map(it => `${it.descricao} (${it.quantidade}x)`).join(', ');
+        const unidadesStr = [...new Set((p.itens || []).map(it => it.unidade_venda).filter(Boolean))].join(', ');
+        return [
+            p.numeroPedido || '-',
+            p.clienteNome || '-',
+            store ? store.name : '-',
+            store ? store.network : '-',
+            p.numeroNF || '-',
+            p.dataPedido ? formatDate(p.dataPedido) : '-',
+            p.dataEntrega ? formatDate(p.dataEntrega) : '-',
+            unidadesStr || '-',
+            itensStr || '-',
+            p.observacoes || '-'
+        ];
+    });
+
+    await exportSectionedTablesToPdf({
+        headerDraw: (pdf, ctx) => drawPedidosHeaderNative(pdf, ctx, { redeLabel, clienteLabel, periodoLabel }),
+        opt,
+        sections: [
+            {
+                title: 'Pedidos',
+                emptyLabel: 'Nenhum pedido no filtro',
+                columns: [
+                    { label: 'Nº Pedido', width: '7%' },
+                    { label: 'Cliente', width: '12%' },
+                    { label: 'Loja', width: '13%' },
+                    { label: 'Rede', width: '7%' },
+                    { label: 'NF', width: '6%' },
+                    { label: 'Data Pedido', width: '7%' },
+                    { label: 'Entrega', width: '7%' },
+                    { label: 'Unidade(s)', width: '9%' },
+                    { label: 'Itens', width: '18%' },
+                    { label: 'Observações', width: '14%' }
+                ],
+                rows
             }
         ]
     });

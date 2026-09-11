@@ -15,6 +15,7 @@ A plataforma centraliza todo o workflow de trade marketing:
 - ✅ Análise visual com gráficos interativos (composição por rede, distribuição de status)
 - ✅ Geração automatizada de relatórios em PDF com KPIs, gráficos e insights — preparada para grandes volumes de dados (milhares de visitas) sem perda de páginas
 - ✅ Planejamento de rotas de visita para promotores, com sugestão automática, montagem manual e integração com Google Maps
+- ✅ Aba de Pedidos: acompanhamento de pedidos comerciais com busca de produtos por nome/código, filtro automático de loja por rede a partir do código do cliente, e exportação em CSV/PDF
 - ✅ Sistema persistente de dados com sincronização local
 - ✅ Autenticação segura com gerenciamento de sessão
 - ✅ Sincronização com API backend para consolidação de dados
@@ -65,6 +66,8 @@ trade-marketing-hiperroll/
 ├── app.js                  # Lógica da aplicação (state, eventos, renderização)
 ├── data.js                 # Dados de produtos e lojas
 ├── store-geo.js            # Coordenadas geocodificadas das lojas (usadas na aba Rotas)
+├── products-hiperroll.js   # Catálogo de produtos comerciais (usado na aba Pedidos)
+├── cd-clientes.js          # Mapeamento código de cliente → rede de lojas (usado na aba Pedidos)
 ├── storage.js              # Gerenciamento de localStorage
 ├── style.css               # Estilos CSS responsivos
 │
@@ -139,6 +142,13 @@ trade-marketing-hiperroll/
 - Cálculo de distância via coordenadas geocodificadas (`store-geo.js`), sem dependência de API paga de mapas
 - Abertura da rota do dia direto no Google Maps, pronta para navegação
 - Cobertura de coordenadas em 100% das lojas ativas no sistema, atualizada incrementalmente conforme novas lojas/redes são cadastradas
+
+### 6. Aba de Pedidos
+- Cadastro de pedidos com número, cliente, loja, número da NF, data do pedido/agendamento/entrega e observações
+- Busca de produtos por nome ou código a partir do catálogo comercial (`products-hiperroll.js`), com adição de itens e quantidade editável
+- Busca de código de cliente com sugestões (`cd-clientes.js`): ao selecionar, preenche o nome do cliente automaticamente e restringe a busca de loja apenas às redes associadas àquele código
+- Listagem filtrável por rede, cliente/nº do pedido e período
+- Exportação em CSV e PDF (arquitetura nativa, sem captura de tela), incluindo unidade de venda (caixa/fardo/pacote) e observações
 
 ---
 
@@ -250,7 +260,7 @@ O sistema gera PDFs com:
 Desenvolvido por **Leon Hauck**  
 Empresa: **HiperRoll Embalagens**  
 Data: Junho 2026  
-Em manutenção e evolução contínua desde então (identidade visual, planejamento de rotas, robustez de exportação em PDF, entre outras melhorias).
+Em manutenção e evolução contínua desde então (identidade visual, planejamento de rotas, robustez de exportação em PDF, aba de Pedidos, entre outras melhorias).
 
 ---
 

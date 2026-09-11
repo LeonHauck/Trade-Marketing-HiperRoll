@@ -76,6 +76,7 @@ switch ($action) {
             'dismissed'          => readData('dismissed.json', []),
             'resolved_history'   => readData('resolved_history.json', []),
             'photo_map'          => readData('photo_map.json', new stdClass()),
+            'pedidos'            => readData('pedidos.json', []),
         ]);
         break;
 
@@ -130,6 +131,52 @@ switch ($action) {
         
         $mergedVisits = array_values($filteredVisits);
         $ok = writeData('visits.json', $mergedVisits);
+        echo json_encode(['ok' => $ok]);
+        break;
+
+    // ── Salva pedidos ──────────────────────────────────────────
+    case 'save_pedidos':
+        if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
+
+        $incomingPedidos = $body['pedidos'] ?? [];
+        if (!is_array($incomingPedidos)) $incomingPedidos = [];
+
+        // Estratégia de MERGE (mesmo padrão de save_visits) para evitar perda de dados
+        $currentPedidos = readData('pedidos.json', []);
+
+        $pedidosMap = [];
+        foreach ($currentPedidos as $p) {
+            if (isset($p['id'])) {
+                $pedidosMap[$p['id']] = $p;
+            }
+        }
+        foreach ($incomingPedidos as $p) {
+            if (isset($p['id'])) {
+                $pedidosMap[$p['id']] = $p;
+            }
+        }
+
+        $mergedPedidos = array_values($pedidosMap);
+        $ok = writeData('pedidos.json', $mergedPedidos);
+        echo json_encode(['ok' => $ok]);
+        break;
+
+    // ── Exclui pedidos especificamente ────────────────────────
+    case 'delete_pedidos':
+        if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
+
+        $idsToDelete = $body['pedido_ids'] ?? [];
+        if (!is_array($idsToDelete) || empty($idsToDelete)) {
+            echo json_encode(['ok' => true]);
+            break;
+        }
+
+        $currentPedidos = readData('pedidos.json', []);
+        $filteredPedidos = array_filter($currentPedidos, function($p) use ($idsToDelete) {
+            return isset($p['id']) && !in_array($p['id'], $idsToDelete);
+        });
+
+        $ok = writeData('pedidos.json', array_values($filteredPedidos));
         echo json_encode(['ok' => $ok]);
         break;
 

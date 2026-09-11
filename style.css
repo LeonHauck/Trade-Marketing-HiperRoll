@@ -707,6 +707,41 @@ body {
     border-radius: 10px;
 }
 
+/* Sugestões de produto ao buscar itens de um pedido (aba Pedidos) */
+.pedido-product-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    max-height: 260px;
+    overflow-y: auto;
+    margin-top: 4px;
+}
+
+.pedido-suggestion-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.pedido-suggestion-item:last-child { border-bottom: none; }
+.pedido-suggestion-item:hover { background: var(--bg-light); }
+.pedido-suggestion-item strong { font-size: 0.85rem; color: var(--text-dark); }
+.pedido-suggestion-item span { font-size: 0.72rem; color: var(--text-muted); }
+
+.pedido-suggestion-empty {
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
 .checklist-item {
     display: flex;
     align-items: center;

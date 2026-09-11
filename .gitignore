@@ -41,6 +41,14 @@ store_updates.json
 Lojas *.xlsx
 Dados*.csv
 
+# Planilha de CDs/códigos de cliente (já incorporada ao cd-clientes.js) e catálogo
+# de produtos comerciais enviado para a aba Pedidos (já incorporado ao
+# products-hiperroll.js) — servem só de registro local, não precisam ir pro repositório
+Enderecos_cds.xlsx
+produtos_hiperroll.json
+produtos_hiperroll.csv
+~$*.xlsx
+
 # Scripts pontuais de correção/migração de dados (já cumpriram o papel;
 # mantidos localmente por histórico, mas não fazem parte do app)
 *.cs

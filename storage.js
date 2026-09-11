@@ -61,6 +61,16 @@ const Storage = (function () {
         return await call('delete_visits', { visit_ids: visitIds });
     }
 
+    // --- Sincroniza pedidos para o servidor ---
+    async function syncPedidos(pedidos) {
+        return await call('save_pedidos', { pedidos });
+    }
+
+    // --- Deleta pedidos especificamente no servidor ---
+    async function deletePedidos(pedidoIds) {
+        return await call('delete_pedidos', { pedido_ids: pedidoIds });
+    }
+
     // --- Sincroniza atualizações de lojas para o servidor ---
     async function syncStoreUpdates(updatesMap) {
         return await call('save_store_updates', { updates: updatesMap });
@@ -138,6 +148,8 @@ const Storage = (function () {
         loadFromServer,
         syncVisits,
         deleteVisits,
+        syncPedidos,
+        deletePedidos,
         syncStoreUpdates,
         syncRuptures,
         syncDismissed,

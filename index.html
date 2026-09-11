@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trade Marketing - Hiperroll Dashboard</title>
     <link rel="icon" href="logo-hiperroll.png">
-    <link rel="stylesheet" href="style.css?v=20260907d">
+    <link rel="stylesheet" href="style.css?v=20260911">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -109,6 +109,10 @@
                 <a href="#" class="nav-item" data-page="history">
                     <i class="fa-solid fa-exclamation-triangle"></i>
                     <span>Rupturas</span>
+                </a>
+                <a href="#" class="nav-item" data-page="pedidos">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    <span>Pedidos</span>
                 </a>
             </nav>
 
@@ -258,6 +262,19 @@
         </div>
     </div>
 
+    <!-- Modal for Pedido (novo/editar) -->
+    <div id="pedidoModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2 id="pedidoModalTitle">Novo Pedido</h2>
+                <span class="close-modal" onclick="document.getElementById('pedidoModal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body" id="pedidoModalBody">
+                <!-- Injected by JS -->
+            </div>
+        </div>
+    </div>
+
     <!-- Modal for Route Builder -->
     <div id="routeBuilderModal" class="modal">
         <div class="modal-content large">
@@ -364,9 +381,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script defer src="data.js?v=20260907"></script>
     <script defer src="store-geo.js?v=20260901f"></script>
-    <script defer src="storage.js?v=20260713"></script>
+    <script defer src="products-hiperroll.js?v=20260911"></script>
+    <script defer src="cd-clientes.js?v=20260911"></script>
+    <script defer src="storage.js?v=20260911"></script>
     <script defer src="db.js?v=20260713"></script>
-    <script defer src="app.js?v=20260907e"></script>
+    <script defer src="app.js?v=20260911"></script>
 </body>
 
 </html>
