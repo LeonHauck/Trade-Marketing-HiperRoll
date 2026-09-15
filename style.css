@@ -894,7 +894,7 @@ select:focus, textarea:focus, input:focus {
     .sidebar { width: 80px; padding: 1.25rem 0.5rem; }
     .logo-container { padding: 10px 6px; }
     .logo-container .site-logo { max-width: 46px; }
-    .logo-text, .nav-item span, .user-info, .logout-btn span { display: none; }
+    .logo-text, .nav-item span, .user-info, .logout-btn span, .sidebar-footer { display: none; }
     .nav-item, .logout-btn { justify-content: center; }
     .main-content { padding: 1.5rem; }
 }
@@ -1404,6 +1404,24 @@ select:focus, textarea:focus, input:focus {
 .logout-btn:hover {
     background: var(--primary-red);
     color: white;
+}
+
+.sidebar-footer {
+    margin: 12px 4px 0 4px;
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.sidebar-footer a {
+    color: var(--text-muted);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.sidebar-footer a:hover {
+    color: var(--primary-blue);
+    text-decoration: underline;
 }
 
 
