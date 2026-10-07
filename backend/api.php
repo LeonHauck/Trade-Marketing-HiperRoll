@@ -4,37 +4,74 @@
 // Hospedagem: HostGator (PHP 7.4+, sem banco de dados)
 // ============================================================
 
-// --- Segurança: token secreto ---
-// IMPORTANTE: troque este valor antes de fazer deploy!
-define('API_TOKEN', 'hiperroll_trade_2025_secret');
-
-// --- CORS e Headers ---
+// --- Headers ---
+// Sem cabeçalhos de CORS: a API só atende o próprio site (mesma origem).
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-API-Token');
+header('Cache-Control: no-store');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+// --- Segurança: usuário e senha ---
+// Ficam em backend/config.php, criado por backend/setup.php direto no servidor.
+// Esse arquivo NÃO vai para o Git (está no .gitignore).
+$configFile = __DIR__ . '/config.php';
+if (!file_exists($configFile)) {
+    http_response_code(503);
+    echo json_encode(['ok' => false, 'error' => 'Sistema ainda não configurado. Acesse backend/setup.php para criar o usuário e a senha.']);
     exit;
 }
+require $configFile;
 
-// --- Verificar token de autenticação ---
-$token = $_SERVER['HTTP_X_API_TOKEN'] ?? $_GET['token'] ?? '';
-if ($token !== API_TOKEN) {
-    http_response_code(401);
-    echo json_encode(['ok' => false, 'error' => 'Não autorizado']);
-    exit;
-}
+const SESSION_LIFETIME   = 60 * 60 * 24 * 30; // 30 dias sem uso até pedir login de novo
+const LOGIN_MAX_FAILURES = 8;                 // tentativas erradas por IP...
+const LOGIN_WINDOW       = 15 * 60;           // ...dentro desta janela (segundos)
 
 // --- Pastas de dados ---
-$dataDir   = __DIR__ . '/data/';
-$uploadDir = dirname(__DIR__) . '/uploads/';
+$dataDir    = __DIR__ . '/data/';
+$uploadDir  = dirname(__DIR__) . '/uploads/';
+$sessionDir = $dataDir . 'sessions/';
 
-foreach ([$dataDir, $uploadDir] as $dir) {
+foreach ([$dataDir, $uploadDir, $sessionDir] as $dir) {
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
+}
+
+// --- Sessão ---
+// As sessões ficam em backend/data/sessions (e não na pasta padrão do servidor) para
+// que a limpeza automática de outros sites da hospedagem compartilhada não derrube o login.
+ini_set('session.gc_maxlifetime', (string) SESSION_LIFETIME);
+ini_set('session.gc_probability', '1');
+ini_set('session.gc_divisor', '100');
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+session_save_path($sessionDir);
+session_name('hr_session');
+
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+
+function sessionCookieOptions(int $expires): array {
+    global $isHttps;
+    return ['expires' => $expires, 'path' => '/', 'secure' => $isHttps, 'httponly' => true, 'samesite' => 'Lax'];
+}
+
+// Muda quando a senha é trocada — sessões abertas com a senha antiga deixam de valer.
+function passwordFingerprint(): string {
+    return substr(hash('sha256', ADMIN_PASSWORD_HASH), 0, 16);
+}
+
+function isLoggedIn(): bool {
+    return isset($_SESSION['user'], $_SESSION['pw']) && hash_equals(passwordFingerprint(), $_SESSION['pw']);
+}
+
+$action = $_GET['action'] ?? '';
+
+// Só abre sessão para quem já tem o cookie ou está entrando agora — assim acessos
+// anônimos (robôs, tela de login) não criam arquivos de sessão no servidor.
+if (isset($_COOKIE[session_name()]) || $action === 'login') {
+    session_set_cookie_params([
+        'lifetime' => SESSION_LIFETIME, 'path' => '/', 'secure' => $isHttps, 'httponly' => true, 'samesite' => 'Lax'
+    ]);
+    session_start();
 }
 
 // --- Helpers de leitura/escrita ---
@@ -56,13 +93,82 @@ function writeData(string $file, $data): bool {
 }
 
 // --- Roteador ---
-$action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 $body   = [];
 if ($method === 'POST') {
     $rawBody = file_get_contents('php://input');
     $body = json_decode($rawBody, true) ?? [];
 }
+
+// --- Autenticação ---
+switch ($action) {
+
+    // ── Informa se a sessão do navegador ainda é válida ──────
+    case 'session':
+        echo json_encode(['ok' => true, 'logged_in' => isLoggedIn()]);
+        exit;
+
+    // ── Login ────────────────────────────────────────────────
+    case 'login':
+        if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok' => false]); exit; }
+
+        // Limite de tentativas erradas por IP
+        $ip       = $_SERVER['REMOTE_ADDR'] ?? 'desconhecido';
+        $now      = time();
+        $attempts = array_filter(readData('login_attempts.json', []), function ($a) use ($now) {
+            return is_array($a) && ($a['first'] ?? 0) > $now - LOGIN_WINDOW;
+        });
+        if (($attempts[$ip]['count'] ?? 0) >= LOGIN_MAX_FAILURES) {
+            http_response_code(429);
+            echo json_encode(['ok' => false, 'error' => 'Muitas tentativas. Aguarde 15 minutos e tente novamente.']);
+            exit;
+        }
+
+        $username = trim((string) ($body['username'] ?? ''));
+        $password = (string) ($body['password'] ?? '');
+        $userOk   = hash_equals(strtolower(ADMIN_USERNAME), strtolower($username));
+        $passOk   = password_verify($password, ADMIN_PASSWORD_HASH);
+
+        if (!$userOk || !$passOk) {
+            $attempts[$ip] = ['count' => ($attempts[$ip]['count'] ?? 0) + 1, 'first' => $attempts[$ip]['first'] ?? $now];
+            writeData('login_attempts.json', $attempts);
+            usleep(500000);
+            http_response_code(401);
+            echo json_encode(['ok' => false, 'error' => 'Usuário ou senha incorretos.']);
+            exit;
+        }
+
+        unset($attempts[$ip]);
+        writeData('login_attempts.json', $attempts);
+
+        session_regenerate_id(true);
+        $_SESSION['user'] = ADMIN_USERNAME;
+        $_SESSION['pw']   = passwordFingerprint();
+        echo json_encode(['ok' => true]);
+        exit;
+
+    // ── Logout ───────────────────────────────────────────────
+    case 'logout':
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION = [];
+            session_destroy();
+        }
+        setcookie(session_name(), '', sessionCookieOptions(time() - 3600));
+        echo json_encode(['ok' => true]);
+        exit;
+}
+
+// Daqui para baixo, só com login feito.
+if (!isLoggedIn()) {
+    http_response_code(401);
+    echo json_encode(['ok' => false, 'error' => 'Sessão expirada. Entre novamente.']);
+    exit;
+}
+
+// Renova o prazo do cookie a cada uso e libera o arquivo de sessão, para que as
+// chamadas paralelas do painel não fiquem esperando uma pela outra.
+setcookie(session_name(), session_id(), sessionCookieOptions(time() + SESSION_LIFETIME));
+session_write_close();
 
 switch ($action) {
 

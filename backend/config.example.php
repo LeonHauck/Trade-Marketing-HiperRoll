@@ -1,26 +1,14 @@
 <?php
 /**
- * ARQUIVO DE CONFIGURAÇÃO — NÃO FAZER COMMIT!
- * 
- * Este arquivo (backend/config.php) deve ser criado localmente
- * e contém credenciais sensíveis que não devem ir para o GitHub.
- * 
- * Instruções:
- * 1. Crie um arquivo backend/config.php no seu servidor
- * 2. Copie o conteúdo abaixo
- * 3. Substitua os valores pelos seus dados reais
+ * MODELO de backend/config.php — o arquivo real NÃO vai para o Git (está no .gitignore).
+ *
+ * Forma recomendada: não copie este arquivo. Abra backend/setup.php no navegador,
+ * informe o usuário e a senha, e o config.php é criado automaticamente no servidor.
+ *
+ * Forma manual (só se preferir): copie este arquivo para backend/config.php e
+ * preencha os dois valores. O hash da senha é gerado com o PHP:
+ *     php -r "echo password_hash('SUA_SENHA', PASSWORD_DEFAULT);"
  */
 
-// Token de autenticação da API (MUDE ANTES DE FAZER DEPLOY!)
-define('API_TOKEN', 'seu_token_secreto_muito_longo_e_unico_aqui');
-
-// Credenciais de login (se aplicável)
-define('ADMIN_USERNAME', 'admin');
-define('ADMIN_PASSWORD', 'sua_senha_super_segura_aqui');
-
-// Configurações do servidor
-define('API_URL', 'http://seu-dominio.com/backend/api.php');
-define('ENVIRONMENT', 'production'); // development ou production
-define('DEBUG', false); // Nunca ativar em produção!
-
-?>
+define('ADMIN_USERNAME', 'seu.usuario');
+define('ADMIN_PASSWORD_HASH', 'cole_aqui_o_hash_gerado_pelo_password_hash');

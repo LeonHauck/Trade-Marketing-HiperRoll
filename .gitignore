@@ -5,6 +5,9 @@
 config.php
 backend/config.php
 
+# Dados gravados pelo backend (visitas, sessões de login, tentativas de acesso)
+backend/data/
+
 # Dados sensíveis
 *.key
 *.pem

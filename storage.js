@@ -6,15 +6,30 @@
 const Storage = (function () {
 
     // --- Configuração ---
-    // IMPORTANTE: deve ser o mesmo token definido em backend/api.php
-    const API_TOKEN = 'hiperroll_trade_2025_secret';
-    const API_URL   = './backend/api.php';
+    // A API identifica o usuário pelo cookie de sessão criado no login (backend/api.php).
+    // Não existe mais token nem senha neste arquivo.
+    const API_URL = './backend/api.php';
 
     // Detecta se está rodando no servidor (http/https) ou local (file://)
     const isServer = window.location.protocol !== 'file:';
 
+    // Ambiente de desenvolvimento: sem backend PHP respondendo, o painel abre só com os dados locais
+    const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
     // Flag para evitar múltiplos syncs simultâneos
     let _syncing = false;
+
+    // Sessão que expira com o painel aberto: avisa o app uma vez e guarda as gravações
+    // recusadas para reenviar logo após o novo login (ver login()). Quem abre a página
+    // sem estar logado ('none') não entra nessa fila — o estado local dele pode estar velho.
+    const MAX_PENDING_CALLS = 50;
+    let _sessionState = 'none'; // 'none' | 'active' | 'expired'
+    let _onUnauthorized = null;
+    let _pendingCalls = [];
+
+    function onUnauthorized(handler) {
+        _onUnauthorized = handler;
+    }
 
     // --- Helper de chamada à API ---
     async function call(action, body = null, isFormData = false) {
@@ -22,7 +37,8 @@ const Storage = (function () {
         try {
             const opts = {
                 method: body ? 'POST' : 'GET',
-                headers: { 'X-API-Token': API_TOKEN }
+                credentials: 'same-origin',
+                headers: {}
             };
             if (body && !isFormData) {
                 opts.headers['Content-Type'] = 'application/json';
@@ -32,12 +48,74 @@ const Storage = (function () {
                 // Não definir Content-Type: o browser define automaticamente com boundary
             }
             const res = await fetch(`${API_URL}?action=${action}`, opts);
+            if (res.status === 401) {
+                if (_sessionState === 'active') {
+                    _sessionState = 'expired';
+                    if (_onUnauthorized) _onUnauthorized();
+                }
+                if (_sessionState === 'expired' && body && _pendingCalls.length < MAX_PENDING_CALLS) {
+                    _pendingCalls.push([action, body, isFormData]);
+                }
+                return null;
+            }
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            _sessionState = 'active';
             return await res.json();
         } catch (err) {
             console.warn(`[Storage] Falha na ação "${action}":`, err.message);
             return null;
         }
+    }
+
+    // --- Autenticação ---
+    // Chamada sem os tratamentos de call(): aqui o 401 é uma resposta esperada.
+    async function authRequest(action, body = null) {
+        try {
+            const opts = { method: body ? 'POST' : 'GET', credentials: 'same-origin', headers: {} };
+            if (body) {
+                opts.headers['Content-Type'] = 'application/json';
+                opts.body = JSON.stringify(body);
+            }
+            const res = await fetch(`${API_URL}?action=${action}`, opts);
+            return await res.json();
+        } catch (err) {
+            return null; // backend inacessível ou resposta que não é JSON
+        }
+    }
+
+    // Retorna { logged_in: true|false, error? } ou null se o backend não respondeu.
+    // Um erro do backend (ex.: sistema ainda não configurado) conta como "não logado".
+    async function checkSession() {
+        if (!isServer) return null;
+        const data = await authRequest('session');
+        if (!data) return null;
+        _sessionState = (data.ok && data.logged_in) ? 'active' : 'none';
+        return data.ok ? data : { logged_in: false, error: data.error };
+    }
+
+    // Retorna { ok: true } | { ok: true, local: true } (sem backend, só em desenvolvimento) | { ok: false, error }
+    async function login(username, password) {
+        if (!isServer) return { ok: true, local: true };
+        const data = await authRequest('login', { username, password });
+        if (data && data.ok) {
+            const pending = _pendingCalls;
+            _pendingCalls = [];
+            _sessionState = 'active';
+            for (const [action, body, isFormData] of pending) {
+                await call(action, body, isFormData);
+            }
+            return { ok: true };
+        }
+        if (data && data.error) return { ok: false, error: data.error };
+        if (isLocalhost) return { ok: true, local: true };
+        return { ok: false, error: 'Não foi possível conectar ao servidor. Tente novamente em instantes.' };
+    }
+
+    async function logout() {
+        if (!isServer) return;
+        _pendingCalls = [];
+        _sessionState = 'none';
+        await authRequest('logout', {});
     }
 
     // --- Carrega todo o estado do servidor na inicialização ---
@@ -145,6 +223,10 @@ const Storage = (function () {
     // API pública
     return {
         isServer,
+        onUnauthorized,
+        checkSession,
+        login,
+        logout,
         loadFromServer,
         syncVisits,
         deleteVisits,

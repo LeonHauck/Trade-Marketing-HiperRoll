@@ -647,12 +647,13 @@ async function hydrateResolvedHistoryFromVisits() {
 async function init() {
     await initializeAppDatabase();
     setupEventListeners();
+    await syncLoginStateWithServer();
     checkLoginStatus();
     populateGlobalNetworkFilter();
     checkLoginStatus();
-    
-    // Sincronizacao com o Servidor HostGator (se disponível)
-    if (typeof Storage !== 'undefined' && Storage.isServer) {
+
+    // Sincronizacao com o Servidor HostGator (se disponível) — só com login válido
+    if (typeof Storage !== 'undefined' && Storage.isServer && safeGetItem('hr_logged_in') === 'true') {
         console.log("[Storage] Sincronizando com Servidor...");
         const serverData = await Storage.loadFromServer();
         if (serverData) {
@@ -723,6 +724,40 @@ async function init() {
     renderChecklist();
     updateStats();
     renderValidatedRuptures();
+}
+
+// Quem decide se o login vale é o servidor (cookie de sessão). A flag hr_logged_in
+// só serve para o navegador não piscar a tela de login ao abrir a página.
+let sessionExpiredDuringUse = false;
+
+async function syncLoginStateWithServer() {
+    if (typeof Storage === 'undefined' || !Storage.isServer) return;
+    Storage.onUnauthorized(handleSessionExpired);
+
+    const session = await Storage.checkSession();
+    if (!session) return; // backend não respondeu: mantém o estado local
+    if (session.logged_in) {
+        safeSetItem('hr_logged_in', 'true');
+    } else {
+        safeRemoveItem('hr_logged_in');
+        if (session.error) showLoginMessage(session.error);
+    }
+}
+
+// A sessão venceu com o painel aberto: pede o login de novo sem recarregar a página,
+// para não perder o que está na tela (as gravações recusadas são reenviadas no login).
+function handleSessionExpired() {
+    sessionExpiredDuringUse = true;
+    safeRemoveItem('hr_logged_in');
+    checkLoginStatus();
+    showLoginMessage('Sua sessão expirou. Entre novamente para continuar.');
+}
+
+function showLoginMessage(message) {
+    const errorMsg = document.getElementById('loginError');
+    if (!errorMsg) return;
+    errorMsg.textContent = message;
+    errorMsg.style.display = message ? 'block' : 'none';
 }
 
 function checkLoginStatus() {
@@ -5992,25 +6027,40 @@ function formatDate(dateStr) {
     return `${day}/${month}/${year}`;
 }
 
-function handleLogin(e) {
+async function handleLogin(e) {
     e.preventDefault();
     const user = document.getElementById('username').value;
-    const pass = document.getElementById('password').value;
-    const errorMsg = document.getElementById('loginError');
+    const passInput = document.getElementById('password');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
 
-    // Credenciais Personalizadas - liberado temporariamente para testes
-    if (true || (user.toLowerCase() === 'nicole.portela' && pass === 'lasanha10')) {
-        safeSetItem('hr_logged_in', 'true');
-        document.body.classList.add('logged-in');
-        document.body.classList.remove('not-logged-in');
+    // Usuário e senha são conferidos no servidor (backend/api.php) — nada fica no código.
+    showLoginMessage('');
+    if (submitBtn) submitBtn.disabled = true;
+    const result = await Storage.login(user, passInput.value);
+    if (submitBtn) submitBtn.disabled = false;
+
+    if (!result.ok) {
+        showLoginMessage(result.error);
+        return;
+    }
+
+    passInput.value = '';
+    safeSetItem('hr_logged_in', 'true');
+
+    if (result.local || sessionExpiredDuringUse) {
+        // Sem backend (desenvolvimento) ou sessão renovada com o painel aberto: segue de onde parou
+        sessionExpiredDuringUse = false;
+        checkLoginStatus();
         updateNotifications(); // Atualizar alertas após login
         updateStats(); // Garantir que as estatísticas carreguem no login
     } else {
-        errorMsg.style.display = 'block';
+        // Login novo: recarrega para buscar os dados do servidor já autenticado
+        location.reload();
     }
 }
 
-window.logout = function() {
+window.logout = async function() {
+    if (typeof Storage !== 'undefined') await Storage.logout();
     safeRemoveItem('hr_logged_in');
     location.reload();
 };

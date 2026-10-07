@@ -1,267 +1,393 @@
-# 📊 Trade Marketing HiperRoll Dashboard
+<div align="center">
 
-Um **dashboard web integrado e robusto** para gerenciar visitas comerciais, monitorar rupturas e analisar dados de desempenho em redes varejistas.
+<img src="logo-hiperroll.png" alt="HiperRoll" width="150">
 
-Desenvolvido com foco em **produtividade operacional**, **integridade de dados** e **experiência do usuário** para a @HiperRoll Embalagens.
+# Trade Marketing HiperRoll
 
----
+**Painel web para gestão de visitas a lojas, controle de rupturas, planejamento de rotas e acompanhamento de pedidos.**
 
-## 🎯 Visão Geral
+![Status](https://img.shields.io/badge/status-em%20produ%C3%A7%C3%A3o-2e7d32)
+![JavaScript](https://img.shields.io/badge/JavaScript-Vanilla-f7df1e?logo=javascript&logoColor=000)
+![PHP](https://img.shields.io/badge/PHP-7.4%2B-777bb4?logo=php&logoColor=fff)
+![Sem build](https://img.shields.io/badge/build-n%C3%A3o%20requer-0047ab)
+![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-e31e24)
 
-A plataforma centraliza todo o workflow de trade marketing:
-- ✅ Gerenciamento completo de visitas às lojas com rastreamento em tempo real
-- ✅ Identificação e validação inteligente de rupturas (produtos fora de estoque)
-- ✅ Captura de evidências fotográficas com otimização de cache
-- ✅ Análise visual com gráficos interativos (composição por rede, distribuição de status)
-- ✅ Geração automatizada de relatórios em PDF com KPIs, gráficos e insights — preparada para grandes volumes de dados (milhares de visitas) sem perda de páginas
-- ✅ Planejamento de rotas de visita para promotores, com sugestão automática, montagem manual e integração com Google Maps
-- ✅ Aba de Pedidos: acompanhamento de pedidos comerciais com busca de produtos por nome/código, filtro automático de loja por rede a partir do código do cliente, e exportação em CSV/PDF
-- ✅ Sistema persistente de dados com sincronização local
-- ✅ Autenticação segura com gerenciamento de sessão
-- ✅ Sincronização com API backend para consolidação de dados
-- ✅ Identidade visual alinhada à marca oficial HiperRoll
+<br>
+
+<img src="docs/screenshots/01-dashboard.png" alt="Dashboard do Trade Marketing HiperRoll" width="100%">
+
+</div>
 
 ---
 
-## 🚀 Começando
+## Sumário
 
-### Pré-requisitos
-
-- Navegador moderno (Chrome, Firefox, Safari, Edge)
-- PHP 7.4+ (para o backend)
-- Servidor web (HostGator, Vercel, Netlify, ou local)
-
-### Instalação Local
-
-1. **Clone o repositório:**
-```bash
-git clone https://github.com/seu-usuario/trade-marketing-hiperroll.git
-cd trade-marketing-hiperroll
-```
-
-2. **Configure as credenciais:**
-```bash
-cp backend/config.example.php backend/config.php
-```
-Edite `backend/config.php` com seu token e credenciais.
-
-3. **Abra no navegador:**
-```
-file:///caminho/para/trade-marketing-hiperroll/index.html
-```
-
-### Deploy em Produção
-
-1. Faça upload de todos os arquivos para seu servidor
-2. Configure `backend/config.php` com credenciais de produção
-3. Acesse via `https://seu-dominio.com`
+- [Visão geral](#visão-geral)
+- [Telas do sistema](#telas-do-sistema)
+- [Funcionalidades](#funcionalidades)
+- [Arquitetura](#arquitetura)
+- [Tecnologias](#tecnologias)
+- [Estrutura do projeto](#estrutura-do-projeto)
+- [Como executar localmente](#como-executar-localmente)
+- [Publicação em produção](#publicação-em-produção)
+- [API do backend](#api-do-backend)
+- [Segurança](#segurança)
+- [Solução de problemas](#solução-de-problemas)
+- [Autor e licença](#autor-e-licença)
 
 ---
 
-## 📁 Estrutura do Projeto
+## Visão geral
+
+O **Trade Marketing HiperRoll** centraliza a rotina da equipe de trade marketing da HiperRoll Embalagens em um único painel:
+
+- registra as **visitas** feitas às lojas das redes varejistas atendidas, com fotos, pontos extras e observações;
+- acompanha cada **ruptura** (produto em falta na gôndola) desde a identificação até a resolução;
+- sinaliza lojas **em atraso** de acordo com a frequência de visita combinada;
+- sugere **rotas semanais** para os promotores, priorizando o que é mais urgente;
+- controla **pedidos comerciais** por cliente, loja e datas de agendamento e entrega;
+- exporta tudo em **CSV e PDF**, respeitando os filtros aplicados na tela.
+
+A aplicação é um front-end em JavaScript puro, sem etapa de build, com um backend PHP enxuto que grava os dados em arquivos JSON — o que permite hospedar em qualquer plano de hospedagem compartilhada, sem banco de dados.
+
+| Em números | |
+|---|---|
+| Lojas cadastradas | 166, em 7 redes |
+| Produtos monitorados nas visitas | 25 |
+| Catálogo comercial (aba Pedidos) | 191 itens |
+| Lojas com coordenadas para rotas | 100% |
+
+---
+
+## Telas do sistema
+
+> As imagens abaixo foram geradas com **visitas, rupturas e pedidos fictícios**, apenas para demonstração. Nenhum dado operacional real aparece nelas.
+
+### Acesso
+
+<img src="docs/screenshots/00-login.jpg" alt="Tela de login" width="100%">
+
+### Dashboard
+
+Indicadores do período, status de cada loja (em dia, pendente ou em atraso) e a lista de produtos em ruptura, com destaque para o que continua sem solução após a segunda visita.
+
+<img src="docs/screenshots/01-dashboard.png" alt="Dashboard" width="100%">
+
+### Lojas
+
+Cartões com rede, frequência de visita, pontos extras e status. Filtros por rede, status e período, com exportação em CSV e PDF.
+
+<img src="docs/screenshots/02-lojas.png" alt="Gestão de lojas" width="100%">
+
+### Produtos
+
+Ranking de rupturas por produto, com o total de ocorrências e a quantidade de lojas afetadas.
+
+<img src="docs/screenshots/03-produtos.png" alt="Análise de produtos e rupturas" width="100%">
+
+### Histórico de Visitas
+
+Todas as visitas registradas, com filtros combináveis por texto, período, rede, produto, ponto extra, observação, visita extra e ruptura. É possível editar, excluir (inclusive em lote) e exportar o resultado filtrado.
+
+<img src="docs/screenshots/04-historico-visitas.png" alt="Histórico de visitas" width="100%">
+
+O **filtro por produto** mostra somente as visitas em que o item selecionado ainda está pendente — se a ruptura já foi resolvida, a visita não aparece.
+
+<img src="docs/screenshots/05-filtro-por-produto.png" alt="Filtro por produto no histórico de visitas" width="100%">
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Detalhes da visita**
+
+Progresso de resolução, situação de cada item e as demais visitas feitas à mesma loja.
+
+<img src="docs/screenshots/06-detalhes-da-visita.png" alt="Detalhes da visita">
+
+</td>
+<td width="50%" valign="top">
+
+**Registrar visita**
+
+Checklist dos produtos da loja, lembrete das rupturas da última visita, pontos extras, fotos e observações.
+
+<img src="docs/screenshots/07-registrar-visita.png" alt="Registrar visita">
+
+</td>
+</tr>
+</table>
+
+### Rotas
+
+Plano semanal por promotor, com horário estimado de cada parada, tempo total do dia e atalho para abrir o trajeto no Google Maps.
+
+<img src="docs/screenshots/08-rotas.png" alt="Planejamento de rotas" width="100%">
+
+### Rupturas
+
+Histórico completo de visitas e de rupturas já resolvidas, com o status de cada visita (pendente, parcial ou resolvida).
+
+<img src="docs/screenshots/09-rupturas.png" alt="Histórico de rupturas" width="100%">
+
+### Pedidos
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Lista de pedidos**
+
+Filtros por rede, cliente, número do pedido e período.
+
+<img src="docs/screenshots/10-pedidos.png" alt="Lista de pedidos">
+
+</td>
+<td width="50%" valign="top">
+
+**Cadastro e edição**
+
+Busca de cliente por código, loja restrita às redes do cliente e itens do catálogo comercial.
+
+<img src="docs/screenshots/11-editar-pedido.png" alt="Edição de pedido">
+
+</td>
+</tr>
+</table>
+
+---
+
+## Funcionalidades
+
+### Dashboard
+
+- Indicadores de lojas totais, visitas no período e taxa de ruptura.
+- Status de cada loja calculado em janela móvel de 7 dias, conforme a frequência semanal esperada.
+- Alertas de produtos em ruptura, com busca por loja e baixa manual (“Resolvido”).
+- Ranking **TOP 5: Atenção**, que combina rupturas ativas e dias sem visita.
+- Lista de **atraso crítico** para lojas há 14 dias ou mais sem visita.
+- Filtros globais de período e rede, botão “Ver em Atraso” e central de notificações.
+- PDF de lojas pendentes e em atraso, com gráficos e resumo executivo.
+
+### Visitas
+
+- Registro com data, checklist de itens em falta, pontos extras (Display, Clips Strips, Blacklight, Outros), fotos e observações.
+- Marcação de **visita extra**.
+- Resolução automática: quando um item deixa de ser apontado em uma visita posterior à mesma loja, a ruptura vai para o histórico de resolvidas.
+- Edição de visita, alteração de data e exclusão individual ou em lote.
+
+### Histórico de Visitas e relatórios
+
+- Filtros combináveis: texto, período, rede, **produto com ruptura pendente**, ponto extra, observação, visita extra e ruptura.
+- Tooltip com os itens em ruptura, sem precisar abrir o detalhe.
+- **Exportação CSV** com os itens em ruptura, pontos extras e observações.
+- **Exportação PDF** com os filtros aplicados, gráficos (status das visitas e top 5 produtos em ruptura), quadro de insights e a tabela completa.
+
+### Rupturas
+
+- Visão única de visitas e rupturas resolvidas, com filtro por status (todas, ativas ou resolvidas), rede e produto.
+- Exportação em CSV e PDF.
+
+### Rotas
+
+- **Sugestão automática** de plano para 6 dias, priorizando lojas em atraso (peso 60%) e com rupturas ativas (peso 40%).
+- **Montagem manual** por rede e loja, com reordenação das paradas e divisão entre os dias.
+- Ordem de visita otimizada por vizinho mais próximo com refinamento 2-opt.
+- Estimativa de tempo: 30 minutos por visita, mais 5 minutos por item cadastrado na loja, mais o deslocamento (média urbana de 28 km/h), dentro de uma jornada de 8 horas iniciada às 08:00.
+- Distâncias calculadas a partir de coordenadas próprias (`store-geo.js`), sem API paga de mapas.
+- Abertura da rota do dia no Google Maps e exportação do plano em PDF.
+
+### Pedidos
+
+- Cadastro com número do pedido, cliente, loja, nota fiscal, datas de pedido, agendamento e entrega, e observações.
+- Busca de cliente por código (`cd-clientes.js`), que preenche o nome e restringe a escolha de loja às redes daquele cliente.
+- Itens escolhidos no catálogo comercial (`products-hiperroll.js`), com unidade de venda e quantidade.
+- Exportação em CSV e PDF.
+
+### Importação de dados
+
+- **Importar CSV** adiciona lojas e produtos ao cadastro sem apagar o que já existe.
+- Aceita vírgula ou ponto e vírgula como separador e reconhece as colunas pelo cabeçalho (loja, item ou produto, rede, status).
+
+---
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    subgraph Navegador
+        UI["index.html + style.css"]
+        APP["app.js<br>estado, regras e telas"]
+        DB["db.js<br>IndexedDB / localStorage"]
+        ST["storage.js<br>sincronização"]
+    end
+    subgraph Servidor["Hospedagem PHP"]
+        API["backend/api.php"]
+        JSON[("backend/data/*.json")]
+        UP[("uploads/")]
+    end
+    UI --> APP
+    APP <--> DB
+    APP <--> ST
+    ST <-->|"HTTP + cookie de sessão"| API
+    API <--> JSON
+    API <--> UP
+```
+
+- **Cadastros fixos em arquivos JS.** Lojas e produtos ficam em `data.js`; coordenadas em `store-geo.js`; catálogo comercial em `products-hiperroll.js`; códigos de cliente em `cd-clientes.js`.
+- **Persistência local.** `db.js` usa IndexedDB quando o sistema é servido por HTTP(S) e recorre ao `localStorage` quando aberto direto do arquivo.
+- **Sincronização com o servidor.** `storage.js` envia e recebe visitas, rupturas, pedidos, status das lojas e fotos pela API. Os planos de rota ficam apenas no navegador.
+- **Backend sem banco de dados.** `backend/api.php` lê e grava arquivos JSON em `backend/data/` e salva as fotos em `uploads/`.
+- **Login validado no servidor.** Usuário e senha são conferidos pelo `api.php`, que só responde a quem tem sessão aberta. Nenhuma credencial fica no código.
+- **PDF desenhado nativamente.** Cabeçalhos, gráficos e tabelas são desenhados direto no jsPDF, em vez de capturar a tela como imagem. Isso mantém o arquivo leve, com texto pesquisável, e evita páginas em branco em relatórios com milhares de registros.
+- **Consultas rápidas.** As visitas são indexadas por loja em memória, e as tabelas longas carregam de 50 em 50 registros.
+
+---
+
+## Tecnologias
+
+| Camada | Tecnologia |
+|---|---|
+| Interface | HTML5, CSS3 e JavaScript puro (sem framework e sem build) |
+| Gráficos | [Chart.js](https://www.chartjs.org/) |
+| PDF | [html2pdf.js](https://github.com/eKoopmans/html2pdf.js) (jsPDF) |
+| Ícones e fonte | Font Awesome 6 e Google Fonts (Outfit) |
+| Persistência local | IndexedDB, com `localStorage` como alternativa |
+| Backend | PHP 7.4+ com arquivos JSON |
+| Hospedagem | Qualquer servidor com PHP (em produção na HostGator) |
+
+---
+
+## Estrutura do projeto
 
 ```
-trade-marketing-hiperroll/
-├── index.html              # Interface principal
-├── app.js                  # Lógica da aplicação (state, eventos, renderização)
-├── data.js                 # Dados de produtos e lojas
-├── store-geo.js            # Coordenadas geocodificadas das lojas (usadas na aba Rotas)
-├── products-hiperroll.js   # Catálogo de produtos comerciais (usado na aba Pedidos)
-├── cd-clientes.js          # Mapeamento código de cliente → rede de lojas (usado na aba Pedidos)
-├── storage.js              # Gerenciamento de localStorage
-├── style.css               # Estilos CSS responsivos
+Trade-Marketing-HiperRoll/
+├── index.html               # Estrutura da página, modais e carregamento dos scripts
+├── style.css                # Identidade visual e layout responsivo
+├── app.js                   # Estado, regras de negócio, telas e exportações
+├── data.js                  # Cadastro de lojas e produtos
+├── store-geo.js             # Coordenadas das lojas (aba Rotas)
+├── products-hiperroll.js    # Catálogo comercial (aba Pedidos)
+├── cd-clientes.js           # Código de cliente → redes atendidas (aba Pedidos)
+├── db.js                    # Persistência local (IndexedDB / localStorage)
+├── storage.js               # Sincronização com a API
 │
 ├── backend/
-│   ├── api.php             # API REST para sincronização de dados
-│   ├── config.example.php  # Template de configuração (não commit!)
-│   ├── test_write.php      # Teste de escrita de dados
-│   └── uploads/            # Pasta para armazenar arquivos
+│   ├── api.php              # Login, sessão e leitura/gravação dos dados
+│   ├── setup.php            # Página única para definir o usuário e a senha no servidor
+│   ├── config.example.php   # Modelo do config.php (o arquivo real não é versionado)
+│   ├── test_write.php       # Diagnóstico de permissão de escrita no servidor
+│   └── .htaccess            # Bloqueia o acesso direto aos dados e ao config.php
 │
-├── .gitignore              # Arquivos ignorados pelo Git
-├── .env.example            # Template de variáveis de ambiente
-├── SECURITY.md             # Guia de segurança e credenciais
-└── README.md               # Este arquivo
+├── uploads/                 # Fotos das visitas (conteúdo não versionado)
+├── docs/screenshots/        # Imagens usadas neste README
+├── serve.ps1                # Servidor estático local em PowerShell
+├── README-local-server.md   # Instruções do servidor local
+├── SECURITY.md              # Cuidados com credenciais
+└── LICENSE
 ```
 
 ---
 
-## 🛠️ Stack Tecnológico
+## Como executar localmente
 
-### Frontend
-- **HTML5** — Semântica estruturada
-- **CSS3** — Design responsivo e moderno
-- **JavaScript Vanilla** — State management e DOM manipulation
-- **Chart.js** — Gráficos interativos e responsivos
-- **Font Awesome** — Ícones profissionais
+**Pré-requisitos:** um navegador atual. Para testar a sincronização com o servidor, também é necessário PHP 7.4 ou superior.
 
-### Backend
-- **PHP 7.4+** — API RESTful
-- **JSON** — Serialização de dados
+1. Clone o repositório:
 
-### Arquitetura & Performance
-- **PWA-ready** — Funciona offline com service workers
-- **Lazy Loading** — Carregamento otimizado de imagens
-- **Cache Inteligente** — Gerenciamento eficiente de memória
-- **localStorage** — Persistência de dados no navegador
-- **Sincronização Dual** — Client + Server
+   ```bash
+   git clone https://github.com/LeonHauck/Trade-Marketing-HiperRoll.git
+   cd Trade-Marketing-HiperRoll
+   ```
 
----
+2. Suba um servidor na pasta do projeto.
 
-## 📊 Funcionalidades Principais
+   Somente a interface (Windows, sem instalar nada):
 
-### 1. Dashboard Principal
-- Visão geral de todas as visitas
-- Estatísticas em tempo real (total de lojas, rupturas, taxa de sucesso)
-- Filtros por rede e status
-- Exportação de dados
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\serve.ps1 -Port 8000
+   ```
 
-### 2. Gestão de Visitas
-- Registro de visitas com data/hora automática
-- Captura de fotos como evidência
-- Validação de rupturas (2 ou mais produtos fora de estoque)
-- Histórico completo de cada loja
-- Status: Pendente, Visitado, Ruptura detectada
+   Interface e backend (com PHP instalado):
 
-### 3. Análise de Dados
-- Gráficos de composição por rede
-- Distribuição de rupturas vs. sem ruptura
-- Relatórios PDF automáticos com cálculos de percentual, gráficos e quadro de insights (Relatório de Visitas, Rupturas e Lojas Pendentes)
-- Filtros por período e rede
-- Visualização rápida dos itens em ruptura via tooltip, sem precisar abrir o detalhe da visita
+   ```bash
+   php -S localhost:8000
+   ```
 
-### 4. Segurança
-- Autenticação por login/senha
-- Token de API para comunicação backend
-- `.gitignore` para proteção de credenciais
-- CORS e validação de requisições
+3. Acesse `http://localhost:8000`.
 
-### 5. Planejamento de Rotas
-- Sugestão automática de rotas semanais, priorizando lojas em atraso e/ou com rupturas ativas
-- Montagem manual de rota por rede/loja, com otimização automática da ordem de visita (heurística vizinho-mais-próximo + refinamento 2-opt)
-- Estimativa de tempo por parada com base na quantidade de itens cadastrados na loja (tempo base + tempo por item), somada ao deslocamento estimado entre lojas
-- Cálculo de distância via coordenadas geocodificadas (`store-geo.js`), sem dependência de API paga de mapas
-- Abertura da rota do dia direto no Google Maps, pronta para navegação
-- Cobertura de coordenadas em 100% das lojas ativas no sistema, atualizada incrementalmente conforme novas lojas/redes são cadastradas
+Com o backend PHP, abra antes `http://localhost:8000/backend/setup.php` para criar o usuário e a senha de teste.
 
-### 6. Aba de Pedidos
-- Cadastro de pedidos com número, cliente, loja, número da NF, data do pedido/agendamento/entrega e observações
-- Busca de produtos por nome ou código a partir do catálogo comercial (`products-hiperroll.js`), com adição de itens e quantidade editável
-- Busca de código de cliente com sugestões (`cd-clientes.js`): ao selecionar, preenche o nome do cliente automaticamente e restringe a busca de loja apenas às redes associadas àquele código
-- Listagem filtrável por rede, cliente/nº do pedido e período
-- Exportação em CSV e PDF (arquitetura nativa, sem captura de tela), incluindo unidade de venda (caixa/fardo/pacote) e observações
+Sem o backend PHP, o sistema abre em modo local: aceita qualquer login e guarda os dados apenas no navegador. Esse modo só existe em `localhost` ou ao abrir o `index.html` direto do disco.
 
 ---
 
-## 🔒 Segurança
+## Publicação em produção
 
-**IMPORTANTE:** Este projeto contém dados sensíveis (tokens, senhas). 
+1. Envie todos os arquivos para a pasta pública da hospedagem.
+2. Abra `https://seu-dominio/backend/setup.php` e defina o usuário e a senha. A página grava `backend/config.php` no servidor e se bloqueia em seguida.
+3. Garanta permissão de escrita para o PHP em `backend/`, `backend/data/` e `uploads/`. As pastas de dados são criadas automaticamente no primeiro acesso.
+4. Abra `backend/test_write.php` no navegador para confirmar que a gravação funciona.
+5. Ao publicar uma nova versão, atualize o sufixo `?v=` dos scripts e do CSS no `index.html` para que os navegadores não usem a cópia em cache.
 
-### Proteção de Credenciais
-
-- ✅ `backend/config.php` está no `.gitignore` (não é versionado)
-- ✅ Use `.env` ou arquivos de configuração locais
-- ✅ Nunca commit senhas ou tokens
-- ✅ Revise o `SECURITY.md` antes de fazer deploy
-
-**Leia [SECURITY.md](./SECURITY.md) para instruções completas.**
+Para trocar a senha, apague `backend/config.php` pelo gerenciador de arquivos da hospedagem e abra o `setup.php` novamente. As sessões abertas com a senha antiga deixam de valer.
 
 ---
 
-## 📈 Otimizações Implementadas
+## API do backend
 
-### Performance
-- **Cache de Memória:** Gerenciamento eficiente de fotos (não persiste no localStorage)
-- **Lazy Loading:** Imagens carregam sob demanda
-- **Compressão de Dados:** Apenas metadados são persistidos
-- **Fallbacks Robustos:** Tratamento de erros e localStorage bloqueado
-- **Índices em Memória:** Visitas indexadas por loja para consultas O(1) em telas com grande volume de histórico
+Todas as chamadas vão para `backend/api.php?action=<ação>`. Fora as três ações de autenticação, todas exigem o cookie de sessão criado no login e respondem `401` sem ele.
 
-### Arquitetura
-- **Padrão de Atualizações Leves:** Apenas campos voláteis sincronizam
-- **Separação de Camadas:** Frontend (app.js) e Backend (api.php)
-- **State Management:** Sincronização automática de localStorage
-- **Validação Dual:** Client-side + Server-side
-- **Exportação de PDF Nativa:** Tabelas e cabeçalhos de relatório desenhados diretamente via jsPDF (texto/formas vetoriais), em vez de capturar a tela como imagem — elimina falhas de renderização em relatórios com milhares de registros e mantém o PDF leve e com texto pesquisável
-
-### UX/UI
-- **Responsivo:** Funciona em desktop, tablet e mobile
-- **PWA-Ready:** Acesso offline
-- **Acessibilidade:** Semântica HTML e contraste adequado
-- **Gráficos Interativos:** Charts responsivos com dados atualizados
-
----
-
-## 🧪 Testes
-
-Para validar a instalação:
-
-1. **Abra o console do navegador** (F12)
-2. **Verifique se há erros** de CORS ou carregamento
-3. **Teste o login** com credenciais definidas em `backend/config.php`
-4. **Tente gerar um relatório PDF** para validar a renderização
+| Ação | Método | Descrição |
+|---|---|---|
+| `login` | POST | Confere usuário e senha e abre a sessão |
+| `logout` | POST | Encerra a sessão |
+| `session` | GET | Informa se a sessão do navegador ainda é válida |
+| `load` | GET | Retorna todo o estado: visitas, rupturas, histórico, pedidos, status das lojas e fotos |
+| `save_visits` | POST | Grava as visitas |
+| `delete_visits` | POST | Remove visitas pelos identificadores |
+| `save_pedidos` | POST | Grava os pedidos |
+| `delete_pedidos` | POST | Remove pedidos pelos identificadores |
+| `save_store_updates` | POST | Grava a última visita e o status de cada loja |
+| `save_ruptures` | POST | Grava as rupturas ativas |
+| `save_resolved_history` | POST | Grava o histórico de rupturas resolvidas |
+| `save_dismissed` | POST | Grava as notificações dispensadas |
+| `upload_photo` | POST | Envia uma foto de visita |
+| `delete_photos` | POST | Remove as fotos de uma visita |
 
 ---
 
-## 📝 Uso Prático
+## Segurança
 
-### Fluxo Típico de um Agente
+- **Login no servidor.** O `backend/api.php` confere usuário e senha e abre uma sessão. Sem sessão válida, nenhuma ação de leitura ou gravação responde.
+- **Senha fora do código.** O usuário e o hash da senha ficam em `backend/config.php`, criado pelo `setup.php` direto no servidor. O arquivo está no `.gitignore` e a senha nunca é gravada em texto puro.
+- **Sessão.** Cookie `HttpOnly` e `SameSite=Lax` (e `Secure` sob HTTPS), válido por 30 dias sem uso. Trocar a senha encerra as sessões abertas.
+- **Tentativas de login.** Após 8 erros seguidos do mesmo IP, o login fica bloqueado por 15 minutos.
+- **Mesma origem.** A API não envia cabeçalhos de CORS: só o próprio site consegue chamá-la.
+- **Limites conhecidos.** O sistema tem um único usuário. As fotos em `uploads/` são servidas por endereço direto, sem passar pelo login.
 
-1. **Login** com usuário e senha
-2. **Selecionar loja** para visitar
-3. **Registrar visita** com data/hora automática
-4. **Tirar fotos** como evidência
-5. **Validar rupturas** se houver (2+ produtos fora de estoque)
-6. **Sincronizar dados** com o backend
-7. **Gerar relatório** em PDF para análise gerencial
-
-### Geração de Relatórios
-
-O sistema gera PDFs com:
-- ✅ Gráficos de composição por rede
-- ✅ Distribuição de rupturas vs. sem ruptura
-- ✅ Percentuais de sucesso
-- ✅ Data e hora de geração
-- ✅ Formatação profissional pronta para apresentações
+Mais orientações em [SECURITY.md](./SECURITY.md).
 
 ---
 
-## 🐛 Troubleshooting
+## Solução de problemas
 
-| Problema | Solução |
-|----------|---------|
-| "CORS Error" | Configure `Access-Control-Allow-Origin` no `backend/api.php` |
-| Fotos não aparecem | Verifique permissões da pasta `backend/uploads/` |
-| Relatório vazio | Limpe cache do navegador (Ctrl+Shift+Delete) |
-| localStorage cheio | O app limpa cache automaticamente, mas você pode limpar manualmente |
-| Login não funciona | Confirme token em `backend/config.php` |
-
----
-
-## 📚 Documentação Adicional
-
-- **[SECURITY.md](./SECURITY.md)** — Guia de segurança e credenciais
-- **[.env.example](./.env.example)** — Template de variáveis de ambiente
-- **[backend/config.example.php](./backend/config.example.php)** — Template de configuração backend
+| Sintoma | O que verificar |
+|---|---|
+| Alterações não aparecem após publicar | Atualize o sufixo `?v=` no `index.html` ou recarregue com Ctrl+F5 |
+| Dados não sincronizam entre dispositivos | Saia e entre de novo no sistema e confirme que `backend/data/` aceita escrita |
+| Fotos não são salvas | Verifique a permissão de escrita em `uploads/` com `backend/test_write.php` |
+| Tela de login diz “Sistema ainda não configurado” | Falta o `backend/config.php`: abra `backend/setup.php` e defina usuário e senha |
+| Login bloqueado por excesso de tentativas | Aguarde 15 minutos ou apague `backend/data/login_attempts.json` no servidor |
+| Esqueci a senha | Apague `backend/config.php` no servidor e abra `backend/setup.php` novamente |
+| PDF não é gerado | Verifique se o navegador conseguiu carregar Chart.js e html2pdf.js (dependem de acesso à internet) |
+| Aviso de “Erro de Script” ao abrir do disco | Use um servidor local em vez de abrir o arquivo diretamente |
 
 ---
 
-## 🤝 Contribuindo
+## Autor e licença
 
-1. Fork o repositório
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+Desenvolvido por **[Leon Hauck](https://www.linkedin.com/in/leon-hauck/)** para a **HiperRoll Embalagens**.
+Em produção desde junho de 2026, com evolução contínua.
 
----
-
-## 👤 Autor
-
-Desenvolvido por **Leon Hauck**  
-Empresa: **HiperRoll Embalagens**  
-Data: Junho 2026  
-Em manutenção e evolução contínua desde então (identidade visual, planejamento de rotas, robustez de exportação em PDF, aba de Pedidos, entre outras melhorias).
-
----
-
-**Made for HiperRoll Embalagens**
+Distribuído sob a licença [MIT](./LICENSE).
