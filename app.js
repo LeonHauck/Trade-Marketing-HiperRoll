@@ -1655,6 +1655,24 @@ function renderReportsView() {
                                 `).join('')}
                             </div>
                         </div>
+                        <div class="custom-multiselect" style="position: relative; width: 220px;">
+                            <button id="reportProductFilterBtn" class="filter-select" onclick="toggleDropdown('reportProductDropdown')" title="Mostrar apenas visitas em que o produto ainda está pendente (em ruptura)" style="width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; background: white; cursor: pointer; height: 42px; padding: 0 15px;">
+                                <span id="reportProductFilterLabel" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Todos os Produtos</span>
+                                <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: var(--text-light); margin-left: 10px;"></i>
+                            </button>
+                            <div id="reportProductDropdown" style="display: none; position: absolute; top: calc(100% + 5px); left: 0; right: 0; background: white; border: 1px solid var(--border); border-radius: 6px; z-index: 100; max-height: 280px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 8px;">
+                                <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid #eee; margin-bottom: 4px;">
+                                    <input type="checkbox" id="selectAllReportProducts" checked onchange="toggleAllReportProducts(this)" style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer;">
+                                    <strong style="color: var(--text-dark);">Todos os Produtos</strong>
+                                </label>
+                                ${[...products].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { numeric: true })).map(prod => `
+                                    <label style="display: flex; align-items: center; padding: 6px 4px; cursor: pointer; border-radius: 4px;">
+                                        <input type="checkbox" class="report-product-checkbox" value="${prod.id}" checked onchange="updateReportProductFilterLabel()" style="margin-right: 8px; width: 15px; height: 15px; cursor: pointer;">
+                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dark); font-size: 0.9rem;">${prod.name}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
                         <button id="reportExtraPointsFilterBtn" onclick="toggleReportExtraPointsFilter()" class="filter-select" title="Mostrar apenas visitas com pontos extras" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; border: 1px solid #eee; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.9rem; color: var(--text-dark); transition: background 0.2s, color 0.2s, border-color 0.2s; white-space: nowrap;">
                             <i class="fa-solid fa-star"></i>
                             <span>Com ponto extra</span>
@@ -3518,12 +3536,21 @@ function getReportFilterSettings() {
     const checkboxes = document.querySelectorAll('.network-checkbox');
     const selectedNetworks = checkboxes.length > 0 ? Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value) : ['all'];
     const isAllSelected = document.getElementById('selectAllNetworks')?.checked ?? true;
+    const productCheckboxes = Array.from(document.querySelectorAll('.report-product-checkbox'));
+    const selectedProductIds = productCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+    const isAllProductsSelected = selectedProductIds.length === productCheckboxes.length;
 
-    return { searchTerm, startDate, endDate, selectedNetworks, isAllSelected };
+    return { searchTerm, startDate, endDate, selectedNetworks, isAllSelected, selectedProductIds, isAllProductsSelected };
+}
+
+// Item da visita ainda em ruptura — mesmo critério do selo "Pendente" exibido
+// no modal Detalhes da Visita (showVisitDetails).
+function isVisitItemPending(visit, productId) {
+    return !getResolvedItemStatus(productId, visit.storeId, visit.id).isResolved;
 }
 
 function getFilteredReportVisits() {
-    const { searchTerm, startDate, endDate, selectedNetworks, isAllSelected } = getReportFilterSettings();
+    const { searchTerm, startDate, endDate, selectedNetworks, isAllSelected, selectedProductIds, isAllProductsSelected } = getReportFilterSettings();
 
     return visits.filter(v => {
         const store = stores.find(s => s.id === v.storeId);
@@ -3537,8 +3564,10 @@ function getFilteredReportVisits() {
         const matchesObservation = !reportFilterOnlyObservation || (v.notes && v.notes.trim().length > 0);
         const matchesExtraPoints = !reportFilterOnlyExtraPoints || (v.extraPoints && v.extraPoints.length > 0);
         const matchesExtraVisits = !reportFilterOnlyExtraVisits || !!v.isExtra;
+        const matchesProduct = isAllProductsSelected ||
+                               (v.ruptures || []).some(pId => selectedProductIds.includes(String(pId)) && isVisitItemPending(v, pId));
 
-            return matchesNetwork && matchesSearch && matchesDate && matchesRupture && matchesObservation && matchesExtraPoints && matchesExtraVisits;
+            return matchesNetwork && matchesSearch && matchesDate && matchesRupture && matchesObservation && matchesExtraPoints && matchesExtraVisits && matchesProduct;
     });
 }
 
@@ -5026,7 +5055,7 @@ async function buildVisitsChartsAndInsights(filteredVisits) {
 // sem rasterizar nenhum HTML — elimina de vez a classe de bug em que a captura de
 // imagem saía em branco/cortada em produção (base grande de dados por trás).
 async function drawVisitsReportHeaderNative(pdf, { marginH, marginV, contentWidthMm }, data) {
-    const { startDate, endDate, isAllSelected, selectedNetworks, reportFilterOnlyRuptures, insights } = data;
+    const { startDate, endDate, isAllSelected, selectedNetworks, isAllProductsSelected, selectedProductIds, reportFilterOnlyRuptures, insights } = data;
     const pageHeightMm = pdf.internal.pageSize.getHeight();
     const contentBottomMm = pageHeightMm - marginV;
 
@@ -5035,6 +5064,7 @@ async function drawVisitsReportHeaderNative(pdf, { marginH, marginV, contentWidt
     y = drawPdfFilterBoxes(pdf, { marginH, y, contentWidthMm }, [
         { label: 'Período', value: `${startDate || 'Início'} até ${endDate || 'Fim'}` },
         { label: 'Rede', value: isAllSelected ? 'Todas as Redes' : selectedNetworks.join(', ') },
+        { label: 'Produto (ruptura pendente)', value: getReportProductFilterText(isAllProductsSelected, selectedProductIds) },
         { label: 'Rupturas', value: reportFilterOnlyRuptures ? 'Somente visitas com ruptura' : 'Todas as visitas' }
     ]);
 
@@ -5053,7 +5083,7 @@ async function drawVisitsReportHeaderNative(pdf, { marginH, marginV, contentWidt
 window.exportVisitsPDF = async function() {
     const element = document.querySelector('.reports-container');
     const filteredVisits = getFilteredReportVisits().sort((a, b) => new Date(b.date) - new Date(a.date));
-    const { selectedNetworks, isAllSelected, startDate, endDate } = getReportFilterSettings();
+    const { selectedNetworks, isAllSelected, selectedProductIds, isAllProductsSelected, startDate, endDate } = getReportFilterSettings();
 
     if (filteredVisits.length === 0) {
         alert('Não há dados para exportar. Ajuste os filtros ou registre visitas antes.');
@@ -5070,7 +5100,7 @@ window.exportVisitsPDF = async function() {
     };
 
     const chartsData = await buildVisitsChartsAndInsights(filteredVisits);
-    const headerData = { startDate, endDate, isAllSelected, selectedNetworks, reportFilterOnlyRuptures, ...chartsData };
+    const headerData = { startDate, endDate, isAllSelected, selectedNetworks, isAllProductsSelected, selectedProductIds, reportFilterOnlyRuptures, ...chartsData };
 
     await exportSectionedTablesToPdf({
         headerDraw: (pdf, ctx) => drawVisitsReportHeaderNative(pdf, ctx, headerData),
@@ -6122,12 +6152,39 @@ window.updateNetworkFilterLabel = function() {
     renderReportsTable();
 };
 
+window.toggleAllReportProducts = function(selectAllCheckbox) {
+    document.querySelectorAll('.report-product-checkbox').forEach(cb => cb.checked = selectAllCheckbox.checked);
+    updateReportProductFilterLabel();
+};
+
+// Texto do filtro de produto (rótulo do botão e caixa de filtros do PDF).
+function getReportProductFilterText(isAllProductsSelected, selectedProductIds) {
+    if (isAllProductsSelected) return 'Todos os Produtos';
+    if (selectedProductIds.length === 0) return 'Nenhum produto';
+    if (selectedProductIds.length > 3) return `${selectedProductIds.length} produtos selecionados`;
+    return selectedProductIds.map(id => {
+        const prod = products.find(p => String(p.id) === id);
+        return prod ? prod.name : id;
+    }).join(', ');
+}
+
+window.updateReportProductFilterLabel = function() {
+    const { selectedProductIds, isAllProductsSelected } = getReportFilterSettings();
+
+    const selectAllCb = document.getElementById('selectAllReportProducts');
+    if (selectAllCb) selectAllCb.checked = isAllProductsSelected;
+
+    const label = document.getElementById('reportProductFilterLabel');
+    if (label) label.textContent = getReportProductFilterText(isAllProductsSelected, selectedProductIds);
+
+    renderReportsTable();
+};
+
 document.addEventListener('click', function(event) {
-    const multiselect = document.querySelector('.custom-multiselect');
-    if (multiselect && !multiselect.contains(event.target)) {
-        const dropdown = document.getElementById('networkDropdown');
-        if (dropdown) dropdown.style.display = 'none';
-    }
+    ['networkDropdown', 'reportProductDropdown'].forEach(id => {
+        const dropdown = document.getElementById(id);
+        if (dropdown && !dropdown.parentElement.contains(event.target)) dropdown.style.display = 'none';
+    });
 });
 
 // Start the app
@@ -6276,10 +6333,10 @@ window.showVisitDetails = function(visitId) {
 
 
 function getVisitResolutionSummary(visit) {
-    if (!visit || !visit.ruptures) return { totalItems: 0, resolvedCount: 0 };
+    if (!visit || !visit.ruptures || visit.ruptures.length === 0) return { totalItems: 0, resolvedCount: 0, label: 'Sem rupturas' };
     const totalItems = visit.ruptures.length;
     let resolvedCount = 0;
-    
+
     visit.ruptures.forEach(productId => {
         const isResolved = window.getResolvedItemStatus
             ? window.getResolvedItemStatus(productId, visit.storeId, visit.id, visit.date).isResolved
@@ -6288,8 +6345,9 @@ function getVisitResolutionSummary(visit) {
             resolvedCount++;
         }
     });
-    
-    return { totalItems, resolvedCount };
+
+    const label = resolvedCount === totalItems ? 'Todos resolvidos' : `${resolvedCount}/${totalItems} resolvidos`;
+    return { totalItems, resolvedCount, label };
 }
 
 function getVisitResolutionBadge(visit) {
