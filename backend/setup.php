@@ -9,7 +9,7 @@
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store');
 
-const MIN_PASSWORD_LENGTH = 10;
+require __DIR__ . '/auth_config.php';
 
 $configFile = __DIR__ . '/config.php';
 
@@ -50,23 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'A senha deve ter pelo menos ' . MIN_PASSWORD_LENGTH . ' caracteres.';
     } elseif ($password !== $confirm) {
         $error = 'A senha e a confirmação não são iguais.';
+    } elseif (writeAuthConfig($configFile, $username, $password, true) === null) {
+        $error = 'Não foi possível criar backend/config.php. Verifique se a pasta backend aceita escrita.';
     } else {
-        $content = "<?php\n"
-                 . "// Gerado por backend/setup.php em " . date('d/m/Y H:i') . ". NÃO enviar para o Git.\n"
-                 . "define('ADMIN_USERNAME', " . var_export($username, true) . ");\n"
-                 . "define('ADMIN_PASSWORD_HASH', " . var_export(password_hash($password, PASSWORD_DEFAULT), true) . ");\n";
-
-        // Modo 'x': só cria se o arquivo ainda não existir (evita sobrescrever uma configuração feita em paralelo).
-        $handle = @fopen($configFile, 'x');
-        if ($handle === false) {
-            $error = 'Não foi possível criar backend/config.php. Verifique se a pasta backend aceita escrita.';
-        } else {
-            fwrite($handle, $content);
-            fclose($handle);
-            @chmod($configFile, 0600);
-            page('Acesso configurado', '<p>Usuário e senha gravados com sucesso. A partir de agora o sistema só abre com esse login.</p>'
-                . '<p><a href="../">Ir para o sistema</a></p>');
-        }
+        page('Acesso configurado', '<p>Usuário e senha gravados com sucesso. A partir de agora o sistema só abre com esse login.</p>'
+            . '<p><a href="../">Ir para o sistema</a></p>');
     }
 }
 

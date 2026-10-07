@@ -9,8 +9,8 @@
 ## Definir ou trocar a senha
 
 1. **Primeira vez:** abra `https://seu-dominio/backend/setup.php`, informe usuário e senha (mínimo de 10 caracteres) e salve. A página cria o `backend/config.php` e se bloqueia.
-2. **Trocar a senha:** apague `backend/config.php` pelo gerenciador de arquivos da hospedagem e abra o `setup.php` de novo. Faça isso de uma vez, sem intervalo: enquanto o arquivo não existe, o sistema fica fechado para todos e a página de configuração fica aberta.
-3. Quem estava logado com a senha antiga precisa entrar novamente.
+2. **Trocar a senha:** clique em **Trocar Senha** na barra lateral do painel, informe a senha atual e a nova. Quem trocou continua logado; os outros aparelhos precisam entrar novamente.
+3. **Senha esquecida:** apague `backend/config.php` pelo gerenciador de arquivos da hospedagem e abra o `setup.php` de novo. Faça isso de uma vez, sem intervalo: enquanto o arquivo não existe, o sistema fica fechado para todos e a página de configuração fica aberta.
 
 ## O que nunca deve ir para o Git
 

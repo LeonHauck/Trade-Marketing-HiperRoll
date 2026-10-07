@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trade Marketing - Hiperroll Dashboard</title>
     <link rel="icon" href="logo-hiperroll.png">
-    <link rel="stylesheet" href="style.css?v=20260915">
+    <link rel="stylesheet" href="style.css?v=20261008">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -123,6 +123,10 @@
                     <p class="user-role">Trade Marketing</p>
                 </div>
             </div>
+            <button class="change-password-btn" onclick="openChangePasswordModal()">
+                <i class="fa-solid fa-key"></i>
+                <span>Trocar Senha</span>
+            </button>
             <button class="logout-btn" onclick="logout()">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 <span>Sair do Sistema</span>
@@ -266,6 +270,36 @@
         </div>
     </div>
 
+    <!-- Modal for Change Password -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>Trocar Senha</h2>
+                <span class="close-modal" onclick="document.getElementById('changePasswordModal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Senha atual</label>
+                        <input type="password" id="currentPassword" autocomplete="current-password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Nova senha (mínimo 10 caracteres)</label>
+                        <input type="password" id="newPassword" autocomplete="new-password" minlength="10" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmNewPassword">Confirmar nova senha</label>
+                        <input type="password" id="confirmNewPassword" autocomplete="new-password" minlength="10" required>
+                    </div>
+                    <p id="changePasswordError" class="error-msg" style="display:none"></p>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary btn-full">Salvar nova senha</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal for Pedido (novo/editar) -->
     <div id="pedidoModal" class="modal">
         <div class="modal-content large">
@@ -387,9 +421,9 @@
     <script defer src="store-geo.js?v=20260901f"></script>
     <script defer src="products-hiperroll.js?v=20260911"></script>
     <script defer src="cd-clientes.js?v=20260911"></script>
-    <script defer src="storage.js?v=20261007"></script>
+    <script defer src="storage.js?v=20261008"></script>
     <script defer src="db.js?v=20260713"></script>
-    <script defer src="app.js?v=20261007b"></script>
+    <script defer src="app.js?v=20261008"></script>
 </body>
 
 </html>

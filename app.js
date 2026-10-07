@@ -1095,6 +1095,13 @@ function setupEventListeners() {
         loginForm.addEventListener('submit', handleLogin);
     }
 
+    const changePasswordForm = document.getElementById('changePasswordForm');
+    if (changePasswordForm) {
+        // onsubmit (e não addEventListener): init() roda de novo após importar CSV e
+        // um segundo listener enviaria a troca duas vezes — a segunda já com a senha velha.
+        changePasswordForm.onsubmit = handleChangePassword;
+    }
+
     if (visitPhotosInput) {
         visitPhotosInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
@@ -1342,6 +1349,7 @@ function setupEventListeners() {
         }
         if (e.target === document.getElementById('productDetailModal')) document.getElementById('productDetailModal').style.display = 'none';
         if (e.target === document.getElementById('reportsModal')) document.getElementById('reportsModal').style.display = 'none';
+        if (e.target === document.getElementById('changePasswordModal')) document.getElementById('changePasswordModal').style.display = 'none';
         if (e.target === document.getElementById('imageModal')) closeImageModal();
         if (e.target === document.getElementById('syncModal')) closeSyncModal();
         
@@ -6057,6 +6065,48 @@ async function handleLogin(e) {
         // Login novo: recarrega para buscar os dados do servidor já autenticado
         location.reload();
     }
+}
+
+window.openChangePasswordModal = function() {
+    const form = document.getElementById('changePasswordForm');
+    const errorMsg = document.getElementById('changePasswordError');
+    if (form) form.reset();
+    if (errorMsg) errorMsg.style.display = 'none';
+    document.getElementById('changePasswordModal').style.display = 'flex';
+    document.getElementById('currentPassword').focus();
+};
+
+async function handleChangePassword(e) {
+    e.preventDefault();
+    const current = document.getElementById('currentPassword').value;
+    const next = document.getElementById('newPassword').value;
+    const confirmation = document.getElementById('confirmNewPassword').value;
+    const errorMsg = document.getElementById('changePasswordError');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const showError = (message) => {
+        errorMsg.textContent = message;
+        errorMsg.style.display = 'block';
+    };
+
+    if (next !== confirmation) {
+        showError('A nova senha e a confirmação não são iguais.');
+        return;
+    }
+
+    // A senha atual é conferida no servidor, que também grava a nova (backend/api.php)
+    errorMsg.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = true;
+    const result = await Storage.changePassword(current, next);
+    if (submitBtn) submitBtn.disabled = false;
+
+    if (!result.ok) {
+        showError(result.error);
+        return;
+    }
+
+    e.target.reset();
+    document.getElementById('changePasswordModal').style.display = 'none';
+    showToast('Senha alterada. Outros aparelhos conectados precisarão entrar de novo.', 'success');
 }
 
 window.logout = async function() {

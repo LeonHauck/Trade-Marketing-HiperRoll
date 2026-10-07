@@ -111,6 +111,14 @@ const Storage = (function () {
         return { ok: false, error: 'Não foi possível conectar ao servidor. Tente novamente em instantes.' };
     }
 
+    // Retorna { ok: true } | { ok: false, error }. As outras sessões abertas (outros aparelhos) são encerradas.
+    async function changePassword(currentPassword, newPassword) {
+        if (!isServer) return { ok: false, error: 'A troca de senha só funciona com o sistema publicado no servidor.' };
+        const data = await authRequest('change_password', { current_password: currentPassword, new_password: newPassword });
+        if (data && data.ok) return { ok: true };
+        return { ok: false, error: (data && data.error) || 'Não foi possível conectar ao servidor. Tente novamente em instantes.' };
+    }
+
     async function logout() {
         if (!isServer) return;
         _pendingCalls = [];
@@ -226,6 +234,7 @@ const Storage = (function () {
         onUnauthorized,
         checkSession,
         login,
+        changePassword,
         logout,
         loadFromServer,
         syncVisits,

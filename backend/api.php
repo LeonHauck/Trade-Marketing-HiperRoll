@@ -19,6 +19,7 @@ if (!file_exists($configFile)) {
     exit;
 }
 require $configFile;
+require __DIR__ . '/auth_config.php';
 
 const SESSION_LIFETIME   = 60 * 60 * 24 * 30; // 30 dias sem uso até pedir login de novo
 const LOGIN_MAX_FAILURES = 8;                 // tentativas erradas por IP...
@@ -55,8 +56,8 @@ function sessionCookieOptions(int $expires): array {
 }
 
 // Muda quando a senha é trocada — sessões abertas com a senha antiga deixam de valer.
-function passwordFingerprint(): string {
-    return substr(hash('sha256', ADMIN_PASSWORD_HASH), 0, 16);
+function passwordFingerprint(string $hash = ADMIN_PASSWORD_HASH): string {
+    return substr(hash('sha256', $hash), 0, 16);
 }
 
 function isLoggedIn(): bool {
@@ -92,6 +93,40 @@ function writeData(string $file, $data): bool {
     return file_put_contents($dataDir . $file, $json) !== false;
 }
 
+// --- Limite de senhas erradas por IP (login e troca de senha) ---
+function recentPasswordFailures(): array {
+    $now = time();
+    return array_filter(readData('login_attempts.json', []), function ($a) use ($now) {
+        return is_array($a) && ($a['first'] ?? 0) > $now - LOGIN_WINDOW;
+    });
+}
+
+function clientIp(): string {
+    return $_SERVER['REMOTE_ADDR'] ?? 'desconhecido';
+}
+
+function rejectIfTooManyFailures(): void {
+    if ((recentPasswordFailures()[clientIp()]['count'] ?? 0) >= LOGIN_MAX_FAILURES) {
+        http_response_code(429);
+        echo json_encode(['ok' => false, 'error' => 'Muitas tentativas. Aguarde 15 minutos e tente novamente.']);
+        exit;
+    }
+}
+
+function registerPasswordFailure(): void {
+    $attempts = recentPasswordFailures();
+    $ip = clientIp();
+    $attempts[$ip] = ['count' => ($attempts[$ip]['count'] ?? 0) + 1, 'first' => $attempts[$ip]['first'] ?? time()];
+    writeData('login_attempts.json', $attempts);
+    usleep(500000);
+}
+
+function clearPasswordFailures(): void {
+    $attempts = recentPasswordFailures();
+    unset($attempts[clientIp()]);
+    writeData('login_attempts.json', $attempts);
+}
+
 // --- Roteador ---
 $method = $_SERVER['REQUEST_METHOD'];
 $body   = [];
@@ -112,17 +147,7 @@ switch ($action) {
     case 'login':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok' => false]); exit; }
 
-        // Limite de tentativas erradas por IP
-        $ip       = $_SERVER['REMOTE_ADDR'] ?? 'desconhecido';
-        $now      = time();
-        $attempts = array_filter(readData('login_attempts.json', []), function ($a) use ($now) {
-            return is_array($a) && ($a['first'] ?? 0) > $now - LOGIN_WINDOW;
-        });
-        if (($attempts[$ip]['count'] ?? 0) >= LOGIN_MAX_FAILURES) {
-            http_response_code(429);
-            echo json_encode(['ok' => false, 'error' => 'Muitas tentativas. Aguarde 15 minutos e tente novamente.']);
-            exit;
-        }
+        rejectIfTooManyFailures();
 
         $username = trim((string) ($body['username'] ?? ''));
         $password = (string) ($body['password'] ?? '');
@@ -130,16 +155,13 @@ switch ($action) {
         $passOk   = password_verify($password, ADMIN_PASSWORD_HASH);
 
         if (!$userOk || !$passOk) {
-            $attempts[$ip] = ['count' => ($attempts[$ip]['count'] ?? 0) + 1, 'first' => $attempts[$ip]['first'] ?? $now];
-            writeData('login_attempts.json', $attempts);
-            usleep(500000);
+            registerPasswordFailure();
             http_response_code(401);
             echo json_encode(['ok' => false, 'error' => 'Usuário ou senha incorretos.']);
             exit;
         }
 
-        unset($attempts[$ip]);
-        writeData('login_attempts.json', $attempts);
+        clearPasswordFailures();
 
         session_regenerate_id(true);
         $_SESSION['user'] = ADMIN_USERNAME;
@@ -162,6 +184,49 @@ switch ($action) {
 if (!isLoggedIn()) {
     http_response_code(401);
     echo json_encode(['ok' => false, 'error' => 'Sessão expirada. Entre novamente.']);
+    exit;
+}
+
+// ── Troca de senha (pelo botão "Trocar Senha" do painel) ─────
+// Fica antes do session_write_close() porque precisa atualizar a sessão atual:
+// as demais sessões abertas com a senha antiga deixam de valer.
+if ($action === 'change_password') {
+    if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok' => false]); exit; }
+
+    rejectIfTooManyFailures();
+
+    $current = (string) ($body['current_password'] ?? '');
+    $new     = (string) ($body['new_password'] ?? '');
+
+    // 400 (e não 401) nos erros: para o painel, 401 significa "sessão expirada".
+    if (!password_verify($current, ADMIN_PASSWORD_HASH)) {
+        registerPasswordFailure();
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'A senha atual está incorreta.']);
+        exit;
+    }
+    if (strlen($new) < MIN_PASSWORD_LENGTH) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'A nova senha deve ter pelo menos ' . MIN_PASSWORD_LENGTH . ' caracteres.']);
+        exit;
+    }
+    if ($new === $current) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'A nova senha deve ser diferente da atual.']);
+        exit;
+    }
+
+    $newHash = writeAuthConfig($configFile, ADMIN_USERNAME, $new, false);
+    if ($newHash === null) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'error' => 'Não foi possível gravar a nova senha no servidor.']);
+        exit;
+    }
+
+    clearPasswordFailures();
+    session_regenerate_id(true);
+    $_SESSION['pw'] = passwordFingerprint($newHash);
+    echo json_encode(['ok' => true]);
     exit;
 }
 

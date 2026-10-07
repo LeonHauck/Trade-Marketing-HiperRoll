@@ -275,6 +275,7 @@ Trade-Marketing-HiperRoll/
 ├── backend/
 │   ├── api.php              # Login, sessão e leitura/gravação dos dados
 │   ├── setup.php            # Página única para definir o usuário e a senha no servidor
+│   ├── auth_config.php      # Gravação do config.php (usada pelo setup e pela troca de senha)
 │   ├── config.example.php   # Modelo do config.php (o arquivo real não é versionado)
 │   ├── test_write.php       # Diagnóstico de permissão de escrita no servidor
 │   └── .htaccess            # Bloqueia o acesso direto aos dados e ao config.php
@@ -330,18 +331,21 @@ Sem o backend PHP, o sistema abre em modo local: aceita qualquer login e guarda 
 4. Abra `backend/test_write.php` no navegador para confirmar que a gravação funciona.
 5. Ao publicar uma nova versão, atualize o sufixo `?v=` dos scripts e do CSS no `index.html` para que os navegadores não usem a cópia em cache.
 
-Para trocar a senha, apague `backend/config.php` pelo gerenciador de arquivos da hospedagem e abra o `setup.php` novamente. As sessões abertas com a senha antiga deixam de valer.
+Para trocar a senha, use o botão **Trocar Senha** na barra lateral do painel: ele pede a senha atual e a nova. Os outros aparelhos conectados precisam entrar de novo.
+
+Se a senha foi esquecida, apague `backend/config.php` pelo gerenciador de arquivos da hospedagem e abra o `setup.php` novamente.
 
 ---
 
 ## API do backend
 
-Todas as chamadas vão para `backend/api.php?action=<ação>`. Fora as três ações de autenticação, todas exigem o cookie de sessão criado no login e respondem `401` sem ele.
+Todas as chamadas vão para `backend/api.php?action=<ação>`. Fora `login`, `logout` e `session`, todas exigem o cookie de sessão criado no login e respondem `401` sem ele.
 
 | Ação | Método | Descrição |
 |---|---|---|
 | `login` | POST | Confere usuário e senha e abre a sessão |
 | `logout` | POST | Encerra a sessão |
+| `change_password` | POST | Troca a senha, conferindo a atual, e encerra as outras sessões |
 | `session` | GET | Informa se a sessão do navegador ainda é válida |
 | `load` | GET | Retorna todo o estado: visitas, rupturas, histórico, pedidos, status das lojas e fotos |
 | `save_visits` | POST | Grava as visitas |
@@ -362,7 +366,8 @@ Todas as chamadas vão para `backend/api.php?action=<ação>`. Fora as três aç
 - **Login no servidor.** O `backend/api.php` confere usuário e senha e abre uma sessão. Sem sessão válida, nenhuma ação de leitura ou gravação responde.
 - **Senha fora do código.** O usuário e o hash da senha ficam em `backend/config.php`, criado pelo `setup.php` direto no servidor. O arquivo está no `.gitignore` e a senha nunca é gravada em texto puro.
 - **Sessão.** Cookie `HttpOnly` e `SameSite=Lax` (e `Secure` sob HTTPS), válido por 30 dias sem uso. Trocar a senha encerra as sessões abertas.
-- **Tentativas de login.** Após 8 erros seguidos do mesmo IP, o login fica bloqueado por 15 minutos.
+- **Troca de senha.** Feita no próprio painel, exige a senha atual e encerra as sessões dos outros aparelhos.
+- **Tentativas de login.** Após 8 senhas erradas do mesmo IP (no login ou na troca de senha), o acesso fica bloqueado por 15 minutos.
 - **Mesma origem.** A API não envia cabeçalhos de CORS: só o próprio site consegue chamá-la.
 - **Limites conhecidos.** O sistema tem um único usuário. As fotos em `uploads/` são servidas por endereço direto, sem passar pelo login.
 
