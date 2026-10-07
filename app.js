@@ -813,6 +813,8 @@ function applyCurrentUser(user) {
     if (nameEl) nameEl.textContent = currentUser ? currentUser.name : 'Usuário';
     if (roleEl) roleEl.textContent = currentUser ? (currentUser.role || '') : '';
     if (manageBtn) manageBtn.style.display = (currentUser && currentUser.admin) ? 'flex' : 'none';
+    const auditNav = document.getElementById('navAudit');
+    if (auditNav) auditNav.style.display = (currentUser && currentUser.admin) ? '' : 'none';
 }
 
 // Texto do "Responsável" no cabeçalho dos PDFs: quem está logado ao exportar.
@@ -1565,6 +1567,7 @@ function processCSV(csvText) {
         IndexedDBHelper.set('hr_visits', visits);
         
         
+        if (typeof Storage !== 'undefined') Storage.logEvent('csv_import', { stores: newStores.length, products: newProducts.length });
         init();
         showToast(`Importação concluída. ${newStores.length} lojas e ${newProducts.length} produtos adicionados sem apagar o cadastro atual.`, 'success');
     }
@@ -1603,6 +1606,8 @@ function renderPage(page) {
         renderRoutesView();
     } else if (page === 'pedidos') {
         renderPedidosView();
+    } else if (page === 'audit') {
+        renderAuditView();
     }
 }
 
@@ -2348,8 +2353,21 @@ function renderRoutePlanList() {
     }).join('');
 }
 
+// Os planos de rota ficam só neste navegador; o aviso abaixo é o que os coloca na auditoria.
+function logRoutePlanEvent(type, plan) {
+    if (!plan || typeof Storage === 'undefined') return;
+    Storage.logEvent(type, {
+        id: plan.id,
+        weekStart: plan.weekStart,
+        promoterName: plan.promoterName || '',
+        stops: (plan.days || []).reduce((total, day) => total + ((day && day.stops) ? day.stops.length : 0), 0),
+        mode: plan.mode === 'auto' ? 'Sugestão automática' : 'Montagem manual'
+    });
+}
+
 window.deleteRoutePlan = function(planId) {
     if (!confirm('Excluir este plano de rota permanentemente?')) return;
+    logRoutePlanEvent('route_delete', routePlans.find(p => p.id === planId));
     routePlans = routePlans.filter(p => p.id !== planId);
     saveAppStateLocally();
     const weekArea = document.getElementById('routeWeekViewArea');
@@ -2537,6 +2555,7 @@ window.generateAndSaveAutoPlan = function() {
     const plan = generateAutoWeekPlan(weekStart, promoterName, eligibleStores);
     routePlans.push(plan);
     saveAppStateLocally();
+    logRoutePlanEvent('route_create', plan);
 
     document.getElementById('routeBuilderModal').style.display = 'none';
     renderRoutePlanList();
@@ -2915,6 +2934,7 @@ window.saveManualRoutePlan = function() {
     plan.updatedAt = new Date().toISOString();
     routePlans.push(plan);
     saveAppStateLocally();
+    logRoutePlanEvent('route_create', plan);
 
     window._routeManualDraftPlan = null;
     window._routeManualOrder = [];
@@ -3266,7 +3286,7 @@ function renderHistoryViewData() {
                 const row = document.createElement('tr');
                 row.style.background = summary.totalItems > 0 && summary.resolvedCount === summary.totalItems ? '#f4fff5' : '';
                 row.innerHTML = `
-                    <td>${formatDate(visit.date)}</td>
+                    <td>${formatDate(visit.date)}${authorLineHtml(visit)}</td>
                     <td><strong>${store ? store.name : 'Loja Removida'}${visit.isExtra ? ' <span class="badge-visit-extra">⭐ Visita Extra</span>' : ''}</strong></td>
                     <td>${store ? store.network : '-'}</td>
                     <td><span class="badge-rupture"${(visit.ruptures || []).length > 0 ? ` data-tooltip="${getRuptureTooltipAttr(visit.ruptures)}"` : ''}>${(visit.ruptures || []).length} Itens</span></td>
@@ -3299,7 +3319,7 @@ function renderHistoryViewData() {
                     <td>${item.storeName || 'Loja'}</td>
                     <td>${item.visitDate ? formatDate(item.visitDate) : '-'}</td>
                     <td>${item.resolvedAt ? formatDate(item.resolvedAt) : '-'}</td>
-                    <td><span class="status-tag ok">Resolvido</span></td>
+                    <td><span class="status-tag ok">Resolvido</span>${(currentUser && currentUser.admin && item.resolvedBy) ? `<div class="row-author">por ${escapeHtml(item.resolvedBy)}</div>` : ''}</td>
                 `;
                 tbodyResolved.appendChild(row);
             });
@@ -3355,6 +3375,7 @@ function renderReportsTable() {
                         <i class="fa-solid fa-calendar-day"></i>
                     </button>
                 </div>
+                ${authorLineHtml(visit)}
             </td>
             <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="showVisitDetails(${visit.id})" title="Ver detalhes da visita">${store ? store.name : 'Loja Removida'}${visit.isExtra ? ' <span class="badge-visit-extra">⭐ Visita Extra</span>' : ''}</strong></td>
             <td><span class="network-tag">${store ? store.network : '-'}</span></td>
@@ -4456,7 +4477,7 @@ function renderPedidosTable() {
         const itemCount = (p.itens || []).length;
         return `
             <tr>
-                <td><strong>${p.numeroPedido || '-'}</strong></td>
+                <td><strong>${p.numeroPedido || '-'}</strong>${authorLineHtml(p)}</td>
                 <td>${p.clienteNome || '-'}${p.clienteCodigo ? ` <span style="color:var(--text-muted); font-size:0.78rem;">(${p.clienteCodigo})</span>` : ''}</td>
                 <td>${store ? store.name : '<span style="color:var(--text-muted);">loja removida</span>'}</td>
                 <td>${store ? `<span class="network-tag">${store.network}</span>` : '-'}</td>
@@ -4545,6 +4566,7 @@ function renderPedidoModalBody() {
     const editingStoreLabel = editingStore ? `${editingStore.name} (${editingStore.network})` : '';
 
     body.innerHTML = `
+        ${editing ? authorshipHtml(editing) : ''}
         <div class="form-group">
             <label>Número do Pedido</label>
             <input type="text" id="pedidoNumero" value="${editing ? (editing.numeroPedido || '') : ''}" placeholder="Ex: 10234">
@@ -6136,6 +6158,7 @@ window.resolveRupture = async function(id) {
             network: store?.network || rupture.network || '',
             resolvedAt: new Date().toISOString().slice(0, 10),
             resolvedAtTime: new Date().toLocaleString('pt-BR'),
+            resolvedManually: true, // baixa feita à mão: é o que a auditoria registra como "resolveu"
             visitId: rupture.visitId || null,
             visitDate: rupture.visitDate || null
         }, ...resolvedRupturesHistory].slice(0, 300);
@@ -6395,6 +6418,319 @@ async function handleUserFormSubmit(e) {
     resetUserForm();
     showToast(original ? 'Usuário atualizado.' : `Usuário ${payload.name} criado.`, 'success');
 }
+
+// ---------- Aba "Auditoria" (somente administradores) ----------
+// O servidor registra quem adicionou, editou ou excluiu cada coisa (backend/api.php,
+// "Auditoria"). Aqui é só a consulta: o registro guarda ids, e os nomes de loja e de
+// produto são resolvidos nesta tela.
+const AUDIT_PAGE_SIZE = 100;
+let auditEntries = [];
+
+const AUDIT_AREAS = {
+    visit: 'Visitas', pedido: 'Pedidos', rupture: 'Rupturas', route: 'Rotas',
+    import: 'Importação', notifications: 'Notificações', user: 'Usuários', session: 'Acesso'
+};
+
+const AUDIT_ACTIONS = {
+    create: { label: 'Adicionou', tone: 'create' },
+    update: { label: 'Editou', tone: 'update' },
+    delete: { label: 'Excluiu', tone: 'delete' },
+    resolve: { label: 'Resolveu', tone: 'create' },
+    clear: { label: 'Limpou', tone: 'update' },
+    csv: { label: 'Importou', tone: 'update' },
+    password: { label: 'Trocou a senha', tone: 'update' },
+    login: { label: 'Entrou', tone: 'neutral' }
+};
+
+const auditText = value => (value === null || value === undefined || value === '') ? '—' : String(value);
+const auditDate = value => value ? formatDate(value) : '—';
+const auditYesNo = value => value ? 'sim' : 'não';
+
+function auditStoreName(storeId) {
+    if (!storeId) return '—';
+    const store = findPedidoDestination(storeId);
+    return store ? store.name : 'Loja removida';
+}
+
+function auditProductNames(ids) {
+    return (ids || []).map(id => {
+        const product = products.find(p => p.id === id);
+        return product ? product.name : id;
+    }).join(', ') || 'nenhum';
+}
+
+// Rótulo e formatação de cada campo que pode aparecer num registro
+const AUDIT_FIELDS = {
+    storeId: ['Loja', auditStoreName],
+    date: ['Data', auditDate],
+    ruptures: ['Itens em ruptura', auditProductNames],
+    extraPoints: ['Pontos extras', value => (value || []).join(', ') || 'nenhum'],
+    isExtra: ['Visita extra', auditYesNo],
+    notes: ['Observações', auditText],
+    numeroPedido: ['Nº do pedido', auditText],
+    clienteCodigo: ['Código do cliente', auditText],
+    clienteNome: ['Cliente', auditText],
+    numeroNF: ['Nº da NF', auditText],
+    dataPedido: ['Data do pedido', auditDate],
+    datasAgendamento: ['Datas de agendamento', value => (value || []).map(formatDate).join(', ') || '—'],
+    datasEntrega: ['Datas de entrega', value => (value || []).map(formatDate).join(', ') || '—'],
+    observacoes: ['Observações', auditText],
+    itens: ['Itens', value => (value || []).map(item => `${item.descricao} (${item.quantidade}x)`).join('; ') || '—'],
+    name: ['Nome', auditText],
+    role: ['Cargo', auditText],
+    admin: ['Administrador', auditYesNo]
+};
+
+function auditFieldLine(field, ...values) {
+    const [label, format] = AUDIT_FIELDS[field] || [field, auditText];
+    return `${label}: ${values.map(format).join(' → ')}`;
+}
+
+// "Campo: antes → depois" para cada campo alterado
+function auditChangeLines(changes) {
+    return Object.entries(changes || {}).map(([field, [before, after]]) => auditFieldLine(field, before, after));
+}
+
+// "Campo: valor" para os campos preenchidos de um item adicionado ou excluído
+function auditSnapshotLines(details, fields) {
+    return fields.filter(field => details[field] !== null && details[field] !== undefined)
+                 .map(field => auditFieldLine(field, details[field]));
+}
+
+// Transforma um registro em { subject: "sobre o quê", lines: [detalhes] }
+function describeAuditEntry(entry) {
+    const d = entry.d || {};
+    const isUpdate = entry.a === 'update';
+
+    if (entry.e === 'visit') {
+        return {
+            subject: `Visita de ${auditDate(d.date)} — ${auditStoreName(d.storeId)}`,
+            lines: isUpdate
+                ? auditChangeLines(d.changes)
+                : [auditFieldLine('ruptures', d.ruptures), ...auditSnapshotLines(d, ['extraPoints', 'isExtra', 'notes'])]
+        };
+    }
+    if (entry.e === 'pedido') {
+        return {
+            subject: `Pedido ${auditText(d.numeroPedido)}${d.clienteNome ? ' — ' + d.clienteNome : ''} — ${auditStoreName(d.storeId)}`,
+            lines: isUpdate
+                ? auditChangeLines(d.changes)
+                : auditSnapshotLines(d, ['numeroNF', 'dataPedido', 'datasAgendamento', 'datasEntrega', 'itens', 'observacoes'])
+        };
+    }
+    if (entry.e === 'rupture') {
+        return {
+            subject: `Ruptura de ${d.productName || auditProductNames([d.productId])} — ${d.storeName || auditStoreName(d.storeId)}`,
+            lines: ['Marcada como resolvida manualmente']
+        };
+    }
+    if (entry.e === 'route') {
+        return {
+            subject: `Plano de rota da semana de ${auditDate(d.weekStart)}`,
+            lines: [d.promoterName ? `Promotor: ${d.promoterName}` : '', `${auditText(d.stops)} paradas`, auditText(d.mode)].filter(Boolean)
+        };
+    }
+    if (entry.e === 'import') {
+        return { subject: 'Importação de CSV', lines: [`${auditText(d.stores)} lojas e ${auditText(d.products)} produtos adicionados`] };
+    }
+    if (entry.e === 'notifications') {
+        return { subject: 'Notificações', lines: [`${auditText(d.count)} notificações dispensadas`] };
+    }
+    if (entry.e === 'user') {
+        const subject = `Usuário ${d.name || entry.id}${entry.id ? ' (' + entry.id + ')' : ''}`;
+        if (entry.a === 'password') return { subject, lines: ['Trocou a própria senha'] };
+        if (isUpdate) return { subject, lines: [...auditChangeLines(d.changes), d.passwordReset ? 'Senha redefinida' : ''].filter(Boolean) };
+        return { subject, lines: auditSnapshotLines(d, ['role', 'admin']) };
+    }
+    if (entry.e === 'session') return { subject: 'Entrada no sistema', lines: [] };
+    return { subject: auditText(entry.e), lines: [] };
+}
+
+// Autoria de uma visita ou pedido (item.createdBy / item.lastChange, gravados pelo
+// servidor a cada criação ou edição). Só o administrador vê.
+function formatAuthorStamp(stamp, actionLabel) {
+    const when = new Date(stamp.t * 1000);
+    const date = when.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const time = when.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return `${date} às ${time} - Usuário: ${stamp.n || stamp.u} - ${actionLabel}`;
+}
+
+// Quadro dos modais: quem adicionou e, se houve, quem editou por último
+function authorshipHtml(item) {
+    if (!currentUser || !currentUser.admin || !item) return '';
+    const lines = [];
+    if (item.createdBy) lines.push(`<i class="fa-solid fa-plus"></i> ${escapeHtml(formatAuthorStamp(item.createdBy, 'Adicionou'))}`);
+    if (item.lastChange && item.lastChange.a === 'update') lines.push(`<i class="fa-solid fa-pen"></i> ${escapeHtml(formatAuthorStamp(item.lastChange, 'Editou'))}`);
+    if (lines.length === 0) lines.push('<i class="fa-solid fa-clock-rotate-left"></i> Sem registro de autoria (anterior à auditoria)');
+    return `<div class="authorship">${lines.map(line => `<div>${line}</div>`).join('')}</div>`;
+}
+
+// Linha curta das tabelas: "por Fulano" (e "editado por Beltrano", se foi outra pessoa ou depois)
+function authorLineHtml(item) {
+    if (!currentUser || !currentUser.admin || !item) return '';
+    const parts = [];
+    if (item.createdBy) parts.push(`por ${item.createdBy.n || item.createdBy.u}`);
+    if (item.lastChange && item.lastChange.a === 'update') parts.push(`editado por ${item.lastChange.n || item.lastChange.u}`);
+    if (parts.length === 0) return '';
+    const title = [item.createdBy ? formatAuthorStamp(item.createdBy, 'Adicionou') : '',
+                   (item.lastChange && item.lastChange.a === 'update') ? formatAuthorStamp(item.lastChange, 'Editou') : ''].filter(Boolean).join('\n');
+    return `<div class="row-author" title="${escapeHtml(title)}">${escapeHtml(parts.join(' · '))}</div>`;
+}
+
+function formatAuditTime(entry) {
+    return new Date(entry.t * 1000).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function formatAuditMonth(month) {
+    const [year, monthNumber] = month.split('-').map(Number);
+    const label = new Date(year, monthNumber - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function renderAuditView() {
+    contentArea.innerHTML = `
+        <div class="panel">
+            <div class="panel-header" style="display: block; margin-bottom: 20px;">
+                <h2 style="margin-bottom: 8px;">Auditoria</h2>
+                <p style="margin: 0 0 12px; color: var(--text-light);">Quem adicionou, editou ou excluiu cada coisa no sistema. Os registros não podem ser alterados nem apagados pelo painel.</p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+                    <div class="header-filters" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; flex: 1; min-width: 0;">
+                        <div class="search-bar" style="width: 240px;">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="auditSearch" placeholder="Buscar loja, pedido, usuário..." oninput="renderAuditTable()">
+                        </div>
+                        <select id="auditMonth" class="filter-select" style="height: 42px; width: auto;" onchange="loadAuditEntries(this.value)"></select>
+                        <select id="auditUser" class="filter-select" style="height: 42px; width: auto;" onchange="renderAuditTable()"></select>
+                        <select id="auditArea" class="filter-select" style="height: 42px; width: auto;" onchange="renderAuditTable()">
+                            <option value="">Todas as abas</option>
+                            ${Object.entries(AUDIT_AREAS).map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="header-actions" style="display: flex; gap: 15px; align-items: center; flex-shrink: 0;">
+                        <button class="btn btn-secondary" onclick="loadAuditEntries(document.getElementById('auditMonth').value)">
+                            <i class="fa-solid fa-rotate"></i> Atualizar
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportAuditCSV()">
+                            <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="reports-container">
+                <table class="reports-table">
+                    <thead>
+                        <tr>
+                            <th>Data e hora</th>
+                            <th>Usuário</th>
+                            <th>Aba</th>
+                            <th>Ação</th>
+                            <th>O quê</th>
+                            <th>Detalhes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    loadAuditEntries();
+}
+
+window.loadAuditEntries = async function(month) {
+    const tbody = document.getElementById('auditTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Carregando registros...</td></tr>';
+
+    const result = await Storage.loadAuditLog(month);
+    if (!document.getElementById('auditTableBody')) return; // o usuário mudou de aba enquanto carregava
+    if (!result.ok) {
+        auditEntries = [];
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(result.error)}</td></tr>`;
+        return;
+    }
+    auditEntries = result.entries;
+
+    const months = result.months.includes(result.month) ? result.months : [result.month, ...result.months];
+    document.getElementById('auditMonth').innerHTML = months
+        .map(m => `<option value="${m}" ${m === result.month ? 'selected' : ''}>${formatAuditMonth(m)}</option>`).join('');
+
+    const usersInLog = new Map(auditEntries.map(entry => [entry.u, entry.n || entry.u]));
+    document.getElementById('auditUser').innerHTML = '<option value="">Todos os usuários</option>'
+        + [...usersInLog].map(([login, name]) => `<option value="${escapeHtml(login)}">${escapeHtml(name)}</option>`).join('');
+
+    window.auditTableLimit = AUDIT_PAGE_SIZE;
+    renderAuditTable();
+};
+
+function getFilteredAuditEntries() {
+    const term = normalizeText(document.getElementById('auditSearch')?.value || '');
+    const user = document.getElementById('auditUser')?.value || '';
+    const area = document.getElementById('auditArea')?.value || '';
+
+    return auditEntries.filter(entry => {
+        if (user && entry.u !== user) return false;
+        if (area && entry.e !== area) return false;
+        if (!term) return true;
+        const description = describeAuditEntry(entry);
+        return normalizeText(`${entry.n} ${entry.u} ${description.subject} ${description.lines.join(' ')}`).includes(term);
+    });
+}
+
+window.renderAuditTable = function() {
+    const tbody = document.getElementById('auditTableBody');
+    if (!tbody) return;
+    const filtered = getFilteredAuditEntries();
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Nenhum registro para os filtros atuais.</td></tr>';
+        return;
+    }
+
+    const limit = window.auditTableLimit || AUDIT_PAGE_SIZE;
+    tbody.innerHTML = filtered.slice(0, limit).map(entry => {
+        const action = AUDIT_ACTIONS[entry.a] || { label: entry.a, tone: 'neutral' };
+        const description = describeAuditEntry(entry);
+        return `
+            <tr>
+                <td style="white-space: nowrap;">${formatAuditTime(entry)}</td>
+                <td style="white-space: nowrap;"><strong>${escapeHtml(entry.n || entry.u)}</strong></td>
+                <td>${escapeHtml(AUDIT_AREAS[entry.e] || entry.e)}</td>
+                <td><span class="audit-action ${action.tone}">${escapeHtml(action.label)}</span></td>
+                <td>${escapeHtml(description.subject)}</td>
+                <td class="audit-details">${description.lines.map(line => `<div>${escapeHtml(line)}</div>`).join('') || '-'}</td>
+            </tr>
+        `;
+    }).join('') + (filtered.length > limit
+        ? `<tr><td colspan="6" style="text-align:center; padding:15px;"><button class="btn btn-secondary" onclick="window.auditTableLimit = (window.auditTableLimit || ${AUDIT_PAGE_SIZE}) + ${AUDIT_PAGE_SIZE}; renderAuditTable();">Carregar mais ${Math.min(AUDIT_PAGE_SIZE, filtered.length - limit)} (Restam ${filtered.length - limit})</button></td></tr>`
+        : '');
+};
+
+window.exportAuditCSV = function() {
+    const filtered = getFilteredAuditEntries();
+    if (filtered.length === 0) { alert('Não há registros para exportar com os filtros atuais.'); return; }
+
+    const quote = text => `"${String(text).replace(/"/g, '""')}"`;
+    let csvContent = 'data:text/csv;charset=utf-8,﻿Data e hora;Usuário;Login;Aba;Ação;O quê;Detalhes\n';
+    filtered.forEach(entry => {
+        const action = AUDIT_ACTIONS[entry.a] || { label: entry.a };
+        const description = describeAuditEntry(entry);
+        csvContent += [
+            formatAuditTime(entry),
+            quote(entry.n || entry.u),
+            quote(entry.u),
+            AUDIT_AREAS[entry.e] || entry.e,
+            action.label,
+            quote(description.subject),
+            quote(description.lines.join(' | '))
+        ].join(';') + '\n';
+    });
+
+    const link = document.createElement('a');
+    link.setAttribute('href', encodeURI(csvContent));
+    link.setAttribute('download', `Auditoria_Hiperroll_${document.getElementById('auditMonth')?.value || ''}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
 
 window.logout = async function() {
     if (typeof Storage !== 'undefined') await Storage.logout();
@@ -6678,6 +7014,7 @@ window.showVisitDetails = function(visitId) {
             <strong style="font-size: 1.1rem; color: var(--primary-blue);">${store ? store.name : 'Removida'}</strong><br>
             <span style="color: var(--text-muted); font-size: 0.9rem;">Data da Visita: ${formatDate(visit.date)}</span>
         </div>
+        ${authorshipHtml(visit)}
         <div style="margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: ${summary.totalItems > 0 && resolvedCount === summary.totalItems ? '#f4fff5' : '#f8fafc'}; border: 1px solid ${summary.totalItems > 0 && resolvedCount === summary.totalItems ? '#c8e6c9' : '#e5e7eb'};">
             <strong style="display:block; margin-bottom: 4px; color: var(--primary-blue);">Progresso de resolução</strong>
             <span style="font-size: 0.92rem; color: var(--text-muted);">${summary.label}</span>

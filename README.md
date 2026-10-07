@@ -159,6 +159,12 @@ Busca de cliente por código, loja restrita às redes do cliente, até três dat
 </tr>
 </table>
 
+### Auditoria
+
+Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o antes e depois de cada alteração. Visível só para administradores, com filtros por mês, usuário e aba.
+
+<img src="docs/screenshots/13-auditoria.png" alt="Aba de auditoria" width="100%">
+
 ---
 
 ## Funcionalidades
@@ -218,6 +224,13 @@ Busca de cliente por código, loja restrita às redes do cliente, até três dat
 - Cada pessoa troca a própria senha pelo botão **Trocar Senha**.
 - Todos os usuários enxergam e alteram os mesmos dados.
 - Várias pessoas podem usar o sistema ao mesmo tempo: o que uma grava aparece para as outras em até um minuto, sem recarregar a página, e ninguém sobrescreve o lançamento do colega.
+
+### Auditoria
+
+- O servidor registra, com usuário, data e hora: visitas e pedidos adicionados, editados e excluídos; baixas manuais de ruptura; planos de rota criados e excluídos; importações de CSV; limpeza de notificações; criação, alteração e exclusão de usuários; trocas de senha; e entradas no sistema.
+- Nas edições, o registro guarda o valor de antes e o de depois de cada campo alterado. Nas exclusões, guarda o que foi apagado.
+- A aba **Auditoria** é exclusiva de administradores, com busca, filtros por mês, usuário e aba, e exportação em CSV.
+- Os registros só são acrescentados: não existe ação no sistema para editá-los ou apagá-los.
 
 ### Importação de dados
 
@@ -367,6 +380,8 @@ Todas as chamadas vão para `backend/api.php?action=<ação>`. Fora `login`, `lo
 | `users_list` | GET | Lista os usuários (somente administrador) |
 | `user_save` | POST | Cria ou altera um usuário: nome, cargo, permissão e senha (somente administrador) |
 | `user_delete` | POST | Exclui um usuário e encerra as sessões dele (somente administrador) |
+| `audit_log` | GET | Registros de auditoria de um mês (somente administrador) |
+| `audit_event` | POST | Registra na auditoria uma ação que só existe no navegador (plano de rota, importação de CSV) |
 | `session` | GET | Informa se a sessão do navegador ainda é válida |
 | `load` | GET | Retorna todo o estado: visitas, rupturas, histórico, pedidos, status das lojas, fotos e a versão dos dados |
 | `version` | GET | Retorna só a versão dos dados, para o painel saber se há novidades |
@@ -386,6 +401,7 @@ As ações `save_*` e `delete_*` de versões anteriores continuam no código ape
 - **Sessão.** Cookie `HttpOnly` e `SameSite=Lax` (e `Secure` sob HTTPS), válido por 30 dias sem uso. Trocar a senha encerra as sessões abertas.
 - **Troca de senha.** Feita no próprio painel, exige a senha atual e encerra as sessões dos outros aparelhos.
 - **Tentativas de login.** Após 8 senhas erradas do mesmo IP (no login ou na troca de senha), o acesso fica bloqueado por 15 minutos.
+- **Auditoria.** Cada alteração fica registrada no servidor com o usuário que a fez, em arquivos mensais dentro de `backend/data/`. Senhas nunca são gravadas nos registros.
 - **Mesma origem.** A API não envia cabeçalhos de CORS: só o próprio site consegue chamá-la.
 - **Limites conhecidos.** Todos os usuários têm acesso aos mesmos dados; não há permissões por tela. As fotos em `uploads/` são servidas por endereço direto, sem passar pelo login.
 

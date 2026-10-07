@@ -9,6 +9,9 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
+// Datas gravadas pelo servidor (auditoria, config) no horário de Brasília
+date_default_timezone_set('America/Sao_Paulo');
+
 // --- Segurança: usuários e senhas ---
 // Ficam em backend/config.php, criado por backend/setup.php direto no servidor.
 // Esse arquivo NÃO vai para o Git (está no .gitignore).
@@ -204,12 +207,12 @@ function itemKey(string $collection, $item): ?string {
     return null;
 }
 
-// Aplica { upsert: [itens], remove: [itens] } em uma lista. Retorna a lista nova,
-// ou null se nada mudou. Itens novos vão para o fim (ou para o início, com $prepend).
-function applyListChanges(string $collection, array $current, $changes, bool $prepend = false): ?array {
+// Aplica { upsert: [itens], remove: [itens] } em uma lista. Retorna a lista nova, ou
+// null se nada mudou de fato. Itens novos vão para o fim (ou para o início, com $prepend).
+// $events recebe o que aconteceu: ['create'|'update'|'delete', chave, itemAntes, itemDepois].
+function applyListChanges(string $collection, array $current, $changes, bool $prepend, array &$events): ?array {
     $upserts = (is_array($changes) && isset($changes['upsert']) && is_array($changes['upsert'])) ? $changes['upsert'] : [];
     $removes = (is_array($changes) && isset($changes['remove']) && is_array($changes['remove'])) ? $changes['remove'] : [];
-    if (count($upserts) === 0 && count($removes) === 0) return null;
 
     $map = [];
     foreach ($current as $item) {
@@ -218,16 +221,132 @@ function applyListChanges(string $collection, array $current, $changes, bool $pr
     }
     foreach ($removes as $item) {
         $key = itemKey($collection, $item);
-        if ($key !== null) unset($map['k' . $key]);
+        if ($key === null || !isset($map['k' . $key])) continue;
+        $events[] = ['delete', $key, $map['k' . $key], null];
+        unset($map['k' . $key]);
     }
     $added = [];
     foreach ($upserts as $item) {
         $key = itemKey($collection, $item);
         if ($key === null) continue;
-        if (isset($map['k' . $key]) || !$prepend) $map['k' . $key] = $item;
-        else $added['k' . $key] = $item;
+        $item = withAuthorship($collection, $map['k' . $key] ?? null, $item);
+        if (isset($map['k' . $key])) {
+            if (json_encode($map['k' . $key]) === json_encode($item)) continue;
+            $events[] = ['update', $key, $map['k' . $key], $item];
+            $map['k' . $key] = $item;
+        } else {
+            $events[] = ['create', $key, null, $item];
+            if ($prepend) $added['k' . $key] = $item;
+            else $map['k' . $key] = $item;
+        }
     }
+    if (count($events) === 0) return null;
     return array_values($prepend ? $added + $map : $map);
+}
+
+// Lê, aplica, grava e registra na auditoria as alterações de uma lista.
+// Retorna false só se a gravação falhou.
+function syncList(string $collection, string $file, $changes): bool {
+    // Histórico de resolvidas: os mais novos ficam na frente e a lista é limitada
+    $isHistory = $collection === 'resolved_history';
+    $events    = [];
+    $updated   = applyListChanges($collection, readData($file, []), $changes, $isHistory, $events);
+    if ($updated === null) return true;
+    if ($isHistory) $updated = array_slice($updated, 0, 500);
+    if (!writeData($file, $updated)) return false;
+    auditListEvents($collection, $events);
+    return true;
+}
+
+// --- Auditoria: quem fez o quê e quando ---
+// Um arquivo por mês em backend/data (audit_AAAA-MM.json), com um registro JSON por
+// linha. Só se acrescenta ao fim: não existe ação para alterar ou apagar registros.
+// Campos: t (hora), u/n (login e nome de quem fez), e (o quê), a (ação), id, d (detalhes).
+$me = null;
+
+function auditLog(string $entity, string $action, $id, array $details = []): void {
+    global $dataDir, $me, $users;
+    $entry = ['t' => time(), 'u' => $me, 'n' => $users[$me]['name'] ?? $me,
+              'e' => $entity, 'a' => $action, 'id' => $id, 'd' => $details];
+    $line = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($line === false) return;
+    @file_put_contents($dataDir . 'audit_' . date('Y-m') . '.json', $line . "\n", FILE_APPEND | LOCK_EX);
+}
+
+// Campos de cada item que interessam à auditoria (o resto é controle interno do painel).
+const AUDIT_FIELDS = [
+    'visits'  => ['storeId', 'date', 'ruptures', 'extraPoints', 'isExtra', 'notes'],
+    'pedidos' => ['numeroPedido', 'clienteCodigo', 'clienteNome', 'storeId', 'numeroNF', 'dataPedido',
+                  'datasAgendamento', 'datasEntrega', 'observacoes', 'itens'],
+];
+
+function auditSnapshot(string $collection, array $item): array {
+    // Pedidos antigos guardam uma única data de agendamento/entrega: trata como lista de uma data
+    if ($collection === 'pedidos') {
+        foreach (['Agendamento', 'Entrega'] as $kind) {
+            if (!isset($item['datas' . $kind]) && !empty($item['data' . $kind])) $item['datas' . $kind] = [$item['data' . $kind]];
+        }
+    }
+    $snapshot = [];
+    foreach (AUDIT_FIELDS[$collection] as $field) {
+        $value = $item[$field] ?? null;
+        $snapshot[$field] = ($value === '' || $value === [] || $value === false) ? null : $value;
+    }
+    return $snapshot;
+}
+
+// Autoria de visitas e pedidos, gravada no próprio item: createdBy (quem adicionou e
+// quando) e lastChange (quem adicionou ou editou por último). O painel mostra isso ao
+// administrador nas listas e nos modais. Quem define é sempre o servidor: o que vier do
+// painel nesses campos é descartado, e uma gravação que não muda nenhum campo auditado
+// mantém os carimbos que já existiam.
+function withAuthorship(string $collection, ?array $old, array $new): array {
+    global $me, $users;
+    if (!isset(AUDIT_FIELDS[$collection])) {
+        // Baixa manual de ruptura: guarda quem resolveu
+        if ($collection === 'resolved_history') {
+            unset($new['resolvedBy']);
+            if ($old !== null && isset($old['resolvedBy'])) $new['resolvedBy'] = $old['resolvedBy'];
+            elseif ($old === null && !empty($new['resolvedManually'])) $new['resolvedBy'] = $users[$me]['name'] ?? $me;
+        }
+        return $new;
+    }
+    unset($new['createdBy'], $new['lastChange']);
+    $stamp = ['t' => time(), 'u' => $me, 'n' => $users[$me]['name'] ?? $me];
+    if ($old === null) {
+        $new['createdBy']  = $stamp;
+        $new['lastChange'] = $stamp + ['a' => 'create'];
+        return $new;
+    }
+    if (isset($old['createdBy'])) $new['createdBy'] = $old['createdBy'];
+    $changed = json_encode(auditSnapshot($collection, $old)) !== json_encode(auditSnapshot($collection, $new));
+    if ($changed) $new['lastChange'] = $stamp + ['a' => 'update'];
+    elseif (isset($old['lastChange'])) $new['lastChange'] = $old['lastChange'];
+    return $new;
+}
+
+function auditListEvents(string $collection, array $events): void {
+    $entities = ['visits' => 'visit', 'pedidos' => 'pedido'];
+    foreach ($events as [$type, $key, $old, $new]) {
+        if (isset($entities[$collection])) {
+            if ($type !== 'update') {
+                auditLog($entities[$collection], $type, $key, auditSnapshot($collection, $type === 'delete' ? $old : $new));
+                continue;
+            }
+            $before  = auditSnapshot($collection, $old);
+            $after   = auditSnapshot($collection, $new);
+            $changes = [];
+            foreach ($after as $field => $value) {
+                if (json_encode($before[$field]) !== json_encode($value)) $changes[$field] = [$before[$field], $value];
+            }
+            if (count($changes) === 0) continue;
+            $identity = array_intersect_key($after, array_flip(['storeId', 'date', 'numeroPedido', 'clienteNome']));
+            auditLog($entities[$collection], 'update', $key, $identity + ['changes' => $changes]);
+        } elseif ($collection === 'resolved_history' && $type === 'create' && !empty($new['resolvedManually'])) {
+            // Só a baixa feita à mão no painel; a resolução automática já aparece na visita que a causou
+            auditLog('rupture', 'resolve', $key, array_intersect_key($new, array_flip(['productId', 'productName', 'storeId', 'storeName', 'visitDate'])));
+        }
+    }
 }
 
 // --- Limite de senhas erradas por IP (login e troca de senha) ---
@@ -304,6 +423,8 @@ switch ($action) {
         session_regenerate_id(true);
         $_SESSION['user'] = $username;
         $_SESSION['pw']   = passwordFingerprint($users[$username]['hash']);
+        $me = $username;
+        auditLog('session', 'login', $username);
         echo json_encode(['ok' => true, 'user' => publicUser($username)]);
         exit;
 
@@ -357,6 +478,7 @@ if ($action === 'change_password') {
     clearPasswordFailures();
     session_regenerate_id(true);
     $_SESSION['pw'] = passwordFingerprint($users[$me]['hash']);
+    auditLog('user', 'password', $me, ['name' => $users[$me]['name'] ?? $me]);
     echo json_encode(['ok' => true]);
     exit;
 }
@@ -411,6 +533,19 @@ if (in_array($action, ['users_list', 'user_save', 'user_delete'], true)) {
         ];
         if ($countAdmins($updated) === 0) respondError(400, 'O sistema precisa de pelo menos um administrador.');
         if (!writeAuthUsers($configFile, $updated)) respondError(500, 'Não foi possível gravar o usuário no servidor.');
+
+        if ($isNew) {
+            auditLog('user', 'create', $username, ['name' => $name, 'role' => $role, 'admin' => $admin]);
+        } else {
+            $userChanges = [];
+            foreach (['name' => $name, 'role' => $role, 'admin' => $admin] as $field => $value) {
+                $previous = $field === 'admin' ? !empty($users[$username]['admin']) : ($users[$username][$field] ?? '');
+                if ($previous !== $value) $userChanges[$field] = [$previous, $value];
+            }
+            if (count($userChanges) > 0 || $password !== '') {
+                auditLog('user', 'update', $username, ['name' => $name, 'changes' => $userChanges, 'passwordReset' => $password !== '']);
+            }
+        }
         $users = $updated;
 
         // Administrador redefinindo a própria senha por aqui: mantém a sessão dele válida.
@@ -430,8 +565,52 @@ if (in_array($action, ['users_list', 'user_save', 'user_delete'], true)) {
     unset($updated[$username]);
     if ($countAdmins($updated) === 0) respondError(400, 'O sistema precisa de pelo menos um administrador.');
     if (!writeAuthUsers($configFile, $updated)) respondError(500, 'Não foi possível remover o usuário no servidor.');
+    auditLog('user', 'delete', $username, ['name' => $users[$username]['name'] ?? $username, 'role' => $users[$username]['role'] ?? '']);
     $users = $updated;
     echo json_encode(['ok' => true, 'users' => array_map('publicUser', array_keys($users))]);
+    exit;
+}
+
+// ── Auditoria: consulta (só administradores) ──
+if ($action === 'audit_log') {
+    if (empty($users[$me]['admin'])) {
+        respondError(403, 'Apenas administradores podem consultar a auditoria.');
+    }
+    $months = [];
+    foreach (glob($dataDir . 'audit_*.json') ?: [] as $file) {
+        if (preg_match('/audit_(\d{4}-\d{2})\.json$/', $file, $match)) $months[] = $match[1];
+    }
+    rsort($months);
+    $month = (string) ($_GET['month'] ?? '');
+    if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = $months[0] ?? date('Y-m');
+
+    $entries = [];
+    $path = $dataDir . 'audit_' . $month . '.json';
+    if (file_exists($path)) {
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $entry = json_decode($line, true);
+            if (is_array($entry)) $entries[] = $entry;
+        }
+    }
+    echo json_encode(['ok' => true, 'month' => $month, 'months' => $months, 'entries' => array_reverse($entries)]);
+    exit;
+}
+
+// ── Auditoria: ações que não passam pelo servidor (planos de rota e importação de CSV
+// ficam só no navegador), avisadas pelo próprio painel ──
+if ($action === 'audit_event') {
+    if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok' => false]); exit; }
+    $eventTypes = ['route_create' => ['route', 'create'], 'route_delete' => ['route', 'delete'], 'csv_import' => ['import', 'csv']];
+    $type = (string) ($body['type'] ?? '');
+    if (!isset($eventTypes[$type])) respondError(400, 'Evento de auditoria desconhecido.');
+
+    $details = [];
+    foreach ((isset($body['details']) && is_array($body['details'])) ? $body['details'] : [] as $field => $value) {
+        if (count($details) >= 12 || !is_scalar($value)) continue;
+        $details[substr((string) $field, 0, 40)] = is_string($value) ? substr($value, 0, 200) : $value;
+    }
+    auditLog($eventTypes[$type][0], $eventTypes[$type][1], $details['id'] ?? null, $details);
+    echo json_encode(['ok' => true]);
     exit;
 }
 
@@ -466,13 +645,7 @@ switch ($action) {
                   'validated_ruptures' => 'ruptures.json', 'resolved_history' => 'resolved_history.json'];
         $allSaved = true;
         foreach ($lists as $collection => $file) {
-            if (!isset($changes[$collection])) continue;
-            // Histórico de resolvidas: os mais novos ficam na frente e a lista é limitada
-            $isHistory = $collection === 'resolved_history';
-            $updated = applyListChanges($collection, readData($file, []), $changes[$collection], $isHistory);
-            if ($updated === null) continue;
-            if ($isHistory) $updated = array_slice($updated, 0, 500);
-            $allSaved = writeData($file, $updated) && $allSaved;
+            if (isset($changes[$collection])) $allSaved = syncList($collection, $file, $changes[$collection]) && $allSaved;
         }
 
         // Status das lojas: { set: { idDaLoja: {...} }, remove: [idDaLoja] }
@@ -492,9 +665,11 @@ switch ($action) {
             $add    = (isset($changes['dismissed']['add']) && is_array($changes['dismissed']['add'])) ? $changes['dismissed']['add'] : [];
             $remove = (isset($changes['dismissed']['remove']) && is_array($changes['dismissed']['remove'])) ? $changes['dismissed']['remove'] : [];
             if (count($add) > 0 || count($remove) > 0) {
-                $dismissed = array_diff(readData('dismissed.json', []), $remove);
-                $dismissed = array_values(array_unique(array_merge($dismissed, $add)));
-                $allSaved = writeData('dismissed.json', $dismissed) && $allSaved;
+                $before    = readData('dismissed.json', []);
+                $dismissed = array_values(array_unique(array_merge(array_diff($before, $remove), $add)));
+                $allSaved  = writeData('dismissed.json', $dismissed) && $allSaved;
+                $newlyDismissed = count(array_diff($dismissed, $before));
+                if ($newlyDismissed > 0) auditLog('notifications', 'clear', null, ['count' => $newlyDismissed]);
             }
         }
 
@@ -509,104 +684,34 @@ switch ($action) {
     // As ações save_* e delete_* abaixo são da versão anterior do painel. Continuam
     // aqui só para abas que ficaram abertas com o código antigo; o painel atual usa "sync".
 
-    // ── Salva visitas ─────────────────────────────────────────
+    // ── Salva visitas (junta pelo id; o que chega substitui o que havia) ──
     case 'save_visits':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
-        
-        $incomingVisits = $body['visits'] ?? [];
-        if (!is_array($incomingVisits)) $incomingVisits = [];
-        
-        // Estratégia de MERGE para evitar perda de dados
-        $currentVisits = readData('visits.json', []);
-        
-        // Mapeia as visitas atuais pelo ID para busca rápida
-        $visitsMap = [];
-        foreach ($currentVisits as $v) {
-            if (isset($v['id'])) {
-                $visitsMap[$v['id']] = $v;
-            }
-        }
-        
-        // Atualiza ou insere as visitas recebidas
-        foreach ($incomingVisits as $v) {
-            if (isset($v['id'])) {
-                $visitsMap[$v['id']] = $v;
-            }
-        }
-        
-        // Transforma de volta num array reindexado
-        $mergedVisits = array_values($visitsMap);
-        
-        $ok = writeData('visits.json', $mergedVisits);
-        echo json_encode(['ok' => $ok]);
+        $incoming = (isset($body['visits']) && is_array($body['visits'])) ? $body['visits'] : [];
+        echo json_encode(['ok' => syncList('visits', 'visits.json', ['upsert' => $incoming, 'remove' => []])]);
         break;
 
-    // ── Exclui visitas especificamente ────────────────────────
+    // ── Exclui visitas pelos ids ──────────────────────────────
     case 'delete_visits':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
-        
-        $idsToDelete = $body['visit_ids'] ?? [];
-        if (!is_array($idsToDelete) || empty($idsToDelete)) {
-            echo json_encode(['ok' => true]);
-            break;
-        }
-        
-        $currentVisits = readData('visits.json', []);
-        
-        // Filtra mantendo apenas visitas que NÃO estão na lista de exclusão
-        $filteredVisits = array_filter($currentVisits, function($v) use ($idsToDelete) {
-            return isset($v['id']) && !in_array($v['id'], $idsToDelete);
-        });
-        
-        $mergedVisits = array_values($filteredVisits);
-        $ok = writeData('visits.json', $mergedVisits);
-        echo json_encode(['ok' => $ok]);
+        $ids = (isset($body['visit_ids']) && is_array($body['visit_ids'])) ? $body['visit_ids'] : [];
+        $remove = array_map(function ($id) { return ['id' => $id]; }, $ids);
+        echo json_encode(['ok' => syncList('visits', 'visits.json', ['upsert' => [], 'remove' => $remove])]);
         break;
 
-    // ── Salva pedidos ──────────────────────────────────────────
+    // ── Salva pedidos (mesma regra das visitas) ───────────────
     case 'save_pedidos':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
-
-        $incomingPedidos = $body['pedidos'] ?? [];
-        if (!is_array($incomingPedidos)) $incomingPedidos = [];
-
-        // Estratégia de MERGE (mesmo padrão de save_visits) para evitar perda de dados
-        $currentPedidos = readData('pedidos.json', []);
-
-        $pedidosMap = [];
-        foreach ($currentPedidos as $p) {
-            if (isset($p['id'])) {
-                $pedidosMap[$p['id']] = $p;
-            }
-        }
-        foreach ($incomingPedidos as $p) {
-            if (isset($p['id'])) {
-                $pedidosMap[$p['id']] = $p;
-            }
-        }
-
-        $mergedPedidos = array_values($pedidosMap);
-        $ok = writeData('pedidos.json', $mergedPedidos);
-        echo json_encode(['ok' => $ok]);
+        $incoming = (isset($body['pedidos']) && is_array($body['pedidos'])) ? $body['pedidos'] : [];
+        echo json_encode(['ok' => syncList('pedidos', 'pedidos.json', ['upsert' => $incoming, 'remove' => []])]);
         break;
 
-    // ── Exclui pedidos especificamente ────────────────────────
+    // ── Exclui pedidos pelos ids ──────────────────────────────
     case 'delete_pedidos':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
-
-        $idsToDelete = $body['pedido_ids'] ?? [];
-        if (!is_array($idsToDelete) || empty($idsToDelete)) {
-            echo json_encode(['ok' => true]);
-            break;
-        }
-
-        $currentPedidos = readData('pedidos.json', []);
-        $filteredPedidos = array_filter($currentPedidos, function($p) use ($idsToDelete) {
-            return isset($p['id']) && !in_array($p['id'], $idsToDelete);
-        });
-
-        $ok = writeData('pedidos.json', array_values($filteredPedidos));
-        echo json_encode(['ok' => $ok]);
+        $ids = (isset($body['pedido_ids']) && is_array($body['pedido_ids'])) ? $body['pedido_ids'] : [];
+        $remove = array_map(function ($id) { return ['id' => $id]; }, $ids);
+        echo json_encode(['ok' => syncList('pedidos', 'pedidos.json', ['upsert' => [], 'remove' => $remove])]);
         break;
 
     // ── Salva atualizações leves de lojas ─────────────────────

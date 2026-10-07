@@ -140,6 +140,20 @@ const Storage = (function () {
         return accountRequest('user_delete', { username });
     }
 
+    // --- Auditoria ---
+    // Registros de um mês ("AAAA-MM"; sem mês, o mais recente). Só administradores.
+    // Retorna { ok: true, month, months, entries } | { ok: false, error }.
+    function loadAuditLog(month) {
+        return accountRequest('audit_log' + (month ? '&month=' + encodeURIComponent(month) : ''));
+    }
+
+    // Avisa o servidor de uma ação que só existe neste navegador (plano de rota, importação
+    // de CSV), para ela entrar na auditoria. O que é gravado no servidor já é registrado lá.
+    function logEvent(type, details) {
+        if (!isServer) return Promise.resolve(null);
+        return call('audit_event', { type, details }, false, false);
+    }
+
     async function logout() {
         if (!isServer) return;
         _pendingCalls = [];
@@ -339,6 +353,8 @@ const Storage = (function () {
         listUsers,
         saveUser,
         deleteUser,
+        loadAuditLog,
+        logEvent,
         logout,
         sync,
         uploadPhoto,

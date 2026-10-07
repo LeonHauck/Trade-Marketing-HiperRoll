@@ -18,12 +18,20 @@
 
 Vale manter pelo menos dois administradores, para o item 6 nunca ser necessário.
 
+## Auditoria
+
+- O servidor registra quem adicionou, editou ou excluiu visitas e pedidos, quem deu baixa manual em rupturas, quem criou ou excluiu planos de rota, quem importou CSV, quem mexeu em usuários e senhas, e cada entrada no sistema.
+- Os registros ficam em `backend/data/audit_AAAA-MM.json`, um arquivo por mês. Senhas não são gravadas.
+- A consulta é pela aba **Auditoria**, só para administradores. O painel não tem como editar nem apagar registros; isso só é possível mexendo nos arquivos pelo gerenciador da hospedagem.
+- O registro começa na data em que esta versão foi publicada: o que foi feito antes não tem autoria.
+- Faça backup da pasta `backend/data/` de tempos em tempos; os arquivos de auditoria vão junto.
+
 ## O que nunca deve ir para o Git
 
 | Item | Onde fica | Protegido por |
 |---|---|---|
 | Usuários e hashes das senhas | `backend/config.php` | `.gitignore` |
-| Visitas, pedidos, rupturas, sessões | `backend/data/` | `.gitignore` e `backend/.htaccess` |
+| Visitas, pedidos, rupturas, sessões, auditoria | `backend/data/` | `.gitignore` e `backend/.htaccess` |
 | Fotos das visitas | `uploads/` | `.gitignore` |
 
 Antes de cada commit, confira com `git status` se nenhum desses caminhos aparece.
@@ -35,7 +43,8 @@ Versões antigas deste repositório tinham uma senha e um token escritos no cód
 ## Limites conhecidos
 
 - Todos os usuários enxergam e alteram os mesmos dados; não há permissões por tela. A única distinção é quem pode gerenciar usuários.
-- O sistema não registra qual usuário lançou cada visita ou pedido.
+- Planos de rota e importações de CSV ficam só no navegador de quem os fez; a auditoria registra que aconteceram, mas depende de o painel conseguir avisar o servidor naquele momento.
+- Com login compartilhado entre pessoas, a auditoria aponta o login, não a pessoa.
 - As fotos em `uploads/` são acessíveis por endereço direto, sem login. Não fotografe nada sensível.
 - `backend/test_write.php` é uma página de diagnóstico que não exige login. Envie-a ao servidor só quando precisar investigar um problema de gravação e apague em seguida.
 

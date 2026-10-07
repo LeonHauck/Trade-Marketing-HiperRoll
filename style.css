@@ -1502,6 +1502,59 @@ select:focus, textarea:focus, input:focus {
     flex-shrink: 0;
 }
 
+/* Aba "Auditoria" */
+.audit-action {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+    background: var(--bg-light);
+    color: var(--text-muted);
+}
+
+.audit-action.create { background: #e8f5e9; color: #2e7d32; }
+.audit-action.update { background: var(--accent-blue); color: var(--primary-blue); }
+.audit-action.delete { background: var(--accent-red); color: var(--primary-red); }
+
+.audit-details {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    min-width: 240px;
+}
+
+.audit-details div + div {
+    margin-top: 3px;
+}
+
+/* Autoria (quem adicionou / quem editou), visível só para o administrador */
+.authorship {
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--accent-blue);
+    color: var(--primary-blue);
+    font-size: 0.85rem;
+}
+
+.authorship div + div {
+    margin-top: 4px;
+}
+
+.authorship i {
+    width: 16px;
+    font-size: 0.75rem;
+}
+
+.row-author {
+    margin-top: 3px;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
 /* Datas múltiplas (agendamento/entrega) no modal de pedido */
 .pedido-date-row {
     display: flex;
