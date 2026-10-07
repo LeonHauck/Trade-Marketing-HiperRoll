@@ -1,9 +1,9 @@
 <?php
 // ============================================================
 // Trade Marketing Hiperroll — Configuração inicial do acesso
-// Cria backend/config.php com o usuário e o hash da senha.
+// Cria backend/config.php com o primeiro usuário (administrador).
 // Só funciona enquanto config.php NÃO existir; depois disso fica bloqueada.
-// Para trocar a senha: apague backend/config.php no servidor e abra esta página de novo.
+// Os demais usuários são criados dentro do painel, na janela "Usuários".
 // ============================================================
 
 header('Content-Type: text/html; charset=utf-8');
@@ -31,37 +31,54 @@ function page(string $title, string $bodyHtml): void {
 
 if (file_exists($configFile)) {
     http_response_code(403);
-    page('Acesso já configurado', '<p>O usuário e a senha já foram definidos. Esta página está bloqueada.</p>'
-        . '<p>Para trocar a senha, apague o arquivo <code>backend/config.php</code> pelo Gerenciador de Arquivos da hospedagem e abra esta página novamente.</p>'
+    page('Acesso já configurado', '<p>O primeiro usuário já foi definido. Esta página está bloqueada.</p>'
+        . '<p>Novos usuários e trocas de senha são feitos dentro do painel. Se a senha do administrador foi esquecida, apague o arquivo <code>backend/config.php</code> pelo Gerenciador de Arquivos da hospedagem e abra esta página novamente (os outros usuários precisarão ser recriados).</p>'
         . '<p><a href="../">Ir para o sistema</a></p>');
 }
 
 $error    = '';
 $username = '';
+$name     = '';
+$role     = DEFAULT_USER_ROLE;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim((string) ($_POST['username'] ?? ''));
+    $name     = trim((string) ($_POST['name'] ?? ''));
+    $role     = trim((string) ($_POST['role'] ?? ''));
     $password = (string) ($_POST['password'] ?? '');
     $confirm  = (string) ($_POST['confirm'] ?? '');
 
-    if (!preg_match('/^[A-Za-z0-9._-]{3,40}$/', $username)) {
+    if (!preg_match(USERNAME_PATTERN, $username)) {
         $error = 'O usuário deve ter de 3 a 40 caracteres, usando apenas letras, números, ponto, hífen ou sublinhado.';
+    } elseif (strlen($name) > 120 || strlen($role) > 120) {
+        $error = 'O nome ou o cargo informado é longo demais.';
     } elseif (strlen($password) < MIN_PASSWORD_LENGTH) {
         $error = 'A senha deve ter pelo menos ' . MIN_PASSWORD_LENGTH . ' caracteres.';
     } elseif ($password !== $confirm) {
         $error = 'A senha e a confirmação não são iguais.';
-    } elseif (writeAuthConfig($configFile, $username, $password, true) === null) {
-        $error = 'Não foi possível criar backend/config.php. Verifique se a pasta backend aceita escrita.';
     } else {
-        page('Acesso configurado', '<p>Usuário e senha gravados com sucesso. A partir de agora o sistema só abre com esse login.</p>'
-            . '<p><a href="../">Ir para o sistema</a></p>');
+        $firstUser = [strtolower($username) => [
+            'name'  => $name !== '' ? $name : displayNameFromUsername($username),
+            'role'  => $role,
+            'hash'  => hashPassword($password),
+            'admin' => true,
+        ]];
+        if (!writeAuthUsers($configFile, $firstUser, true)) {
+            $error = 'Não foi possível criar backend/config.php. Verifique se a pasta backend aceita escrita.';
+        } else {
+            page('Acesso configurado', '<p>Usuário administrador gravado com sucesso. A partir de agora o sistema só abre com login.</p>'
+                . '<p>Para cadastrar outras pessoas, entre no painel e use o botão <strong>Usuários</strong>.</p>'
+                . '<p><a href="../">Ir para o sistema</a></p>');
+        }
     }
 }
 
-page('Configurar acesso', '<p>Defina o usuário e a senha que serão usados para entrar no sistema.</p>'
+page('Configurar acesso', '<p>Defina o primeiro usuário do sistema. Ele será o administrador e poderá cadastrar os demais.</p>'
     . ($error ? '<div class="error">' . htmlspecialchars($error) . '</div>' : '')
     . '<form method="post" autocomplete="off">'
-    . '<label for="username">Usuário</label><input id="username" name="username" value="' . htmlspecialchars($username) . '" required>'
+    . '<label for="username">Usuário (login)</label><input id="username" name="username" value="' . htmlspecialchars($username) . '" required>'
+    . '<label for="name">Nome completo</label><input id="name" name="name" value="' . htmlspecialchars($name) . '">'
+    . '<label for="role">Cargo</label><input id="role" name="role" value="' . htmlspecialchars($role) . '">'
     . '<label for="password">Senha (mínimo ' . MIN_PASSWORD_LENGTH . ' caracteres)</label><input id="password" name="password" type="password" required>'
     . '<label for="confirm">Confirmar senha</label><input id="confirm" name="confirm" type="password" required>'
     . '<button type="submit">Salvar</button></form>');

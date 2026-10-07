@@ -16,9 +16,6 @@ const Storage = (function () {
     // Ambiente de desenvolvimento: sem backend PHP respondendo, o painel abre só com os dados locais
     const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
-    // Flag para evitar múltiplos syncs simultâneos
-    let _syncing = false;
-
     // Sessão que expira com o painel aberto: avisa o app uma vez e guarda as gravações
     // recusadas para reenviar logo após o novo login (ver login()). Quem abre a página
     // sem estar logado ('none') não entra nessa fila — o estado local dele pode estar velho.
@@ -32,7 +29,8 @@ const Storage = (function () {
     }
 
     // --- Helper de chamada à API ---
-    async function call(action, body = null, isFormData = false) {
+    // retryAfterLogin: se a sessão tiver expirado, guarda a gravação para reenviar no novo login.
+    async function call(action, body = null, isFormData = false, retryAfterLogin = true) {
         if (!isServer) return null; // Sem servidor, usa só localStorage
         try {
             const opts = {
@@ -53,7 +51,7 @@ const Storage = (function () {
                     _sessionState = 'expired';
                     if (_onUnauthorized) _onUnauthorized();
                 }
-                if (_sessionState === 'expired' && body && _pendingCalls.length < MAX_PENDING_CALLS) {
+                if (_sessionState === 'expired' && body && retryAfterLogin && _pendingCalls.length < MAX_PENDING_CALLS) {
                     _pendingCalls.push([action, body, isFormData]);
                 }
                 return null;
@@ -83,7 +81,8 @@ const Storage = (function () {
         }
     }
 
-    // Retorna { logged_in: true|false, error? } ou null se o backend não respondeu.
+    // Retorna { logged_in: true|false, user?, error? } ou null se o backend não respondeu.
+    // "user" é { username, name, role, admin } de quem está logado.
     // Um erro do backend (ex.: sistema ainda não configurado) conta como "não logado".
     async function checkSession() {
         if (!isServer) return null;
@@ -93,7 +92,7 @@ const Storage = (function () {
         return data.ok ? data : { logged_in: false, error: data.error };
     }
 
-    // Retorna { ok: true } | { ok: true, local: true } (sem backend, só em desenvolvimento) | { ok: false, error }
+    // Retorna { ok: true, user } | { ok: true, local: true } (sem backend, só em desenvolvimento) | { ok: false, error }
     async function login(username, password) {
         if (!isServer) return { ok: true, local: true };
         const data = await authRequest('login', { username, password });
@@ -104,7 +103,7 @@ const Storage = (function () {
             for (const [action, body, isFormData] of pending) {
                 await call(action, body, isFormData);
             }
-            return { ok: true };
+            return { ok: true, user: data.user };
         }
         if (data && data.error) return { ok: false, error: data.error };
         if (isLocalhost) return { ok: true, local: true };
@@ -119,79 +118,186 @@ const Storage = (function () {
         return { ok: false, error: (data && data.error) || 'Não foi possível conectar ao servidor. Tente novamente em instantes.' };
     }
 
+    // --- Cadastro de usuários (só administradores; o servidor confere) ---
+    // Todas retornam { ok: true, users, user? } | { ok: false, error }.
+    async function accountRequest(action, body = null) {
+        if (!isServer) return { ok: false, error: 'O cadastro de usuários só funciona com o sistema publicado no servidor.' };
+        const data = await authRequest(action, body);
+        if (data && data.ok) return data;
+        return { ok: false, error: (data && data.error) || 'Não foi possível conectar ao servidor. Tente novamente em instantes.' };
+    }
+
+    function listUsers() {
+        return accountRequest('users_list');
+    }
+
+    // Sem "original" cria um usuário novo; com "original" altera o existente (a senha em branco é mantida).
+    function saveUser({ original, username, name, role, admin, password }) {
+        return accountRequest('user_save', { original, username, name, role, admin, password });
+    }
+
+    function deleteUser(username) {
+        return accountRequest('user_delete', { username });
+    }
+
     async function logout() {
         if (!isServer) return;
         _pendingCalls = [];
         _sessionState = 'none';
+        _base = null;
+        _version = null;
         await authRequest('logout', {});
     }
 
-    // --- Carrega todo o estado do servidor na inicialização ---
-    async function loadFromServer() {
-        if (!isServer) return null;
-        const data = await call('load');
-        if (data && data.ok) {
-            console.log('[Storage] Dados carregados do servidor com sucesso.');
-            return data;
+    // --- Sincronização por diferenças ---
+    // O painel guarda uma "foto" do último estado que recebeu do servidor (_base). Para
+    // gravar, compara o estado atual com essa foto e envia só o que mudou; o servidor
+    // aplica e devolve o estado completo, já com o que os outros usuários gravaram.
+    // Assim uma tela desatualizada nunca apaga o que ela ainda não conhecia.
+
+    // Chave que identifica um item em cada lista (as mesmas regras de backend/api.php).
+    const LIST_KEYS = {
+        visits: v => String(v.id),
+        pedidos: p => String(p.id),
+        validated_ruptures: r => `${r.productId}:${r.storeId}`,
+        resolved_history: h => `${h.visitId || h.id}:${h.productId}:${h.storeId}`
+    };
+    const OUTBOX_KEY = 'hr_sync_outbox';
+
+    let _base = null;    // foto do último estado recebido do servidor
+    let _version = null; // versão dos dados do servidor nesse momento
+    let _syncChain = Promise.resolve();
+
+    // "Foto" comparável de um estado: cada item vira texto, indexado pela sua chave.
+    function snapshot(state) {
+        const snap = { store_updates: new Map(), dismissed: new Set(state.dismissed || []) };
+        Object.keys(LIST_KEYS).forEach(name => {
+            snap[name] = new Map();
+            (state[name] || []).forEach(item => {
+                if (item) snap[name].set(LIST_KEYS[name](item), JSON.stringify(item));
+            });
+        });
+        Object.entries(state.store_updates || {}).forEach(([id, value]) => {
+            snap.store_updates.set(id, JSON.stringify(value));
+        });
+        return snap;
+    }
+
+    // O que mudou de uma foto para a outra, no formato da ação "sync" — ou null se nada mudou.
+    function diff(from, to) {
+        const changes = {};
+        Object.keys(LIST_KEYS).forEach(name => {
+            const upsert = [], remove = [];
+            to[name].forEach((json, key) => { if (from[name].get(key) !== json) upsert.push(JSON.parse(json)); });
+            from[name].forEach((json, key) => { if (!to[name].has(key)) remove.push(JSON.parse(json)); });
+            if (upsert.length > 0 || remove.length > 0) changes[name] = { upsert, remove };
+        });
+
+        const set = {}, removeStores = [];
+        to.store_updates.forEach((json, id) => { if (from.store_updates.get(id) !== json) set[id] = JSON.parse(json); });
+        from.store_updates.forEach((json, id) => { if (!to.store_updates.has(id)) removeStores.push(id); });
+        if (Object.keys(set).length > 0 || removeStores.length > 0) changes.store_updates = { set, remove: removeStores };
+
+        const add = [...to.dismissed].filter(x => !from.dismissed.has(x));
+        const removeDismissed = [...from.dismissed].filter(x => !to.dismissed.has(x));
+        if (add.length > 0 || removeDismissed.length > 0) changes.dismissed = { add, remove: removeDismissed };
+
+        return Object.keys(changes).length > 0 ? changes : null;
+    }
+
+    // Aplica um conjunto de alterações sobre um estado (mesma regra do servidor).
+    function applyChanges(state, changes) {
+        const result = { ...state };
+        Object.keys(LIST_KEYS).forEach(name => {
+            const c = changes[name];
+            if (!c) return;
+            const keyOf = LIST_KEYS[name];
+            const removed = new Set(c.remove.map(keyOf));
+            const upserts = new Map(c.upsert.map(item => [keyOf(item), item]));
+            const kept = (state[name] || []).filter(item => !removed.has(keyOf(item))).map(item => {
+                const key = keyOf(item);
+                if (!upserts.has(key)) return item;
+                const replacement = upserts.get(key);
+                upserts.delete(key);
+                return replacement;
+            });
+            // Histórico de resolvidas: os mais novos ficam na frente
+            result[name] = name === 'resolved_history' ? [...upserts.values(), ...kept] : [...kept, ...upserts.values()];
+        });
+        if (changes.store_updates) {
+            const updates = { ...(state.store_updates || {}) };
+            changes.store_updates.remove.forEach(id => { delete updates[id]; });
+            Object.assign(updates, changes.store_updates.set);
+            result.store_updates = updates;
         }
-        return null;
-    }
-
-    // --- Sincroniza visitas para o servidor (background) ---
-    async function syncVisits(visits) {
-        return await call('save_visits', { visits });
-    }
-
-    // --- Deleta visitas especificamente no servidor ---
-    async function deleteVisits(visitIds) {
-        return await call('delete_visits', { visit_ids: visitIds });
-    }
-
-    // --- Sincroniza pedidos para o servidor ---
-    async function syncPedidos(pedidos) {
-        return await call('save_pedidos', { pedidos });
-    }
-
-    // --- Deleta pedidos especificamente no servidor ---
-    async function deletePedidos(pedidoIds) {
-        return await call('delete_pedidos', { pedido_ids: pedidoIds });
-    }
-
-    // --- Sincroniza atualizações de lojas para o servidor ---
-    async function syncStoreUpdates(updatesMap) {
-        return await call('save_store_updates', { updates: updatesMap });
-    }
-
-    // --- Sincroniza rupturas validadas ---
-    async function syncRuptures(ruptures) {
-        return await call('save_ruptures', { ruptures });
-    }
-
-    // --- Sincroniza notificações dispensadas ---
-    async function syncDismissed(dismissed) {
-        return await call('save_dismissed', { dismissed });
-    }
-
-    // --- Sincroniza histórico de rupturas resolvidas ---
-    async function syncResolvedHistory(resolvedHistory) {
-        return await call('save_resolved_history', { resolved_history: resolvedHistory });
-    }
-
-    // --- Faz sync completo de todos os dados de uma vez ---
-    async function syncAll(visits, storeUpdatesMap, ruptures, dismissed, resolvedHistory) {
-        if (_syncing) return; // evita sobreposição
-        _syncing = true;
-        try {
-            await Promise.all([
-                syncVisits(visits),
-                syncStoreUpdates(storeUpdatesMap),
-                syncRuptures(ruptures),
-                syncDismissed(dismissed),
-                syncResolvedHistory(resolvedHistory),
-            ]);
-        } finally {
-            _syncing = false;
+        if (changes.dismissed) {
+            const removed = new Set(changes.dismissed.remove);
+            result.dismissed = [...new Set([...(state.dismissed || []).filter(x => !removed.has(x)), ...changes.dismissed.add])];
         }
+        return result;
+    }
+
+    // Alterações que foram geradas mas ainda não confirmadas pelo servidor. Ficam gravadas
+    // no navegador para serem reenviadas se a página for fechada antes da resposta.
+    async function readOutbox() {
+        try { return (await IndexedDBHelper.get(OUTBOX_KEY)) || null; } catch (e) { return null; }
+    }
+
+    async function writeOutbox(changes) {
+        try { await IndexedDBHelper.set(OUTBOX_KEY, changes); } catch (e) { /* segue sem a cópia de segurança */ }
+    }
+
+    async function doSync(getLocalState) {
+        let sent = null;
+        let changes;
+        if (_base) {
+            sent = snapshot(getLocalState());
+            changes = diff(_base, sent);
+        } else {
+            // Primeira sincronização desta página: reenvia o que ficou sem confirmar na vez anterior
+            changes = await readOutbox();
+        }
+
+        let server;
+        if (changes) {
+            await writeOutbox(changes);
+            server = await call('sync', { changes }, false, false);
+        } else {
+            if (_base) {
+                const check = await call('version');
+                if (!check || !check.ok) return null;
+                if (check.version === _version) return null; // ninguém gravou nada desde a última vez
+            }
+            server = await call('load');
+        }
+        if (!server || !server.ok) return null;
+        if (changes) await writeOutbox(null);
+
+        _base = snapshot(server);
+        _version = server.version;
+
+        // O que o usuário alterou enquanto a resposta não chegava é reaplicado por cima
+        const now = snapshot(getLocalState());
+        const inFlight = sent ? diff(sent, now) : null;
+        const state = inFlight ? applyChanges(server, inFlight) : server;
+        const changed = diff(now, inFlight ? snapshot(state) : _base) !== null;
+        return { state, changed, pending: inFlight !== null };
+    }
+
+    // Envia as alterações locais e busca as dos outros usuários.
+    // getLocalState() devolve { visits, pedidos, validated_ruptures, resolved_history, store_updates, dismissed }.
+    // Retorna null se não havia nada a fazer (ou se o servidor não respondeu), ou
+    // { state, changed, pending }: o estado a adotar, se ele difere do que está na tela,
+    // e se ficou alguma alteração local para a próxima rodada.
+    // Uma sincronização por vez: as pedidas no meio do caminho entram em fila.
+    function sync(getLocalState) {
+        if (!isServer) return Promise.resolve(null);
+        const run = _syncChain.then(() => doSync(getLocalState));
+        _syncChain = run.catch(() => null);
+        return run.catch(err => {
+            console.warn('[Storage] Falha na sincronização:', err);
+            return null;
+        });
     }
 
     // --- Upload de foto para o servidor ---
@@ -223,11 +329,6 @@ const Storage = (function () {
         return await call('delete_photos', { visit_id: String(visitId) });
     }
 
-    // --- Expõe informações sobre o ambiente ---
-    function getMode() {
-        return isServer ? 'server' : 'local';
-    }
-
     // API pública
     return {
         isServer,
@@ -235,20 +336,13 @@ const Storage = (function () {
         checkSession,
         login,
         changePassword,
+        listUsers,
+        saveUser,
+        deleteUser,
         logout,
-        loadFromServer,
-        syncVisits,
-        deleteVisits,
-        syncPedidos,
-        deletePedidos,
-        syncStoreUpdates,
-        syncRuptures,
-        syncDismissed,
-        syncResolvedHistory,
-        syncAll,
+        sync,
         uploadPhoto,
         deleteVisitPhotos,
-        getMode,
     };
 
 })();

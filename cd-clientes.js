@@ -3,6 +3,13 @@
 // pra onde o pedido pode ir (ex: código 9268 = ATACADAO SA = rede ATACADAO BA). O campo
 // "Código do Cliente" do modal de pedido busca aqui pra sugerir o código, preencher o nome
 // do cliente automaticamente e restringir a busca de "Loja" às redes listadas.
+// Destinos de entrega que NÃO são lojas (centros de distribuição). Aparecem apenas como
+// opção no campo "Loja" do pedido, para os clientes cuja rede coincide com "network" —
+// não entram em visitas, rotas, dashboard nem na contagem de lojas.
+const PEDIDO_CD_DESTINATIONS = [
+    { id: "cd-bahamas-01-zona-da-mata", name: "01 - CD ZONA DA MATA", network: "BAHAMAS" }
+];
+
 const CD_CLIENT_MAP = {
     "9268": {
         clienteNome: "ATACADAO SA",

@@ -1523,6 +1523,33 @@ const HIPERROLL_PRODUCTS_CATALOG = [
     "ncm": "39232190"
   },
   {
+    "codigo": "P-09816",
+    "descricao": "SACO P/ LIXO ROLO PT BAHAMAS 30L RL/50 FD/20",
+    "linha": "Saco para lixo - Rolo",
+    "categoria": "",
+    "unidade_venda": "Fardo",
+    "peso_kg": null,
+    "ncm": ""
+  },
+  {
+    "codigo": "P-09817",
+    "descricao": "SACO P/ LIXO ROLO PT BAHAMAS 50L RL/30 FD/20",
+    "linha": "Saco para lixo - Rolo",
+    "categoria": "",
+    "unidade_venda": "Fardo",
+    "peso_kg": null,
+    "ncm": ""
+  },
+  {
+    "codigo": "P-09818",
+    "descricao": "SACO P/ LIXO ROLO PT BAHAMAS 100L RL/15 FD/20",
+    "linha": "Saco para lixo - Rolo",
+    "categoria": "",
+    "unidade_venda": "Fardo",
+    "peso_kg": null,
+    "ncm": ""
+  },
+  {
     "codigo": "P-04530",
     "descricao": "BOBINA PLAST COND LEVE 20 PT PCT/4 RL/25 SACOS",
     "linha": "Saco para lixo - Condominio",

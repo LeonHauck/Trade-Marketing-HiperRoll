@@ -247,29 +247,114 @@ async function persistPedidos() {
     } catch (e) {
         console.warn('Falha ao salvar pedidos localmente:', e);
     }
-    if (typeof Storage !== 'undefined' && Storage.isServer) {
-        try {
-            await Storage.syncPedidos(pedidos);
-        } catch (err) {
-            console.warn('[Storage] Falha ao sincronizar pedidos:', err);
-        }
-    }
+    await syncWithServer();
 }
 
 async function syncAppStateServer() {
-    if (typeof Storage === 'undefined' || !Storage.isServer) return;
-    const updatesMap = {};
+    await syncWithServer();
+}
+
+// ---------- Sincronização com o servidor (vários usuários ao mesmo tempo) ----------
+// O que é compartilhado entre os usuários. Storage.sync() compara isto com o último
+// estado recebido do servidor e envia só as diferenças (ver storage.js).
+function collectSyncState() {
+    const storeUpdates = {};
     stores.forEach(s => {
         if (s.lastVisit || s.currentStatus) {
-            updatesMap[s.id] = { lastVisit: s.lastVisit, currentStatus: s.currentStatus };
+            storeUpdates[s.id] = { lastVisit: s.lastVisit, currentStatus: s.currentStatus };
         }
     });
+    return {
+        visits,
+        pedidos,
+        validated_ruptures: validatedRuptures,
+        resolved_history: resolvedRupturesHistory,
+        dismissed: dismissedNotifications,
+        store_updates: storeUpdates
+    };
+}
 
-    try {
-        await Storage.syncAll(visits, updatesMap, validatedRuptures, dismissedNotifications, resolvedRupturesHistory);
-    } catch (err) {
-        console.warn('[Storage] Falha ao sincronizar com servidor:', err);
+// Adota o estado devolvido pelo servidor (já com o que os outros usuários gravaram).
+function applyServerState(state) {
+    visits = state.visits || [];
+    invalidateVisitsIndex();
+    pedidos = state.pedidos || [];
+    validatedRuptures = state.validated_ruptures || [];
+    resolvedRupturesHistory = state.resolved_history || [];
+    dismissedNotifications = state.dismissed || [];
+
+    const storeUpdates = state.store_updates || {};
+    stores = stores.map(s => {
+        const upd = storeUpdates[s.id];
+        return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : s;
+    });
+
+    Object.entries(state.photo_map || {}).forEach(([visitId, photos]) => {
+        photoCache[visitId] = photos;
+    });
+
+    saveAppStateLocally(); // fire and forget
+    persistLocalStorageJson('hr_pedidos', pedidos);
+}
+
+// Redesenha só os dados da tela atual, sem mexer nos filtros que o usuário preencheu.
+function refreshCurrentView() {
+    // Com visitas marcadas para exclusão, redesenhar a tabela desmarcaria tudo
+    if (document.querySelector('.visit-checkbox:checked')) return;
+
+    if (currentPage === 'dashboard') {
+        renderDashboard();
+        renderAttentionRanking();
+        renderCriticalDelays();
+    } else if (currentPage === 'reports') {
+        renderReportsTable();
+    } else if (currentPage === 'history') {
+        renderHistoryViewData();
+    } else if (currentPage === 'stores') {
+        renderStorePageItems();
+    } else if (currentPage === 'products') {
+        renderProductsTable();
+    } else if (currentPage === 'pedidos') {
+        renderPedidosTable();
     }
+    updateStats();
+    if (currentPage === 'dashboard') filterRupturesByStore(); // respeita a busca por loja do painel de alertas
+    updateNotifications();
+}
+
+// Envia o que este usuário alterou e traz o que os outros gravaram. É chamada após
+// cada gravação, antes de cada alteração (para trabalhar sobre dados atuais) e
+// periodicamente (startServerPolling). Retorna true se a tela recebeu novidades.
+async function syncWithServer() {
+    if (typeof Storage === 'undefined' || !Storage.isServer || safeGetItem('hr_logged_in') !== 'true') return false;
+    const result = await Storage.sync(collectSyncState);
+    if (!result) return false;
+    if (result.changed) {
+        applyServerState(result.state);
+        refreshCurrentView();
+    }
+    if (result.pending) await syncWithServer(); // algo foi alterado durante o envio: manda agora
+    return result.changed;
+}
+
+const SERVER_POLL_INTERVAL_MS = 60000;   // com a tela visível, busca novidades a cada minuto
+const SERVER_POLL_MIN_GAP_MS = 5000;     // ao voltar para a aba, não repete se acabou de buscar
+let serverPollingStarted = false;
+let lastServerPollAt = 0;
+
+function startServerPolling() {
+    if (serverPollingStarted) return;
+    serverPollingStarted = true;
+
+    const poll = () => {
+        if (document.visibilityState !== 'visible') return;
+        if (Date.now() - lastServerPollAt < SERVER_POLL_MIN_GAP_MS) return;
+        lastServerPollAt = Date.now();
+        syncWithServer();
+    };
+    setInterval(poll, SERVER_POLL_INTERVAL_MS);
+    document.addEventListener('visibilitychange', poll);
+    window.addEventListener('focus', poll);
 }
 
 async function persistAppState() {
@@ -645,6 +730,7 @@ async function hydrateResolvedHistoryFromVisits() {
 
 // Initialize App
 async function init() {
+    applyCurrentUser(readCachedUser()); // antes de qualquer await: a barra lateral já abre com o nome certo
     await initializeAppDatabase();
     setupEventListeners();
     await syncLoginStateWithServer();
@@ -652,67 +738,11 @@ async function init() {
     populateGlobalNetworkFilter();
     checkLoginStatus();
 
-    // Sincronizacao com o Servidor HostGator (se disponível) — só com login válido
+    // Sincronização com o servidor (se disponível) — só com login válido. Na primeira
+    // vez o estado do servidor substitui o local; depois o painel segue buscando novidades.
     if (typeof Storage !== 'undefined' && Storage.isServer && safeGetItem('hr_logged_in') === 'true') {
-        console.log("[Storage] Sincronizando com Servidor...");
-        const serverData = await Storage.loadFromServer();
-        if (serverData) {
-            // Merge server state with local state to avoid overwriting local resolutions.
-            if (serverData.visits) { visits = serverData.visits; invalidateVisitsIndex(); }
-
-            // Build resolved keys from server and local resolved history
-            const serverResolved = Array.isArray(serverData.resolved_history) ? serverData.resolved_history : [];
-            const localResolved = Array.isArray(resolvedRupturesHistory) ? resolvedRupturesHistory : [];
-            const resolvedKeys = new Set();
-            serverResolved.concat(localResolved).forEach(item => {
-                if (item && item.productId && item.storeId) resolvedKeys.add(`${item.productId}:${item.storeId}`);
-            });
-
-            // Merge validated ruptures but exclude those already resolved
-            const serverValidated = Array.isArray(serverData.validated_ruptures) ? serverData.validated_ruptures : [];
-            const localValidated = Array.isArray(validatedRuptures) ? validatedRuptures : [];
-            const mergedMap = new Map();
-
-            serverValidated.concat(localValidated).forEach(r => {
-                if (!r || typeof r.productId === 'undefined' || typeof r.storeId === 'undefined') return;
-                const key = `${r.productId}:${r.storeId}`;
-                if (resolvedKeys.has(key)) return; // skip resolved
-                if (!mergedMap.has(key)) mergedMap.set(key, r);
-            });
-
-            validatedRuptures = Array.from(mergedMap.values());
-
-            // Merge resolved history preferring server then local (unique by visitId+productId+storeId)
-            const histMap = new Map();
-            serverResolved.concat(localResolved).forEach(h => {
-                const k = `${h.visitId || h.id}:${h.productId}:${h.storeId}`;
-                if (!histMap.has(k)) histMap.set(k, h);
-            });
-            resolvedRupturesHistory = Array.from(histMap.values()).slice(0, 500);
-
-            if (serverData.dismissed) dismissedNotifications = serverData.dismissed;
-            if (Array.isArray(serverData.pedidos)) {
-                pedidos = serverData.pedidos;
-                await persistLocalStorageJson('hr_pedidos', pedidos);
-            }
-
-            const sUpdates = serverData.store_updates || {};
-            stores = STORES_DATA.map(s => {
-                const upd = sUpdates[s.id];
-                return applyStoreGeo(upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : { ...s });
-            });
-            
-            if (serverData.photo_map) {
-                Object.keys(serverData.photo_map).forEach(vId => {
-                    photoCache[vId] = serverData.photo_map[vId];
-                });
-            }
-
-            // Persist merged local state so reloads use the merged result
-            await persistLocalStorageJson('hr_validated_ruptures', validatedRuptures);
-            await persistLocalStorageJson('hr_resolved_ruptures_history', resolvedRupturesHistory);
-            await persistLocalStorageJson('hr_visits', visits);
-        }
+        await syncWithServer();
+        startServerPolling();
     }
 
     cleanPersistedDataForRemovedStores();
@@ -738,10 +768,66 @@ async function syncLoginStateWithServer() {
     if (!session) return; // backend não respondeu: mantém o estado local
     if (session.logged_in) {
         safeSetItem('hr_logged_in', 'true');
+        setCurrentUser(session.user);
     } else {
         safeRemoveItem('hr_logged_in');
+        setCurrentUser(null);
         if (session.error) showLoginMessage(session.error);
     }
+}
+
+// ---------- Usuário logado (nome e cargo na barra lateral e nos PDFs) ----------
+// Vem do servidor no login/sessão. A cópia em hr_user só evita a barra lateral
+// piscar com outro nome ao abrir a página — não dá acesso a nada.
+let currentUser = null; // { username, name, role, admin }
+
+function readCachedUser() {
+    try {
+        return JSON.parse(safeGetItem('hr_user') || 'null');
+    } catch (e) {
+        return null;
+    }
+}
+
+function setCurrentUser(user) {
+    if (user) safeSetItem('hr_user', JSON.stringify(user));
+    else safeRemoveItem('hr_user');
+    applyCurrentUser(user);
+}
+
+// "Kenia Laina Souza" -> "KS"
+function getUserInitials(name) {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+    return (parts[0][0] + last).toUpperCase();
+}
+
+function applyCurrentUser(user) {
+    currentUser = user || null;
+    const avatar = document.getElementById('userAvatar');
+    const nameEl = document.getElementById('userName');
+    const roleEl = document.getElementById('userRole');
+    const manageBtn = document.getElementById('manageUsersBtn');
+    if (avatar) avatar.textContent = currentUser ? getUserInitials(currentUser.name) : '';
+    if (nameEl) nameEl.textContent = currentUser ? currentUser.name : 'Usuário';
+    if (roleEl) roleEl.textContent = currentUser ? (currentUser.role || '') : '';
+    if (manageBtn) manageBtn.style.display = (currentUser && currentUser.admin) ? 'flex' : 'none';
+}
+
+// Texto do "Responsável" no cabeçalho dos PDFs: quem está logado ao exportar.
+function getReportResponsibleLabel() {
+    if (!currentUser || !currentUser.name) return 'Trade Marketing';
+    return currentUser.role ? `${currentUser.name} - ${currentUser.role}` : currentUser.name;
+}
+
+function escapeHtml(text) {
+    return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // A sessão venceu com o painel aberto: pede o login de novo sem recarregar a página,
@@ -1102,6 +1188,11 @@ function setupEventListeners() {
         changePasswordForm.onsubmit = handleChangePassword;
     }
 
+    const userForm = document.getElementById('userForm');
+    if (userForm) {
+        userForm.onsubmit = handleUserFormSubmit;
+    }
+
     if (visitPhotosInput) {
         visitPhotosInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
@@ -1350,6 +1441,7 @@ function setupEventListeners() {
         if (e.target === document.getElementById('productDetailModal')) document.getElementById('productDetailModal').style.display = 'none';
         if (e.target === document.getElementById('reportsModal')) document.getElementById('reportsModal').style.display = 'none';
         if (e.target === document.getElementById('changePasswordModal')) document.getElementById('changePasswordModal').style.display = 'none';
+        if (e.target === document.getElementById('usersModal')) document.getElementById('usersModal').style.display = 'none';
         if (e.target === document.getElementById('imageModal')) closeImageModal();
         if (e.target === document.getElementById('syncModal')) closeSyncModal();
         
@@ -3311,32 +3403,32 @@ window.updateBulkDeleteButton = function() {
 };
 
 window.deleteSelectedVisits = async function() {
-    const selectedIds = Array.from(document.querySelectorAll('.visit-checkbox:checked'))
-                            .map(cb => cb.value);
-    
-    if (confirm(`Deseja realmente excluir as ${selectedIds.length} visitas selecionadas?`)) {
+    // O valor do checkbox é texto e o id da visita é número: compara sempre como texto
+    const selectedIds = new Set(Array.from(document.querySelectorAll('.visit-checkbox:checked'))
+                            .map(cb => String(cb.value)));
+    const isSelected = v => selectedIds.has(String(v.id));
+
+    if (confirm(`Deseja realmente excluir as ${selectedIds.size} visitas selecionadas?`)) {
+        await syncWithServer(); // parte dos dados mais recentes do servidor
+
         // Captura lojas afetadas antes de remover as visitas
-        const affectedStoreIds = new Set(visits.filter(v => selectedIds.includes(v.id)).map(v => v.storeId));
+        const affectedStoreIds = new Set(visits.filter(isSelected).map(v => v.storeId));
 
         // Deleta as fotos de cada visita no servidor (se aplicável)
         if (typeof Storage !== 'undefined' && Storage.isServer) {
             for (const id of selectedIds) {
                 await Storage.deleteVisitPhotos(id);
             }
-            // Deleta as visitas especificamente no servidor
-            await Storage.deleteVisits(selectedIds);
         }
 
         // Remove visitas
-        visits = visits.filter(v => !selectedIds.includes(v.id));
+        visits = visits.filter(v => !isSelected(v));
         invalidateVisitsIndex();
 
-        // Persistência e sincronização local
-        persistAppState();
-
-        // Recalcula status das lojas afetadas e atualiza views
+        // Recalcula status das lojas afetadas, grava (a exclusão segue na sincronização) e atualiza views
         affectedStoreIds.forEach(id => recomputeStoreStatus(id));
         checkOverdueStores();
+        persistAppState();
         renderPage('reports');
         updateStats();
         alert("Visitas selecionadas foram removidas.");
@@ -3345,6 +3437,8 @@ window.deleteSelectedVisits = async function() {
 
 window.deleteVisit = async function(id) {
     if (confirm("Deseja realmente excluir esta visita e todas as suas fotos permanentemente?")) {
+        await syncWithServer(); // parte dos dados mais recentes do servidor
+
         // Identifica loja afetada antes de remover
         const visitObj = visits.find(v => v.id === id);
         const storeId = visitObj ? visitObj.storeId : null;
@@ -3352,19 +3446,18 @@ window.deleteVisit = async function(id) {
         // Remove a visita do histórico
         visits = visits.filter(v => v.id !== id);
         invalidateVisitsIndex();
-        saveAppStateLocally(); // fire and forget
-
-        // Se tiver Storage server
-        if (typeof Storage !== 'undefined' && Storage.isServer) {
-            await Storage.deleteVisitPhotos(id);
-            await Storage.deleteVisits([id]);
-            await syncAppStateServer();
-        }
 
         // Recalcula status da loja afetada
         if (storeId) {
             recomputeStoreStatus(storeId);
             checkOverdueStores();
+        }
+        saveAppStateLocally(); // fire and forget
+
+        // Se tiver Storage server (a exclusão da visita segue na sincronização)
+        if (typeof Storage !== 'undefined' && Storage.isServer) {
+            await Storage.deleteVisitPhotos(id);
+            await syncAppStateServer();
         }
 
         renderPage('reports'); // Recarregar a view
@@ -3394,7 +3487,8 @@ function recomputeStoreStatus(storeId) {
     }
 }
 
-window.editVisitDate = function(id) {
+window.editVisitDate = async function(id) {
+    await syncWithServer(); // parte dos dados mais recentes do servidor
     const visit = visits.find(v => v.id === id);
     if (!visit) return;
 
@@ -4205,6 +4299,18 @@ function searchHiperrollProducts(term) {
     ).slice(0, 15);
 }
 
+// Destinos possíveis de um pedido: os centros de distribuição (cd-clientes.js) e as lojas.
+// Os CDs vêm primeiro para aparecerem já na abertura da lista de sugestões. Fora da aba
+// Pedidos o sistema usa só `stores`, então um CD nunca aparece como loja a visitar.
+function getPedidoDestinations() {
+    const cds = (typeof PEDIDO_CD_DESTINATIONS !== 'undefined') ? PEDIDO_CD_DESTINATIONS : [];
+    return [...cds.map(cd => ({ ...cd, isCD: true })), ...stores];
+}
+
+function findPedidoDestination(storeId) {
+    return getPedidoDestinations().find(s => s.id === storeId);
+}
+
 function getFilteredPedidosList() {
     const netCheckboxes = document.querySelectorAll('.pedido-network-checkbox:checked');
     const checkedNets = Array.from(netCheckboxes).map(cb => cb.value);
@@ -4215,7 +4321,7 @@ function getFilteredPedidosList() {
     const endDate = endVal ? new Date(endVal + 'T23:59:59') : null;
 
     return pedidos.filter(p => {
-        const store = stores.find(s => s.id === p.storeId);
+        const store = findPedidoDestination(p.storeId);
         const network = store ? store.network : '';
         if (checkedNets.length > 0 && !checkedNets.includes(network)) return false;
         if (checkedNets.length === 0) return false;
@@ -4346,7 +4452,7 @@ function renderPedidosTable() {
     }
 
     tbody.innerHTML = filtered.map(p => {
-        const store = stores.find(s => s.id === p.storeId);
+        const store = findPedidoDestination(p.storeId);
         const itemCount = (p.itens || []).length;
         return `
             <tr>
@@ -4356,8 +4462,8 @@ function renderPedidosTable() {
                 <td>${store ? `<span class="network-tag">${store.network}</span>` : '-'}</td>
                 <td>${p.numeroNF || '-'}</td>
                 <td>${p.dataPedido ? formatDate(p.dataPedido) : '-'}</td>
-                <td>${p.dataAgendamento ? formatDate(p.dataAgendamento) : '-'}</td>
-                <td>${p.dataEntrega ? formatDate(p.dataEntrega) : '-'}</td>
+                <td>${formatPedidoDates(p, 'Agendamento', '<br>') || '-'}</td>
+                <td>${formatPedidoDates(p, 'Entrega', '<br>') || '-'}</td>
                 <td>${itemCount} ${itemCount === 1 ? 'item' : 'itens'}</td>
                 <td style="white-space: nowrap;">
                     <button class="btn-edit-small" onclick="openPedidoModal('${p.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
@@ -4368,12 +4474,60 @@ function renderPedidosTable() {
     }).join('');
 }
 
+// ---------- Datas de agendamento e de entrega (até 3 de cada por pedido) ----------
+// Um pedido grande pode ser agendado e entregue em partes. As listas ficam em
+// datasAgendamento / datasEntrega; dataAgendamento / dataEntrega guardam a primeira
+// data, para os pedidos antigos (que só tinham uma) continuarem valendo.
+const PEDIDO_MAX_DATES = 3;
+
+// kind: 'Agendamento' | 'Entrega'
+function getPedidoDates(p, kind) {
+    const list = Array.isArray(p['datas' + kind]) ? p['datas' + kind] : [p['data' + kind]];
+    return list.filter(Boolean);
+}
+
+function formatPedidoDates(p, kind, separator) {
+    return getPedidoDates(p, kind).map(formatDate).join(separator);
+}
+
+function renderPedidoDateInputs(kind) {
+    const container = document.getElementById('pedidoDatas' + kind);
+    if (!container) return;
+    const dates = window._pedidoDraftDates[kind];
+    container.innerHTML = dates.map((value, i) => `
+        <div class="pedido-date-row">
+            <input type="date" value="${value}" onchange="updatePedidoDate('${kind}', ${i}, this.value)">
+            ${dates.length > 1 ? `<button type="button" class="pedido-date-remove" onclick="removePedidoDate('${kind}', ${i})" title="Remover esta data"><i class="fa-solid fa-xmark"></i></button>` : ''}
+        </div>
+    `).join('') + (dates.length < PEDIDO_MAX_DATES
+        ? `<button type="button" class="pedido-date-add" onclick="addPedidoDate('${kind}')"><i class="fa-solid fa-plus"></i> Adicionar outra data</button>`
+        : '');
+}
+
+window.updatePedidoDate = function(kind, index, value) {
+    window._pedidoDraftDates[kind][index] = value;
+};
+
+window.addPedidoDate = function(kind) {
+    if (window._pedidoDraftDates[kind].length >= PEDIDO_MAX_DATES) return;
+    window._pedidoDraftDates[kind].push('');
+    renderPedidoDateInputs(kind);
+};
+
+window.removePedidoDate = function(kind, index) {
+    window._pedidoDraftDates[kind].splice(index, 1);
+    renderPedidoDateInputs(kind);
+};
+
 // ---------- Modal: novo/editar pedido ----------
 
 window.openPedidoModal = function(pedidoId) {
     window._editingPedidoId = pedidoId || null;
     const editing = pedidoId ? pedidos.find(p => p.id === pedidoId) : null;
     window._pedidoDraftItems = editing ? (editing.itens || []).map(it => ({ ...it })) : [];
+    // Sempre ao menos um campo de data visível em cada coluna
+    const draftDates = kind => { const d = editing ? getPedidoDates(editing, kind) : []; return d.length > 0 ? d : ['']; };
+    window._pedidoDraftDates = { Agendamento: draftDates('Agendamento'), Entrega: draftDates('Entrega') };
 
     const titleEl = document.getElementById('pedidoModalTitle');
     if (titleEl) titleEl.textContent = editing ? 'Editar Pedido' : 'Novo Pedido';
@@ -4387,7 +4541,7 @@ function renderPedidoModalBody() {
     const body = document.getElementById('pedidoModalBody');
     if (!body) return;
     const editing = window._editingPedidoId ? pedidos.find(p => p.id === window._editingPedidoId) : null;
-    const editingStore = editing ? stores.find(s => s.id === editing.storeId) : null;
+    const editingStore = editing ? findPedidoDestination(editing.storeId) : null;
     const editingStoreLabel = editingStore ? `${editingStore.name} (${editingStore.network})` : '';
 
     body.innerHTML = `
@@ -4422,18 +4576,18 @@ function renderPedidoModalBody() {
             <label>Número da NF</label>
             <input type="text" id="pedidoNumeroNF" value="${editing ? (editing.numeroNF || '') : ''}">
         </div>
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
             <div class="form-group" style="flex: 1; min-width: 150px;">
                 <label>Data do Pedido</label>
                 <input type="date" id="pedidoDataPedido" value="${editing ? (editing.dataPedido || '') : ''}">
             </div>
             <div class="form-group" style="flex: 1; min-width: 150px;">
-                <label>Data de Agendamento</label>
-                <input type="date" id="pedidoDataAgendamento" value="${editing ? (editing.dataAgendamento || '') : ''}">
+                <label>Datas de Agendamento <span style="font-weight: 400; color: var(--text-muted);">(até ${PEDIDO_MAX_DATES})</span></label>
+                <div id="pedidoDatasAgendamento"></div>
             </div>
             <div class="form-group" style="flex: 1; min-width: 150px;">
-                <label>Data de Entrega</label>
-                <input type="date" id="pedidoDataEntrega" value="${editing ? (editing.dataEntrega || '') : ''}">
+                <label>Datas de Entrega <span style="font-weight: 400; color: var(--text-muted);">(até ${PEDIDO_MAX_DATES})</span></label>
+                <div id="pedidoDatasEntrega"></div>
             </div>
         </div>
 
@@ -4457,6 +4611,8 @@ function renderPedidoModalBody() {
         </div>
     `;
 
+    renderPedidoDateInputs('Agendamento');
+    renderPedidoDateInputs('Entrega');
     renderPedidoItemsList();
 }
 
@@ -4464,11 +4620,12 @@ function renderPedidoModalBody() {
 // ao código de cliente informado, usando o mapeamento em cd-clientes.js (CD_CLIENT_MAP).
 // Códigos sem mapeamento (ou o campo vazio) não restringem nada — mostram todas as lojas.
 function getAllowedStoresForClient(clienteCodigo) {
+    const destinations = getPedidoDestinations();
     if (typeof CD_CLIENT_MAP !== 'undefined' && clienteCodigo && CD_CLIENT_MAP[clienteCodigo]) {
         const networks = CD_CLIENT_MAP[clienteCodigo].networks || [];
-        return stores.filter(s => networks.includes(s.network));
+        return destinations.filter(s => networks.includes(s.network));
     }
-    return stores;
+    return destinations;
 }
 
 // Busca de código de cliente (mesmo padrão da busca de loja): mostra sugestões de
@@ -4544,14 +4701,14 @@ window.updatePedidoStoreSuggestions = function() {
     box.innerHTML = matches.map(s => `
         <div class="pedido-suggestion-item" onclick="selectPedidoStore('${s.id}')">
             <strong>${s.name}</strong>
-            <span>${s.network}</span>
+            <span>${s.network}${s.isCD ? ' · Centro de distribuição' : ''}</span>
         </div>
     `).join('');
     box.style.display = 'block';
 };
 
 window.selectPedidoStore = function(storeId) {
-    const store = stores.find(s => s.id === storeId);
+    const store = findPedidoDestination(storeId);
     if (!store) return;
     const input = document.getElementById('pedidoStoreSearch');
     const hidden = document.getElementById('pedidoStoreId');
@@ -4656,15 +4813,17 @@ document.addEventListener('click', function(event) {
     });
 });
 
-window.savePedido = function() {
+window.savePedido = async function() {
     const numeroPedido = document.getElementById('pedidoNumero').value.trim();
     const clienteCodigo = document.getElementById('pedidoClienteCodigo').value.trim();
     const clienteNome = document.getElementById('pedidoClienteNome').value.trim();
     const storeId = document.getElementById('pedidoStoreId').value;
     const numeroNF = document.getElementById('pedidoNumeroNF').value.trim();
     const dataPedido = document.getElementById('pedidoDataPedido').value;
-    const dataAgendamento = document.getElementById('pedidoDataAgendamento').value;
-    const dataEntrega = document.getElementById('pedidoDataEntrega').value;
+    const datasAgendamento = window._pedidoDraftDates.Agendamento.filter(Boolean);
+    const datasEntrega = window._pedidoDraftDates.Entrega.filter(Boolean);
+    const dataAgendamento = datasAgendamento[0] || '';
+    const dataEntrega = datasEntrega[0] || '';
     const observacoes = document.getElementById('pedidoObservacoes').value.trim();
     const itens = window._pedidoDraftItems || [];
 
@@ -4672,18 +4831,20 @@ window.savePedido = function() {
     if (!storeId) { alert('Selecione a loja.'); return; }
     if (itens.length === 0) { alert('Adicione ao menos um item ao pedido.'); return; }
 
+    await syncWithServer(); // parte dos dados mais recentes do servidor
+
     const editingId = window._editingPedidoId;
     if (editingId) {
         const p = pedidos.find(x => x.id === editingId);
         if (p) {
-            Object.assign(p, { numeroPedido, clienteCodigo, clienteNome, storeId, numeroNF, dataPedido, dataAgendamento, dataEntrega, observacoes, itens });
+            Object.assign(p, { numeroPedido, clienteCodigo, clienteNome, storeId, numeroNF, dataPedido, dataAgendamento, dataEntrega, datasAgendamento, datasEntrega, observacoes, itens });
             p.updatedAt = new Date().toISOString();
         }
     } else {
         pedidos.push({
             id: 'pedido-' + Date.now(),
             numeroPedido, clienteCodigo, clienteNome, storeId, numeroNF,
-            dataPedido, dataAgendamento, dataEntrega, observacoes, itens,
+            dataPedido, dataAgendamento, dataEntrega, datasAgendamento, datasEntrega, observacoes, itens,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         });
@@ -4695,13 +4856,11 @@ window.savePedido = function() {
     renderPedidosTable();
 };
 
-window.deletePedido = function(id) {
+window.deletePedido = async function(id) {
     if (!confirm('Tem certeza que deseja excluir este pedido?')) return;
+    await syncWithServer(); // parte dos dados mais recentes do servidor
     pedidos = pedidos.filter(p => p.id !== id);
-    persistPedidos();
-    if (typeof Storage !== 'undefined' && Storage.isServer) {
-        Storage.deletePedidos([id]).catch(() => {});
-    }
+    persistPedidos(); // a exclusão segue na sincronização
     renderPedidosTable();
 };
 
@@ -4711,9 +4870,9 @@ window.exportPedidosCSV = function() {
     const filtered = getFilteredPedidosList();
     if (filtered.length === 0) { alert('Não há pedidos para exportar com os filtros atuais.'); return; }
 
-    let csvContent = 'data:text/csv;charset=utf-8,﻿Nº Pedido;Código Cliente;Nome Cliente;Loja;Rede;Nº NF;Data Pedido;Data Agendamento;Data Entrega;Unidade(s);Itens;Observações\n';
+    let csvContent = 'data:text/csv;charset=utf-8,﻿Nº Pedido;Código Cliente;Nome Cliente;Loja;Rede;Nº NF;Data Pedido;Datas Agendamento;Datas Entrega;Unidade(s);Itens;Observações\n';
     filtered.forEach(p => {
-        const store = stores.find(s => s.id === p.storeId);
+        const store = findPedidoDestination(p.storeId);
         const itensStr = (p.itens || []).map(it => `${it.descricao} (${it.quantidade}x)`).join(' | ');
         const unidadesStr = [...new Set((p.itens || []).map(it => it.unidade_venda).filter(Boolean))].join(', ');
         csvContent += [
@@ -4724,8 +4883,8 @@ window.exportPedidosCSV = function() {
             store ? store.network : '',
             p.numeroNF || '',
             p.dataPedido ? formatDate(p.dataPedido) : '',
-            p.dataAgendamento ? formatDate(p.dataAgendamento) : '',
-            p.dataEntrega ? formatDate(p.dataEntrega) : '',
+            formatPedidoDates(p, 'Agendamento', ' | '),
+            formatPedidoDates(p, 'Entrega', ' | '),
             unidadesStr,
             `"${itensStr.replace(/"/g, '""')}"`,
             `"${(p.observacoes || '').replace(/"/g, '""')}"`
@@ -4771,7 +4930,7 @@ window.exportPedidosPDF = async function() {
     };
 
     const rows = filtered.map(p => {
-        const store = stores.find(s => s.id === p.storeId);
+        const store = findPedidoDestination(p.storeId);
         const itensStr = (p.itens || []).map(it => `${it.descricao} (${it.quantidade}x)`).join(', ');
         const unidadesStr = [...new Set((p.itens || []).map(it => it.unidade_venda).filter(Boolean))].join(', ');
         return [
@@ -4781,7 +4940,8 @@ window.exportPedidosPDF = async function() {
             store ? store.network : '-',
             p.numeroNF || '-',
             p.dataPedido ? formatDate(p.dataPedido) : '-',
-            p.dataEntrega ? formatDate(p.dataEntrega) : '-',
+            formatPedidoDates(p, 'Agendamento', '\n') || '-',
+            formatPedidoDates(p, 'Entrega', '\n') || '-',
             unidadesStr || '-',
             itensStr || '-',
             p.observacoes || '-'
@@ -4797,15 +4957,16 @@ window.exportPedidosPDF = async function() {
                 emptyLabel: 'Nenhum pedido no filtro',
                 columns: [
                     { label: 'Nº Pedido', width: '7%' },
-                    { label: 'Cliente', width: '12%' },
-                    { label: 'Loja', width: '13%' },
+                    { label: 'Cliente', width: '11%' },
+                    { label: 'Loja', width: '12%' },
                     { label: 'Rede', width: '7%' },
                     { label: 'NF', width: '6%' },
                     { label: 'Data Pedido', width: '7%' },
+                    { label: 'Agendamento', width: '8%' },
                     { label: 'Entrega', width: '7%' },
-                    { label: 'Unidade(s)', width: '9%' },
-                    { label: 'Itens', width: '18%' },
-                    { label: 'Observações', width: '14%' }
+                    { label: 'Unidade(s)', width: '8%' },
+                    { label: 'Itens', width: '15%' },
+                    { label: 'Observações', width: '12%' }
                 ],
                 rows
             }
@@ -4872,7 +5033,7 @@ function drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle,
     pdf.setFont(undefined, 'bold');
     pdf.setFontSize(9);
     pdf.setTextColor(51, 51, 51);
-    pdf.text('Responsável: Nicole Portela - Trade Marketing', marginH, y + 16.5);
+    pdf.text('Responsável: ' + getReportResponsibleLabel(), marginH, y + 16.5);
 
     const badgeX = marginH + contentWidthMm - badgeW;
     const badgeY = y - 6;
@@ -5456,7 +5617,8 @@ function updateNotifications() {
     }
 }
 
-window.clearNotifications = function() {
+window.clearNotifications = async function() {
+    await syncWithServer(); // parte dos dados mais recentes do servidor
     const badge = document.getElementById('notificationBadge');
     const list = document.getElementById('notificationList');
     
@@ -5576,6 +5738,9 @@ async function handleVisitSubmit(e) {
                                     .map(cb => cb.value);
     const visitDate = document.getElementById('visitDate').value;
     const isExtra = !!document.getElementById('visitIsExtra')?.checked;
+
+    // Antes de mexer em rupturas e status, traz o que os outros usuários gravaram
+    await syncWithServer();
 
     // ============================================================
     // MODO EDIï¿½AO: sobrepõe a visita existente, sem criar duplicata
@@ -5961,7 +6126,8 @@ function getTimeDiff(timestamp) {
     return `Há ${minutes}min`;
 }
 
-window.resolveRupture = function(id) {
+window.resolveRupture = async function(id) {
+    await syncWithServer(); // parte dos dados mais recentes do servidor
     const rupture = validatedRuptures.find(r => r.id === id);
     if (rupture) {
         const store = stores.find(s => s.id === rupture.storeId);
@@ -6054,6 +6220,8 @@ async function handleLogin(e) {
 
     passInput.value = '';
     safeSetItem('hr_logged_in', 'true');
+    // Sem backend (modo local) não há cadastro: usa o que foi digitado só para exibição
+    setCurrentUser(result.user || { username: user, name: user, role: 'Modo local', admin: false });
 
     if (result.local || sessionExpiredDuringUse) {
         // Sem backend (desenvolvimento) ou sessão renovada com o painel aberto: segue de onde parou
@@ -6061,6 +6229,7 @@ async function handleLogin(e) {
         checkLoginStatus();
         updateNotifications(); // Atualizar alertas após login
         updateStats(); // Garantir que as estatísticas carreguem no login
+        syncWithServer(); // envia o que ficou sem gravar enquanto a sessão estava vencida
     } else {
         // Login novo: recarrega para buscar os dados do servidor já autenticado
         location.reload();
@@ -6109,9 +6278,128 @@ async function handleChangePassword(e) {
     showToast('Senha alterada. Outros aparelhos conectados precisarão entrar de novo.', 'success');
 }
 
+// ---------- Janela "Usuários" (somente administradores) ----------
+// O servidor é quem confere a permissão; aqui é só a tela.
+let managedUsers = [];
+
+window.openUsersModal = async function() {
+    document.getElementById('usersModal').style.display = 'flex';
+    resetUserForm();
+    document.getElementById('usersList').innerHTML = '<p class="empty-state">Carregando usuários...</p>';
+    const result = await Storage.listUsers();
+    if (!result.ok) {
+        document.getElementById('usersList').innerHTML = `<p class="empty-state">${escapeHtml(result.error)}</p>`;
+        return;
+    }
+    managedUsers = result.users;
+    renderUsersList();
+};
+
+function renderUsersList() {
+    const list = document.getElementById('usersList');
+    if (!list) return;
+    list.innerHTML = managedUsers.map(u => {
+        const isMe = currentUser && u.username === currentUser.username;
+        return `
+            <div class="users-list-item">
+                <div class="avatar">${escapeHtml(getUserInitials(u.name))}</div>
+                <div class="users-list-info">
+                    <strong>${escapeHtml(u.name)}${isMe ? ' <span>(você)</span>' : ''}</strong>
+                    <span>${escapeHtml(u.username)}${u.role ? ' · ' + escapeHtml(u.role) : ''}</span>
+                </div>
+                ${u.admin ? '<span class="users-admin-tag">Administrador</span>' : ''}
+                <button class="btn-edit-small" onclick="editUser('${escapeHtml(u.username)}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                ${isMe ? '' : `<button class="btn-edit-small" onclick="removeUser('${escapeHtml(u.username)}')" title="Excluir" style="color: var(--primary-red);"><i class="fa-solid fa-trash"></i></button>`}
+            </div>
+        `;
+    }).join('');
+}
+
+function showUserFormError(message) {
+    const errorMsg = document.getElementById('userFormError');
+    errorMsg.textContent = message;
+    errorMsg.style.display = message ? 'block' : 'none';
+}
+
+// Volta o formulário para "Novo usuário"
+window.resetUserForm = function() {
+    document.getElementById('userForm').reset();
+    document.getElementById('userFormOriginal').value = '';
+    document.getElementById('userFormUsername').disabled = false;
+    document.getElementById('userFormPassword').required = true;
+    document.getElementById('userFormTitle').textContent = 'Novo usuário';
+    document.getElementById('userFormPasswordLabel').textContent = 'Senha inicial (mínimo 10 caracteres)';
+    document.getElementById('userFormSubmit').textContent = 'Criar usuário';
+    document.getElementById('userFormCancel').style.display = 'none';
+    showUserFormError('');
+};
+
+window.editUser = function(username) {
+    const user = managedUsers.find(u => u.username === username);
+    if (!user) return;
+    resetUserForm();
+    document.getElementById('userFormOriginal').value = user.username;
+    document.getElementById('userFormUsername').value = user.username;
+    document.getElementById('userFormUsername').disabled = true; // o login não muda depois de criado
+    document.getElementById('userFormName').value = user.name;
+    document.getElementById('userFormRole').value = user.role || '';
+    document.getElementById('userFormAdmin').checked = !!user.admin;
+    document.getElementById('userFormPassword').required = false;
+    document.getElementById('userFormTitle').textContent = `Editar ${user.name}`;
+    document.getElementById('userFormPasswordLabel').textContent = 'Nova senha (em branco mantém a atual)';
+    document.getElementById('userFormSubmit').textContent = 'Salvar alterações';
+    document.getElementById('userFormCancel').style.display = 'inline-flex';
+    document.getElementById('userFormName').focus();
+};
+
+window.removeUser = async function(username) {
+    const user = managedUsers.find(u => u.username === username);
+    if (!user || !confirm(`Excluir o usuário ${user.name}? Ele perde o acesso imediatamente.`)) return;
+    const result = await Storage.deleteUser(username);
+    if (!result.ok) {
+        showUserFormError(result.error);
+        return;
+    }
+    managedUsers = result.users;
+    renderUsersList();
+    resetUserForm();
+    showToast(`Usuário ${user.name} excluído.`, 'success');
+};
+
+async function handleUserFormSubmit(e) {
+    e.preventDefault();
+    const original = document.getElementById('userFormOriginal').value;
+    const submitBtn = document.getElementById('userFormSubmit');
+    const payload = {
+        original,
+        username: document.getElementById('userFormUsername').value.trim(),
+        name: document.getElementById('userFormName').value.trim(),
+        role: document.getElementById('userFormRole').value.trim(),
+        admin: document.getElementById('userFormAdmin').checked,
+        password: document.getElementById('userFormPassword').value
+    };
+
+    showUserFormError('');
+    submitBtn.disabled = true;
+    const result = await Storage.saveUser(payload);
+    submitBtn.disabled = false;
+
+    if (!result.ok) {
+        showUserFormError(result.error);
+        return;
+    }
+
+    managedUsers = result.users;
+    if (result.user) setCurrentUser(result.user); // o próprio administrador pode ter mudado nome ou cargo
+    renderUsersList();
+    resetUserForm();
+    showToast(original ? 'Usuário atualizado.' : `Usuário ${payload.name} criado.`, 'success');
+}
+
 window.logout = async function() {
     if (typeof Storage !== 'undefined') await Storage.logout();
     safeRemoveItem('hr_logged_in');
+    safeRemoveItem('hr_user');
     location.reload();
 };
 
