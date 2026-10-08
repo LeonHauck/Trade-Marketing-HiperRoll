@@ -1554,6 +1554,49 @@ select:focus, textarea:focus, input:focus {
     color: var(--text-muted);
 }
 
+/* Visualização de pedido (somente leitura) */
+.pedido-view-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px 20px;
+    margin-bottom: 1.5rem;
+    padding: 16px;
+    background: var(--bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+}
+
+.pedido-view-field span:first-child {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+}
+
+.pedido-view-field strong {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.pedido-view-muted {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.pedido-view-notes {
+    margin: 0;
+    padding: 12px;
+    background: var(--bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-dark);
+    white-space: pre-wrap;
+}
+
 /* Datas múltiplas (agendamento/entrega) no modal de pedido */
 .pedido-date-row {
     display: flex;

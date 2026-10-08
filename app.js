@@ -4548,7 +4548,7 @@ function renderPedidosTable() {
         const itemCount = (p.itens || []).length;
         return `
             <tr>
-                <td><strong>${p.numeroPedido || '-'}</strong>${authorLineHtml(p)}</td>
+                <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="viewPedido('${p.id}')" title="Ver detalhes do pedido">${p.numeroPedido || '-'}</strong>${authorLineHtml(p)}</td>
                 <td>${p.clienteNome || '-'}${p.clienteCodigo ? ` <span style="color:var(--text-muted); font-size:0.78rem;">(${p.clienteCodigo})</span>` : ''}</td>
                 <td>${store ? store.name : '<span style="color:var(--text-muted);">loja removida</span>'}</td>
                 <td>${store ? `<span class="network-tag">${store.network}</span>` : '-'}</td>
@@ -4558,6 +4558,7 @@ function renderPedidosTable() {
                 <td>${formatPedidoDates(p, 'Entrega', '<br>') || '-'}</td>
                 <td>${itemCount} ${itemCount === 1 ? 'item' : 'itens'}</td>
                 <td style="white-space: nowrap;">
+                    <button class="btn-edit-small" onclick="viewPedido('${p.id}')" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
                     <button class="btn-edit-small" onclick="openPedidoModal('${p.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
                     <button class="btn-edit-small" onclick="deletePedido('${p.id}')" title="Excluir" style="color: var(--primary-red);"><i class="fa-solid fa-trash"></i></button>
                 </td>
@@ -4609,6 +4610,71 @@ window.addPedidoDate = function(kind) {
 window.removePedidoDate = function(kind, index) {
     window._pedidoDraftDates[kind].splice(index, 1);
     renderPedidoDateInputs(kind);
+};
+
+// ---------- Modal: visualizar pedido (somente leitura) ----------
+// Usa a mesma janela do cadastro, mas sem campos editáveis: serve para consultar o
+// pedido sem risco de alterar algo por engano.
+window.viewPedido = function(pedidoId) {
+    const p = pedidos.find(x => x.id === pedidoId);
+    const body = document.getElementById('pedidoModalBody');
+    const modal = document.getElementById('pedidoModal');
+    if (!p || !body || !modal) return;
+    window._editingPedidoId = null;
+
+    const store = findPedidoDestination(p.storeId);
+    const field = (label, value) => `
+        <div class="pedido-view-field">
+            <span>${label}</span>
+            <strong>${value || '-'}</strong>
+        </div>`;
+    const itens = p.itens || [];
+
+    document.getElementById('pedidoModalTitle').textContent = `Pedido ${p.numeroPedido || ''}`.trim();
+    body.innerHTML = `
+        ${authorshipHtml(p)}
+        <div class="pedido-view-grid">
+            ${field('Número do Pedido', escapeHtml(p.numeroPedido))}
+            ${field('Número da NF', escapeHtml(p.numeroNF))}
+            ${field('Cliente', escapeHtml(p.clienteNome) + (p.clienteCodigo ? ` <span class="pedido-view-muted">(${escapeHtml(p.clienteCodigo)})</span>` : ''))}
+            ${field('Loja', store ? `${escapeHtml(store.name)} <span class="pedido-view-muted">(${escapeHtml(store.network)})</span>` : 'Loja removida')}
+            ${field('Data do Pedido', p.dataPedido ? formatDate(p.dataPedido) : '')}
+            ${field('Datas de Agendamento', formatPedidoDates(p, 'Agendamento', '<br>'))}
+            ${field('Datas de Entrega', formatPedidoDates(p, 'Entrega', '<br>'))}
+        </div>
+
+        <div class="form-group">
+            <label>Itens do Pedido (${itens.length})</label>
+            ${itens.length === 0 ? '<p class="empty-state" style="padding: 1rem 0;">Nenhum item neste pedido.</p>' : `
+                <table class="reports-table" style="margin-top: 10px;">
+                    <thead>
+                        <tr><th>Código</th><th>Produto</th><th>Unidade</th><th>Qtd.</th></tr>
+                    </thead>
+                    <tbody>
+                        ${itens.map(it => `
+                            <tr>
+                                <td>${escapeHtml(it.codigo)}</td>
+                                <td>${escapeHtml(it.descricao)}</td>
+                                <td>${escapeHtml(it.unidade_venda)}</td>
+                                <td><strong>${escapeHtml(it.quantidade)}</strong></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `}
+        </div>
+
+        <div class="form-group">
+            <label>Observações</label>
+            <p class="pedido-view-notes">${p.observacoes ? escapeHtml(p.observacoes) : '-'}</p>
+        </div>
+
+        <div class="form-actions" style="display: flex; gap: 10px;">
+            <button type="button" class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="document.getElementById('pedidoModal').style.display='none'">Fechar</button>
+            <button type="button" class="btn btn-primary" style="flex: 1; justify-content: center;" onclick="openPedidoModal('${p.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
+        </div>
+    `;
+    modal.style.display = 'flex';
 };
 
 // ---------- Modal: novo/editar pedido ----------
