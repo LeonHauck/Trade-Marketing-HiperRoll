@@ -138,7 +138,7 @@ const HIPERROLL_PRODUCTS_CATALOG = [
   },
   {
     "codigo": "P-08487",
-    "descricao": "\"BOBINA PIC FLEX \"\"P\"\" EST LISA 30X40 CX 6\"",
+    "descricao": "BOBINA PIC FLEX \"P\" EST LISA 30X40 CX 6",
     "linha": "Bobina Fundo Estrela",
     "categoria": "Hiperroll Flex",
     "unidade_venda": "Caixa",
@@ -147,7 +147,7 @@ const HIPERROLL_PRODUCTS_CATALOG = [
   },
   {
     "codigo": "P-08488",
-    "descricao": "\"BOBINA PIC FLEX \"\"M\"\" EST LISA 34X45 CX 6\"",
+    "descricao": "BOBINA PIC FLEX \"M\" EST LISA 34X45 CX 6",
     "linha": "Bobina Fundo Estrela",
     "categoria": "Hiperroll Flex",
     "unidade_venda": "Caixa",
@@ -156,7 +156,7 @@ const HIPERROLL_PRODUCTS_CATALOG = [
   },
   {
     "codigo": "P-09129",
-    "descricao": "\"BOBINA PIC FLEX \"\"G\"\" EST LISA 38X55 CX 6\"",
+    "descricao": "BOBINA PIC FLEX \"G\" EST LISA 38X55 CX 6",
     "linha": "Bobina Fundo Estrela",
     "categoria": "Hiperroll Flex",
     "unidade_venda": "Caixa",
@@ -165,7 +165,7 @@ const HIPERROLL_PRODUCTS_CATALOG = [
   },
   {
     "codigo": "P-08489",
-    "descricao": "\"BOBINA PIC FLEX \"\"G\"\" EST LISA 37X60 CX 6\"",
+    "descricao": "BOBINA PIC FLEX \"G\" EST LISA 37X60 CX 6",
     "linha": "Bobina Fundo Estrela",
     "categoria": "Hiperroll Flex",
     "unidade_venda": "Caixa",
@@ -174,7 +174,7 @@ const HIPERROLL_PRODUCTS_CATALOG = [
   },
   {
     "codigo": "P-08490",
-    "descricao": "\"BOBINA PIC FLEX \"\"EG\"\" EST LISA 40X70 CX 6\"",
+    "descricao": "BOBINA PIC FLEX \"EG\" EST LISA 40X70 CX 6",
     "linha": "Bobina Fundo Estrela",
     "categoria": "Hiperroll Flex",
     "unidade_venda": "Caixa",

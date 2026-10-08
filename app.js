@@ -3994,8 +3994,14 @@ function exportHtmlToPdf(container, options) {
  *   de falha silenciosa que já causou o bug das páginas em branco na tabela grande).
  * @param {function(object, {marginH:number, marginV:number, contentWidthMm:number}): Promise<void>} [params.headerDraw]
  *   - desenha o cabeçalho diretamente no jsPDF (sem rasterizar nada) — forma preferida, 100% confiável
- *     independente do tamanho da página por trás. Recebe a instância do pdf já criada.
- * @param {Array<{title:string, columns:Array<{label:string,width:string}>, rows:Array<Array<string|number>>, emptyLabel?:string}>} params.sections
+ *     independente do tamanho da página por trás. Recebe a instância do pdf já criada. Se devolver um
+ *     número (o Y, em mm, onde o cabeçalho terminou), a primeira tabela começa logo abaixo, na mesma
+ *     página — para cabeçalhos curtos, que não ocupam a página inteira.
+ * @param {Array<{title:string, columns:Array<{label:string,width:string}>, rows:Array<Array<string|number>>, emptyLabel?:string, groupLineColumns?:[number,number]}>} params.sections
+ *   - uma linha pode ser a continuação de um grupo (ex.: o segundo item de um pedido): nesse caso o
+ *     array da linha traz a propriedade `groupHead`, apontando para a primeira linha do grupo. Entre as
+ *     linhas de um mesmo grupo o traço separador cobre só as colunas de `groupLineColumns`, e se o grupo
+ *     for cortado por uma quebra de página, as células vazias da continuação repetem as da primeira linha.
  * @param {object} params.opt - { filename, margin:[v,h], jsPDF:{unit,format,orientation}, image:{quality} }
  */
 async function exportSectionedTablesToPdf({ headerHtml, headerDraw, sections, opt }) {
@@ -4005,6 +4011,7 @@ async function exportSectionedTablesToPdf({ headerHtml, headerDraw, sections, op
     const jsPdfOpts = opt.jsPDF || { unit: 'mm', format: 'a4', orientation: 'portrait' };
 
     let pdf;
+    let headerEndY;
     let cleanup = () => {};
 
     try {
@@ -4038,7 +4045,7 @@ async function exportSectionedTablesToPdf({ headerHtml, headerDraw, sections, op
                 if (bootstrapEl.parentNode) bootstrapEl.parentNode.removeChild(bootstrapEl);
             }
             const contentWidthMm0 = pdf.internal.pageSize.getWidth() - marginH * 2;
-            await headerDraw(pdf, { marginH, marginV, contentWidthMm: contentWidthMm0 });
+            headerEndY = await headerDraw(pdf, { marginH, marginV, contentWidthMm: contentWidthMm0 });
         } else {
             if (typeof window.html2pdf !== 'function') {
                 alert('A biblioteca de PDF não está disponível no momento.');
@@ -4079,9 +4086,21 @@ async function exportSectionedTablesToPdf({ headerHtml, headerDraw, sections, op
         const LINE_HEIGHT_MM = 4;
         const ROW_PADDING_MM = 1.5;
 
-        sections.forEach(section => {
-            pdf.addPage();
-            let y = marginV + 4;
+        // Onde a tabela anterior terminou (null enquanto nenhuma foi desenhada)
+        let previousEndY = null;
+
+        sections.forEach((section, sectionIndex) => {
+            // A primeira tabela aproveita a página do cabeçalho quando ele é curto, e as
+            // seguintes continuam abaixo da anterior — só abre página nova se sobrar pouco espaço.
+            let y;
+            if (sectionIndex === 0 && typeof headerEndY === 'number' && headerEndY < contentBottomMm - 40) {
+                y = headerEndY + 2;
+            } else if (previousEndY !== null && previousEndY < contentBottomMm - 40) {
+                y = previousEndY + 10;
+            } else {
+                pdf.addPage();
+                y = marginV + 4;
+            }
 
             const colWidths = section.columns.map(c => (contentWidthMm * parseFloat(c.width)) / 100);
             const colX = [];
@@ -4112,27 +4131,77 @@ async function exportSectionedTablesToPdf({ headerHtml, headerDraw, sections, op
             if (!section.rows || section.rows.length === 0) {
                 pdf.setTextColor(120, 120, 120);
                 pdf.text(section.emptyLabel || 'Nenhum registro', marginH, y);
+                previousEndY = y + 4;
                 return;
             }
 
-            section.rows.forEach(rowFields => {
-                const wrapped = rowFields.map((field, i) => pdf.splitTextToSize(String(field ?? '-'), Math.max(4, colWidths[i] - 2)));
-                const rowLines = Math.max(1, ...wrapped.map(w => w.length));
-                const rowHeightMm = rowLines * LINE_HEIGHT_MM + ROW_PADDING_MM;
+            const linesToMm = lines => Math.max(1, lines) * LINE_HEIGHT_MM + ROW_PADDING_MM;
+            const layoutRow = fields => {
+                const wrapped = fields.map((field, i) => pdf.splitTextToSize(String(field ?? '-'), Math.max(4, colWidths[i] - 2)));
+                return { wrapped, rowHeightMm: linesToMm(Math.max(...wrapped.map(w => w.length))) };
+            };
 
-                if (y + rowHeightMm > contentBottomMm) {
+            // Num grupo (pedido com vários itens), os dados da primeira linha podem ser mais altos
+            // que o primeiro item (ex.: três datas). Eles "descem" ao lado dos itens seguintes, e
+            // groupMinBottom garante que o grupo só termina depois do fim desses dados.
+            let groupMinBottom = 0;
+
+            // Altura de um grupo inteiro, a partir da sua primeira linha
+            const groupHeightMm = startIndex => {
+                const [from, to] = section.groupLineColumns;
+                const head = layoutRow(section.rows[startIndex]);
+                let itemsHeight = 0;
+                for (let i = startIndex; i === startIndex || (section.rows[i] && section.rows[i].groupHead); i++) {
+                    const row = i === startIndex ? head : layoutRow(section.rows[i]);
+                    itemsHeight += linesToMm(Math.max(...row.wrapped.slice(from, to + 1).map(w => w.length)));
+                }
+                return Math.max(head.rowHeightMm, itemsHeight);
+            };
+            const fullPageMm = contentBottomMm - (marginV + 4 + 5.5);
+
+            section.rows.forEach((rowFields, rowIndex) => {
+                const nextRow = section.rows[rowIndex + 1];
+                const groupContinues = !!(section.groupLineColumns && nextRow && nextRow.groupHead);
+                let { wrapped, rowHeightMm } = layoutRow(rowFields);
+
+                // Um grupo que não cabe no resto da página, mas cabe inteiro numa página, começa na
+                // seguinte — assim um pedido só é dividido entre páginas quando é maior que uma.
+                let neededMm = rowHeightMm;
+                if (groupContinues && !rowFields.groupHead) {
+                    const whole = groupHeightMm(rowIndex);
+                    if (whole <= fullPageMm) neededMm = whole;
+                }
+
+                if (y + neededMm > contentBottomMm) {
                     pdf.addPage();
                     y = marginV + 4;
+                    groupMinBottom = 0;
                     drawColumnHeaders();
+                    // Continuação de um grupo no topo da página nova: repete os dados da primeira linha
+                    if (rowFields.groupHead) {
+                        ({ wrapped, rowHeightMm } = layoutRow(rowFields.map((field, i) => field === '' ? rowFields.groupHead[i] : field)));
+                    }
                 }
 
                 wrapped.forEach((lines, i) => {
                     pdf.text(lines, colX[i] + 1, y + LINE_HEIGHT_MM - 1);
                 });
-                y += rowHeightMm;
-                pdf.setDrawColor(230, 230, 230);
-                pdf.line(marginH, y - 1, marginH + contentWidthMm, y - 1);
+
+                if (groupContinues) {
+                    // Avança só a altura do item; o resto da linha continua ao lado dos próximos itens
+                    const [from, to] = section.groupLineColumns;
+                    groupMinBottom = Math.max(groupMinBottom, y + rowHeightMm);
+                    y += linesToMm(Math.max(...wrapped.slice(from, to + 1).map(w => w.length)));
+                    pdf.setDrawColor(236, 236, 236);
+                    pdf.line(colX[from], y - 1, colX[to] + colWidths[to], y - 1);
+                } else {
+                    y = Math.max(y + rowHeightMm, groupMinBottom);
+                    groupMinBottom = 0;
+                    pdf.setDrawColor(section.groupLineColumns ? 200 : 230, section.groupLineColumns ? 200 : 230, section.groupLineColumns ? 200 : 230);
+                    pdf.line(marginH, y - 1, marginH + contentWidthMm, y - 1);
+                }
             });
+            previousEndY = y;
         });
 
         pdf.save(opt.filename || 'documento.pdf');
@@ -4217,7 +4286,8 @@ async function drawHistoryHeaderNative(pdf, { marginH, marginV, contentWidthMm }
     let y = drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle: 'Histórico de Rupturas Trade Marketing', subtitleColor: [227, 30, 36] });
 
     if (data) {
-        y = drawPdfChartsRow(pdf, { marginH, y, contentWidthMm }, {
+        const maxBottomY = contentBottomMm - measurePdfInsightsBox(pdf, contentWidthMm, data.insights).insightsH;
+        y = drawPdfChartsRow(pdf, { marginH, y, contentWidthMm, maxBottomY }, {
             donutChartUrl: data.donutChartUrl,
             donutLegendTitle: 'Composição por Rede (Sem/Com Ruptura)',
             donutLegendLines: [`Sem Ruptura: ${data.strOk}`, `Com Ruptura: ${data.strRup}`],
@@ -4226,8 +4296,9 @@ async function drawHistoryHeaderNative(pdf, { marginH, marginV, contentWidthMm }
             barLegendLines: data.topProductsList.map(p => `${p.name}: ${data.formatProductNetStr(p.networks)}`)
         });
 
-        drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, data.insights);
+        y = drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, data.insights);
     }
+    return y + 8;
 }
 
 window.exportHistoryPDF = async function() {
@@ -4926,7 +4997,8 @@ window.exportPedidosCSV = function() {
 
 async function drawPedidosHeaderNative(pdf, { marginH, marginV, contentWidthMm }, data) {
     const y = drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle: 'Relatório de Pedidos', subtitleColor: [227, 30, 36] });
-    drawPdfFilterBoxes(pdf, { marginH, y, contentWidthMm }, [
+    // Devolve onde o cabeçalho terminou: ele é curto, então a tabela começa na mesma página
+    return drawPdfFilterBoxes(pdf, { marginH, y, contentWidthMm }, [
         { label: 'Rede', value: data.redeLabel },
         { label: 'Cliente', value: data.clienteLabel },
         { label: 'Período', value: data.periodoLabel }
@@ -4951,23 +5023,30 @@ window.exportPedidosPDF = async function() {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     };
 
-    const rows = filtered.map(p => {
+    // Uma linha por item: os dados do pedido aparecem na primeira e as seguintes trazem só
+    // o item e a quantidade (groupHead liga cada continuação à primeira linha do pedido).
+    const rows = [];
+    filtered.forEach(p => {
         const store = findPedidoDestination(p.storeId);
-        const itensStr = (p.itens || []).map(it => `${it.descricao} (${it.quantidade}x)`).join(', ');
-        const unidadesStr = [...new Set((p.itens || []).map(it => it.unidade_venda).filter(Boolean))].join(', ');
-        return [
+        const itens = (p.itens && p.itens.length > 0) ? p.itens : [{ descricao: '-', quantidade: '-' }];
+        const head = [
             p.numeroPedido || '-',
             p.clienteNome || '-',
             store ? store.name : '-',
-            store ? store.network : '-',
             p.numeroNF || '-',
             p.dataPedido ? formatDate(p.dataPedido) : '-',
             formatPedidoDates(p, 'Agendamento', '\n') || '-',
             formatPedidoDates(p, 'Entrega', '\n') || '-',
-            unidadesStr || '-',
-            itensStr || '-',
+            itens[0].descricao,
+            itens[0].quantidade,
             p.observacoes || '-'
         ];
+        rows.push(head);
+        itens.slice(1).forEach(item => {
+            const row = ['', '', '', '', '', '', '', item.descricao, item.quantidade, ''];
+            row.groupHead = head;
+            rows.push(row);
+        });
     });
 
     await exportSectionedTablesToPdf({
@@ -4978,18 +5057,18 @@ window.exportPedidosPDF = async function() {
                 title: 'Pedidos',
                 emptyLabel: 'Nenhum pedido no filtro',
                 columns: [
-                    { label: 'Nº Pedido', width: '7%' },
+                    { label: 'Nº Pedido', width: '6.5%' },
                     { label: 'Cliente', width: '11%' },
-                    { label: 'Loja', width: '12%' },
-                    { label: 'Rede', width: '7%' },
-                    { label: 'NF', width: '6%' },
-                    { label: 'Data Pedido', width: '7%' },
+                    { label: 'Loja', width: '11%' },
+                    { label: 'NF', width: '5.5%' },
+                    { label: 'Data Pedido', width: '7.5%' },
                     { label: 'Agendamento', width: '8%' },
                     { label: 'Entrega', width: '7%' },
-                    { label: 'Unidade(s)', width: '8%' },
-                    { label: 'Itens', width: '15%' },
-                    { label: 'Observações', width: '12%' }
+                    { label: 'Item', width: '28%' },
+                    { label: 'Qtd.', width: '4.5%' },
+                    { label: 'Observação', width: '11%' }
                 ],
+                groupLineColumns: [7, 8],
                 rows
             }
         ]
@@ -4999,12 +5078,20 @@ window.exportPedidosPDF = async function() {
 // Desenha uma caixa com borda arredondada, título e linhas de texto (já quebradas
 // pra caber em `w`), com altura calculada a partir do conteúdo — nunca corta nada,
 // diferente da versão anterior baseada em captura de imagem. Retorna o Y final.
-function drawPdfLegendBox(pdf, x, topY, w, title, lines) {
-    const innerW = w - 10;
+// Linhas já quebradas e altura de uma caixa de legenda de largura `w` (sem desenhar nada).
+function measurePdfLegendBox(pdf, w, title, lines) {
     pdf.setFontSize(8.5);
-    const wrapped = lines.map(l => pdf.splitTextToSize(l, innerW));
+    pdf.setFont(undefined, 'bold');
+    const titleLines = pdf.splitTextToSize(title || '', w - 10);
+    pdf.setFont(undefined, 'normal');
+    const wrapped = lines.map(l => pdf.splitTextToSize(l, w - 10));
     const totalLines = wrapped.reduce((sum, w2) => sum + w2.length, 0);
-    const boxH = 8 + totalLines * 4 + Math.max(0, lines.length - 1) * 1.5 + 5;
+    const boxH = 8 + (titleLines.length - 1) * 4 + totalLines * 4 + Math.max(0, lines.length - 1) * 1.5 + 5;
+    return { titleLines, wrapped, boxH };
+}
+
+function drawPdfLegendBox(pdf, x, topY, w, title, lines) {
+    const { titleLines, wrapped, boxH } = measurePdfLegendBox(pdf, w, title, lines);
 
     pdf.setFillColor(249, 249, 249);
     pdf.setDrawColor(238, 238, 238);
@@ -5014,8 +5101,8 @@ function drawPdfLegendBox(pdf, x, topY, w, title, lines) {
     pdf.setFont(undefined, 'bold');
     pdf.setFontSize(8.5);
     pdf.setTextColor(0, 71, 171);
-    pdf.text(title, x + 5, ly);
-    ly += 4;
+    pdf.text(titleLines, x + 5, ly);
+    ly += 4 * titleLines.length;
     pdf.setDrawColor(224, 224, 224);
     pdf.line(x + 5, ly - 2.5, x + w - 5, ly - 2.5);
     ly += 1.5;
@@ -5102,44 +5189,77 @@ function drawPdfFilterBoxes(pdf, { marginH, y, contentWidthMm }, filters) {
     return y + boxH + 10;
 }
 
-// Gráfico de rosca + gráfico de barras lado a lado, cada um com sua legenda
-// (ambos opcionais). Retorna o Y logo abaixo do mais alto dos dois.
-function drawPdfChartsRow(pdf, { marginH, y, contentWidthMm }, { donutChartUrl, donutLegendTitle, donutLegendLines, barChartUrl, barLegendTitle, barLegendLines }) {
+// Gráfico de rosca + gráfico de barras lado a lado, cada um com sua legenda (ambos
+// opcionais). Retorna o Y logo abaixo do mais alto dos dois.
+// Por padrão a legenda fica embaixo de cada gráfico. Se `maxBottomY` for informado e esse
+// arranjo passar dele (ou seja, o que vem depois não caberia na página), usa o arranjo
+// compacto: gráficos um pouco menores com a legenda ao lado, que ocupa bem menos altura.
+function drawPdfChartsRow(pdf, { marginH, y, contentWidthMm, maxBottomY }, { donutChartUrl, donutLegendTitle, donutLegendLines, barChartUrl, barLegendTitle, barLegendLines }) {
+    const ROW_GAP_AFTER = 8;
+    const donutAspect = 350 / 250;
+    const barAspect = 500 / 250;
+    const hasDonutLegend = donutLegendLines && donutLegendLines.length > 0;
+    const hasBarLegend = barLegendLines && barLegendLines.length > 0;
+    const addImage = (url, x, w, h) => { if (url) { try { pdf.addImage(url, 'PNG', x, y, w, h); } catch (e) {} } };
+
+    // Arranjo padrão: legenda embaixo de cada gráfico
     const colGap = 10;
     const colW = (contentWidthMm - colGap) / 2;
-    const chartsTopY = y;
-
-    const donutAspect = 350 / 250;
     const donutW = Math.min(colW * 0.7, 68);
     const donutH = donutW / donutAspect;
-    const donutX = marginH + (colW - donutW) / 2;
-    if (donutChartUrl) { try { pdf.addImage(donutChartUrl, 'PNG', donutX, chartsTopY, donutW, donutH); } catch (e) {} }
-    let leftBottomY = chartsTopY + donutH + 4;
-    if (donutLegendLines && donutLegendLines.length > 0) {
-        const legendW1 = colW * 0.9;
-        const legendX1 = marginH + (colW - legendW1) / 2;
-        leftBottomY = drawPdfLegendBox(pdf, legendX1, leftBottomY, legendW1, donutLegendTitle, donutLegendLines);
-    }
-
-    const barAspect = 500 / 250;
-    const barColX = marginH + colW + colGap;
     const barW = Math.min(colW * 0.85, 95);
     const barH = barW / barAspect;
-    const barImgX = barColX + (colW - barW) / 2;
-    if (barChartUrl) { try { pdf.addImage(barChartUrl, 'PNG', barImgX, chartsTopY, barW, barH); } catch (e) {} }
-    let rightBottomY = chartsTopY + barH + 4;
-    if (barLegendLines && barLegendLines.length > 0) {
-        const legendW2 = colW * 0.95;
-        const legendX2 = barColX + (colW - legendW2) / 2;
-        rightBottomY = drawPdfLegendBox(pdf, legendX2, rightBottomY, legendW2, barLegendTitle, barLegendLines);
+    const legendW1 = colW * 0.9;
+    const legendW2 = colW * 0.95;
+    const stackedBottom = Math.max(
+        y + donutH + 4 + (hasDonutLegend ? measurePdfLegendBox(pdf, legendW1, donutLegendTitle, donutLegendLines).boxH : 0),
+        y + barH + 4 + (hasBarLegend ? measurePdfLegendBox(pdf, legendW2, barLegendTitle, barLegendLines).boxH : 0)
+    );
+
+    if (typeof maxBottomY !== 'number' || stackedBottom + ROW_GAP_AFTER <= maxBottomY) {
+        addImage(donutChartUrl, marginH + (colW - donutW) / 2, donutW, donutH);
+        if (hasDonutLegend) drawPdfLegendBox(pdf, marginH + (colW - legendW1) / 2, y + donutH + 4, legendW1, donutLegendTitle, donutLegendLines);
+
+        const barColX = marginH + colW + colGap;
+        addImage(barChartUrl, barColX + (colW - barW) / 2, barW, barH);
+        if (hasBarLegend) drawPdfLegendBox(pdf, barColX + (colW - legendW2) / 2, y + barH + 4, legendW2, barLegendTitle, barLegendLines);
+
+        return stackedBottom + ROW_GAP_AFTER;
     }
 
-    return Math.max(leftBottomY, rightBottomY) + 8;
+    // Arranjo compacto: [rosca | legenda]   [barras | legenda]. O grupo das barras é mais
+    // largo porque as linhas da legenda dele são mais longas.
+    const groupGap = 10;
+    const innerGap = 4;
+    const rightGroupW = contentWidthMm * 0.6;
+    const leftGroupW = contentWidthMm - groupGap - rightGroupW;
+    const rightGroupX = marginH + leftGroupW + groupGap;
+
+    const cDonutW = Math.min(leftGroupW * 0.455, 46);
+    const cDonutH = cDonutW / donutAspect;
+    const cBarW = Math.min(rightGroupW * 0.47, 78);
+    const cBarH = cBarW / barAspect;
+    let bottom = y + Math.max(cDonutH, cBarH);
+
+    if (hasDonutLegend) {
+        addImage(donutChartUrl, marginH, cDonutW, cDonutH);
+        bottom = Math.max(bottom, drawPdfLegendBox(pdf, marginH + cDonutW + innerGap, y + 2, leftGroupW - cDonutW - innerGap, donutLegendTitle, donutLegendLines));
+    } else {
+        addImage(donutChartUrl, marginH + (leftGroupW - cDonutW) / 2, cDonutW, cDonutH);
+    }
+
+    if (hasBarLegend) {
+        addImage(barChartUrl, rightGroupX, cBarW, cBarH);
+        bottom = Math.max(bottom, drawPdfLegendBox(pdf, rightGroupX + cBarW + innerGap, y + 2, rightGroupW - cBarW - innerGap, barLegendTitle, barLegendLines));
+    } else {
+        addImage(barChartUrl, rightGroupX + (rightGroupW - cBarW) / 2, cBarW, cBarH);
+    }
+
+    return bottom + ROW_GAP_AFTER;
 }
 
-// Quadro "Principais Insights" — altura calculada a partir do texto real, então
-// nunca corta; se não couber no resto da página, pula pra próxima automaticamente.
-function drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, insights) {
+// Quadro "Principais Insights" (largura total): linhas já quebradas e altura, sem desenhar.
+function measurePdfInsightsBox(pdf, contentWidthMm, insights) {
     const innerW2 = contentWidthMm - 16;
     pdf.setFontSize(9.5);
     const sentenceLines = insights.sentences.map(s => pdf.splitTextToSize(s, innerW2));
@@ -5147,6 +5267,11 @@ function drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBott
     const sentencesTotalLines = sentenceLines.reduce((s, l) => s + l.length, 0);
     const detailsTotalLines = detailLines.reduce((s, l) => s + l.length, 0);
     const insightsH = 10 + sentencesTotalLines * 5 + (insights.details.length > 0 ? (4 + detailsTotalLines * 5) : 0) + 8;
+    return { sentenceLines, detailLines, insightsH };
+}
+
+function drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, insights) {
+    const { sentenceLines, detailLines, insightsH } = measurePdfInsightsBox(pdf, contentWidthMm, insights);
 
     if (y + insightsH > contentBottomMm) {
         pdf.addPage();
@@ -5294,7 +5419,10 @@ async function drawVisitsReportHeaderNative(pdf, { marginH, marginV, contentWidt
         { label: 'Rupturas', value: reportFilterOnlyRuptures ? 'Somente visitas com ruptura' : 'Todas as visitas' }
     ]);
 
-    y = drawPdfChartsRow(pdf, { marginH, y, contentWidthMm }, {
+    // Se os gráficos com a legenda embaixo não deixarem espaço para o quadro de insights
+    // nesta página, drawPdfChartsRow usa o arranjo compacto (legenda ao lado).
+    const maxBottomY = contentBottomMm - measurePdfInsightsBox(pdf, contentWidthMm, insights).insightsH;
+    y = drawPdfChartsRow(pdf, { marginH, y, contentWidthMm, maxBottomY }, {
         donutChartUrl: data.donutChartUrl,
         donutLegendTitle: 'Composição por Rede (Sem/Com Ruptura)',
         donutLegendLines: [`Sem Ruptura: ${data.strOk}`, `Com Ruptura: ${data.strRup}`],
@@ -5303,7 +5431,9 @@ async function drawVisitsReportHeaderNative(pdf, { marginH, marginV, contentWidt
         barLegendLines: data.topProductsList.map(p => `${p.name}: ${data.formatProductNetStr(p.networks)}`)
     });
 
-    drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, insights);
+    // Devolve onde o cabeçalho terminou: a tabela continua logo abaixo do quadro de insights,
+    // em vez de começar numa página nova (ver exportSectionedTablesToPdf).
+    return drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, insights) + 8;
 }
 
 window.exportVisitsPDF = async function() {
@@ -5441,7 +5571,8 @@ async function drawPendingStoresHeaderNative(pdf, { marginH, marginV, contentWid
 
     let y = drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle: 'Relatório de Lojas Pendentes / Em Atraso', subtitleColor: [227, 30, 36] });
 
-    y = drawPdfChartsRow(pdf, { marginH, y, contentWidthMm }, {
+    const maxBottomY = contentBottomMm - measurePdfInsightsBox(pdf, contentWidthMm, data.insights).insightsH;
+    y = drawPdfChartsRow(pdf, { marginH, y, contentWidthMm, maxBottomY }, {
         donutChartUrl: data.donutChartUrl,
         donutLegendTitle: 'Resumo por Status',
         donutLegendLines: [data.statusSummary],
@@ -5450,7 +5581,7 @@ async function drawPendingStoresHeaderNative(pdf, { marginH, marginV, contentWid
         barLegendLines: data.topNets.map(([n, c]) => `${n}: ${c} loja(s)`)
     });
 
-    drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, data.insights);
+    return drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBottomMm, y }, data.insights) + 8;
 }
 
 window.exportDashboardPDF = async function() {

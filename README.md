@@ -214,7 +214,7 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 - Até três datas de agendamento e três de entrega por pedido, para pedidos entregues em partes. Todas aparecem na lista, no CSV e no PDF.
 - Busca de cliente por código (`cd-clientes.js`), que preenche o nome e restringe a escolha de loja às redes daquele cliente.
 - Itens escolhidos no catálogo comercial (`products-hiperroll.js`), com unidade de venda e quantidade.
-- Exportação em CSV e PDF.
+- Exportação em CSV e PDF. No PDF cada item ocupa uma linha, com a quantidade em coluna própria, e um pedido só é dividido entre páginas quando não cabe em uma.
 
 ### Usuários
 
