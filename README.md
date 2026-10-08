@@ -229,6 +229,7 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 
 - O servidor registra, com usuário, data e hora: visitas e pedidos adicionados, editados e excluídos; baixas manuais de ruptura; planos de rota criados e excluídos; importações de CSV; limpeza de notificações; criação, alteração e exclusão de usuários; trocas de senha; e entradas no sistema.
 - Nas edições, o registro guarda o valor de antes e o de depois de cada campo alterado. Nas exclusões, guarda o que foi apagado.
+- Cada visita e cada pedido guarda quem adicionou e quem editou por último. O administrador vê isso nas listas ("por Fulano") e, com data e hora, dentro do modal de detalhes da visita e de edição do pedido. As rupturas resolvidas manualmente mostram quem deu a baixa.
 - A aba **Auditoria** é exclusiva de administradores, com busca, filtros por mês, usuário e aba, e exportação em CSV.
 - Os registros só são acrescentados: não existe ação no sistema para editá-los ou apagá-los.
 

@@ -6565,16 +6565,14 @@ function authorshipHtml(item) {
     return `<div class="authorship">${lines.map(line => `<div>${line}</div>`).join('')}</div>`;
 }
 
-// Linha curta das tabelas: "por Fulano" (e "editado por Beltrano", se foi outra pessoa ou depois)
+// Linha curta das tabelas: "por Fulano" (quem adicionou). A edição, se houve, aparece ao
+// passar o mouse e no quadro do modal — na tabela ela alargaria demais a coluna.
 function authorLineHtml(item) {
-    if (!currentUser || !currentUser.admin || !item) return '';
-    const parts = [];
-    if (item.createdBy) parts.push(`por ${item.createdBy.n || item.createdBy.u}`);
-    if (item.lastChange && item.lastChange.a === 'update') parts.push(`editado por ${item.lastChange.n || item.lastChange.u}`);
-    if (parts.length === 0) return '';
-    const title = [item.createdBy ? formatAuthorStamp(item.createdBy, 'Adicionou') : '',
-                   (item.lastChange && item.lastChange.a === 'update') ? formatAuthorStamp(item.lastChange, 'Editou') : ''].filter(Boolean).join('\n');
-    return `<div class="row-author" title="${escapeHtml(title)}">${escapeHtml(parts.join(' · '))}</div>`;
+    if (!currentUser || !currentUser.admin || !item || !item.createdBy) return '';
+    const edited = item.lastChange && item.lastChange.a === 'update';
+    const title = [formatAuthorStamp(item.createdBy, 'Adicionou'), edited ? formatAuthorStamp(item.lastChange, 'Editou') : '']
+        .filter(Boolean).join('\n');
+    return `<div class="row-author" title="${escapeHtml(title)}">por ${escapeHtml(item.createdBy.n || item.createdBy.u)}</div>`;
 }
 
 function formatAuditTime(entry) {

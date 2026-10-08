@@ -23,6 +23,7 @@ Vale manter pelo menos dois administradores, para o item 6 nunca ser necessário
 - O servidor registra quem adicionou, editou ou excluiu visitas e pedidos, quem deu baixa manual em rupturas, quem criou ou excluiu planos de rota, quem importou CSV, quem mexeu em usuários e senhas, e cada entrada no sistema.
 - Os registros ficam em `backend/data/audit_AAAA-MM.json`, um arquivo por mês. Senhas não são gravadas.
 - A consulta é pela aba **Auditoria**, só para administradores. O painel não tem como editar nem apagar registros; isso só é possível mexendo nos arquivos pelo gerenciador da hospedagem.
+- Cada visita e cada pedido também guarda quem adicionou e quem editou por último, mostrado ao administrador nas listas e nos modais. Esse carimbo é definido pelo servidor; o que o navegador enviar nesse campo é descartado.
 - O registro começa na data em que esta versão foi publicada: o que foi feito antes não tem autoria.
 - Faça backup da pasta `backend/data/` de tempos em tempos; os arquivos de auditoria vão junto.
 

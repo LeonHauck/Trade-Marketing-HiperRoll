@@ -1552,7 +1552,6 @@ select:focus, textarea:focus, input:focus {
     font-size: 0.72rem;
     font-weight: 400;
     color: var(--text-muted);
-    white-space: nowrap;
 }
 
 /* Datas múltiplas (agendamento/entrega) no modal de pedido */
