@@ -7,7 +7,7 @@
 //            "bairro" = endereço exato não encontrado; usada a localização central do bairro (via CEP).
 //            "cidade" = nem endereço nem bairro encontrados; usada a localização central da cidade (fallback grosseiro).
 //
-// Redes já processadas: BAHAMAS JF (25/25), BAHAMAS (46/46), ATACADAO BA (40/40), BRAMIL (23/23), ATACADAO MG (10/10), SUPER BOM (19/19), BARCELOS ATACADISTA (3/3)
+// Redes já processadas: BAHAMAS JF (26/26), BAHAMAS (49/49), ATACADAO BA (40/40), BRAMIL (23/23), ATACADAO MG (10/10), SUPER BOM (19/19), BARCELOS ATACADISTA (3/3)
 const STORE_GEO_DATA = {
   "atacadao-ba-16-atacadao-rotula": { address: "Estr. do Coqueiro Grande, 614 - Cajazeiras, Salvador - BA, 41342-846", lat: -12.9084179, lng: -38.3939193, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-274-atacadao-aracaju-tancredo-neves": { address: "Av. Pres. Tancredo Neves, 3550 - Ponto Novo, Aracaju - SE, 49025-620", lat: -10.9563657, lng: -37.0532853, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
@@ -100,17 +100,21 @@ const STORE_GEO_DATA = {
   "bahamas-79-bahamas-mix-rio-pomba": { address: "AV LUCIANO RANGEL DE AZEVEDO - N° 770 - AREA 3 - JOSE MENDONÇA DOS REIS / CEP: 36.180-000", lat: -21.2345, lng: -43.1818341, geocodedAt: "2026-08-24T14:18:23Z", precision: "cidade" },
   "bahamas-80-bahamas-mix-iturama": { address: "Av. das Mangabeiras, 738 - Jaoquim Deodato, Iturama - MG, 38280-000", lat: -19.7272733, lng: -50.193488, geocodedAt: "2026-08-24T14:18:23Z", precision: "cidade" },
   "bahamas-82-bahamas-mix-araxa-santo-antonio": { address: "R. Santo Antônio, 1305 - Santo Antônio, Araxá - MG, 38182-106", lat: -19.6019972, lng: -46.9269516, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
+  "bahamas-93-bahapet-garden-araxa": { address: "R. Santo Antônio, 1311 - Santo Antônio, Araxá - MG, 38182-106", lat: -19.6019972, lng: -46.9269516, geocodedAt: "2026-10-15T12:02:31Z", precision: "endereco" }, // vizinha da loja 82 (nº 1305 da mesma rua)
   "bahamas-85-bahamas-mix-edilson-lamartine": { address: "Av. Edilson Lamartine Mendes, 1060 - São Benedito, Uberaba - MG, 38045-000", lat: -19.7703291, lng: -47.9581848, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-87-bahamas-mix-ponte-nova": { address: "R JOAO ALVES DE OLIVEIRA - N° 51 - TRIANGULO NOVO / CEP: 35.430-125", lat: -20.4032047, lng: -42.9024885, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-90-bahamas-mix-sao-joao-nepomuceno": { address: "AV ISRAEL PINHEIRO - N° 1494 - SANTA FÉ / CEP: 36.686-490", lat: -21.5381615, lng: -43.0234066, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
+  "bahamas-94-bahapet-garden-sao-joao-nepomuceno": { address: "Av. Israel Pinheiro, 1394 - São João Nepomuceno, MG, 36680-000", lat: -21.5381615, lng: -43.0234066, geocodedAt: "2026-10-15T12:02:31Z", precision: "endereco" }, // mesma avenida da loja 90 (nº 1494, cerca de 100 m)
   "bahamas-91-bahamas-mix-ituiutaba-ii": { address: "Av. Napoleão Faissol, 297 - Alvorada, Ituiutaba - MG, 38307-120", lat: -18.9674825, lng: -49.4891666, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-95-bahamas-mix-ube-segismundo": { address: "Av. Segismundo Pereira, 2626 - Santa Mônica, Uberlândia - MG, 38408-170", lat: -18.9179821, lng: -48.2508606, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
+  "bahamas-96-bahapet-garden-uberlandia-segismundo": { address: "Av. Segismundo Pereira, 2626 - Santa Mônica, Uberlândia - MG, 38408-170", lat: -18.9179821, lng: -48.2508606, geocodedAt: "2026-10-15T12:02:31Z", precision: "endereco" }, // mesmo endereço da loja 95
   "bahamas-jf-02-hiper-bahamas-sao-pedro": { address: "R JOSE LOURENCO - N° 710 - LOJA 102 - SÃO PEDRO / CEP: 36.036-230", lat: -21.7704338, lng: -43.3782241, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
   "bahamas-jf-12-bahamas-mix-jf-fabrica": { address: "R BERNARDO MASCARENHAS - N° 1072 - FÁBRICA / CEP: 36.080-001", lat: -21.7461087, lng: -43.3670221, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
   "bahamas-jf-13-mercado-bahamas-jf-poco-rico": { address: "AV FRANCISCO VALADARES - N° 108 - POÇO RICO / CEP: 36.020-420", lat: -21.7779307, lng: -43.3274597, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
   "bahamas-jf-15-supermercado-bahamas-jf-independencia": { address: "AV PRESIDENTE ITAMAR FRANCO - N° 2115 - SÃO MATEUS / CEP: 36.025-290", lat: -21.7777104, lng: -43.3584575, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
   "bahamas-jf-18-mercado-bahamas-jf-grama": { address: "R DIOMAR MONTEIRO - N° 126 - GRAMA / CEP: 36.048-310", lat: -21.6908364, lng: -43.3427504, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
   "bahamas-jf-19-bahamas-mix-ferreira-guimaraes": { address: "R BENJAMIM GUIMARAES - N° 315 - DEMOCRATA / CEP: 36.035-200", lat: -21.7496425, lng: -43.3686212, geocodedAt: "2026-08-24T13:21:13Z", precision: "bairro" },
+  "bahamas-jf-88-bahapet-garden-ferreira-guimaraes": { address: "R. Benjamin Guimarães, 315 - Santa Catarina, Juiz de Fora - MG, 36035-200", lat: -21.7496425, lng: -43.3686212, geocodedAt: "2026-10-15T12:02:31Z", precision: "bairro" }, // mesmo endereço da loja 19 (coordenada do bairro)
   "bahamas-jf-20-bahamas-mix-benfica": { address: "R MARTINS BARBOSA - N° 738 - BENFICA / CEP: 36.090-300", lat: -21.6935439, lng: -43.4437192, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
   "bahamas-jf-21-hiper-bahamas-getulio-vargas": { address: "R MARECHAL FLORIANO PEIXOTO - N° 270 - CENTRO / CEP: 36.013-080", lat: -21.7581378, lng: -43.3483689, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },
   "bahamas-jf-24-emporio-bahamas-jf-cascatinha": { address: "AV DOUTOR PAULO JAPIASSU COELHO - N° 548 - CASCATINHA / CEP: 36.033-310", lat: -21.7842283, lng: -43.3650956, geocodedAt: "2026-08-24T13:21:13Z", precision: "endereco" },

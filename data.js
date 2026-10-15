@@ -353,6 +353,18 @@ const STORES_DATA = [
         "lastVisit":  null
     },
     {
+        "id":  "bahamas-jf-88-bahapet-garden-ferreira-guimaraes",
+        "name":  "88 - BAHAPET & GARDEN FERREIRA GUIMARAES",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
         "id":  "bahamas-jf-02-hiper-bahamas-sao-pedro",
         "name":  "02 - HIPER BAHAMAS SAO PEDRO",
         "network":  "BAHAMAS JF",
@@ -1224,6 +1236,18 @@ const STORES_DATA = [
         "lastVisit":  null
     },
     {
+        "id":  "bahamas-93-bahapet-garden-araxa",
+        "name":  "93 - BAHAPET & GARDEN ARAXA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
         "id":  "bahamas-85-bahamas-mix-edilson-lamartine",
         "name":  "85 - BAHAMAS MIX EDILSON LAMARTINE",
         "network":  "BAHAMAS",
@@ -1321,6 +1345,18 @@ const STORES_DATA = [
         "lastVisit":  null
     },
     {
+        "id":  "bahamas-94-bahapet-garden-sao-joao-nepomuceno",
+        "name":  "94 - BAHAPET & GARDEN SAO JOAO NEPOMUCENO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "status":  "pending",
+        "lastVisit":  null
+    },
+    {
         "id":  "bahamas-91-bahamas-mix-ituiutaba-ii",
         "name":  "91 - BAHAMAS MIX - ITUIUTABA II",
         "network":  "BAHAMAS",
@@ -1406,6 +1442,18 @@ const STORES_DATA = [
                            "lixo-bahamas-100l",
                            "pending"
                        ],
+        "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-96-bahapet-garden-uberlandia-segismundo",
+        "name":  "96 - BAHAPET & GARDEN - UBERLANDIA SEGISMUNDO",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "status":  "pending",
         "lastVisit":  null
     },
     {
