@@ -54,7 +54,7 @@ A aplicação é um front-end em JavaScript puro, sem etapa de build, com um bac
 |---|---|
 | Lojas cadastradas | 170, em 7 redes |
 | Produtos monitorados nas visitas | 25 |
-| Catálogo comercial (aba Pedidos) | 200 itens |
+| Catálogo comercial (aba Pedidos) | 202 itens |
 | Lojas com coordenadas para rotas | 100% |
 
 ---

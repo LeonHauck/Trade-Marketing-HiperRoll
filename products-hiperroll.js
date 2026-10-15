@@ -1604,6 +1604,24 @@ const HIPERROLL_PRODUCTS_CATALOG = [
     "ncm": ""
   },
   {
+    "codigo": "P-05504",
+    "descricao": "SACO P/LIXO PT 75X105 RL/25 FD/10 COND 100L",
+    "linha": "Saco para lixo - Rolo",
+    "categoria": "",
+    "unidade_venda": "Fardo",
+    "peso_kg": null,
+    "ncm": ""
+  },
+  {
+    "codigo": "P-05506",
+    "descricao": "SACO P/LIXO PT 92X115 RL/25 FD/10 COND 200L",
+    "linha": "Saco para lixo - Rolo",
+    "categoria": "",
+    "unidade_venda": "Fardo",
+    "peso_kg": null,
+    "ncm": ""
+  },
+  {
     "codigo": "P-04530",
     "descricao": "BOBINA PLAST COND LEVE 20 PT PCT/4 RL/25 SACOS",
     "linha": "Saco para lixo - Condominio",
