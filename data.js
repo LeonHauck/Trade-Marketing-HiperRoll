@@ -2135,7 +2135,7 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-862-atacadao-aracaju-goni-alo-prado",
-        "name":  "862 ATACADAO - ARACAJU GONÇALO PRADO",
+        "name":  "862 ATACADAO - ARACAJU GONCALO PRADO",
         "network":  "ATACADAO BA",
         "frequency": 2,
         "productIds":  [
@@ -2198,7 +2198,7 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-845-atacadao-camai-ari-centro",
-        "name":  "845 ATACADAO - CAMAÇARI CENTRO",
+        "name":  "845 ATACADAO - CAMACARI CENTRO",
         "network":  "ATACADAO BA",
         "productIds":  [
                            "bobina-20x30",
@@ -2217,7 +2217,7 @@ const STORES_DATA = [
     },
     {
         "id":  "atacadao-ba-915-atacadao-camai-ari-via-parafuso",
-        "name":  "915 ATACADAO - CAMAÇARI VIA PARAFUSO",
+        "name":  "915 ATACADAO - CAMACARI VIA PARAFUSO",
         "network":  "ATACADAO BA",
         "frequency": 2,
         "productIds":  [
@@ -2921,7 +2921,7 @@ const STORES_DATA = [
         "lastVisit": null
     },{
         "id": "bramil-pinheiral-ii",
-        "name": "817 BRAMIL - PINHEIRAL SÃO JORGE",
+        "name": "817 BRAMIL - PINHEIRAL SAO JORGE",
         "network": "BRAMIL",
         "frequency": 1,
         "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
