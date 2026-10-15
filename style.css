@@ -1554,6 +1554,39 @@ select:focus, textarea:focus, input:focus {
     color: var(--text-muted);
 }
 
+/* Pedido finalizado */
+.pedido-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.pedido-status-badge.done {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.reports-table tr.pedido-finalizado td {
+    background: #f6fbf6;
+}
+
+.pedido-finalizado-banner {
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #e8f5e9;
+    border: 1px solid #c8e6c9;
+    color: #2e7d32;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
 /* Visualização de pedido (somente leitura) */
 .pedido-view-grid {
     display: grid;

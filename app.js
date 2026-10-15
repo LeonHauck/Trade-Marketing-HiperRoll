@@ -4411,8 +4411,11 @@ function getFilteredPedidosList() {
     const endVal = document.getElementById('pedidoFilterEndDate')?.value;
     const startDate = startVal ? new Date(startVal + 'T00:00:00') : null;
     const endDate = endVal ? new Date(endVal + 'T23:59:59') : null;
+    const statusFilter = document.getElementById('pedidoStatusFilter')?.value || '';
 
     return pedidos.filter(p => {
+        if (statusFilter === 'finalizado' && !p.finalizado) return false;
+        if (statusFilter === 'andamento' && p.finalizado) return false;
         const store = findPedidoDestination(p.storeId);
         const network = store ? store.network : '';
         if (checkedNets.length > 0 && !checkedNets.includes(network)) return false;
@@ -4475,6 +4478,12 @@ function renderPedidosView() {
                         <i class="fa-solid fa-magnifying-glass"></i>
                         <input type="text" id="pedidoClienteSearch" placeholder="Buscar cliente ou nº pedido..." oninput="renderPedidosTable()">
                     </div>
+
+                    <select id="pedidoStatusFilter" class="filter-select" onchange="renderPedidosTable()" style="height: 40px; width: auto; background: white; border: 1px solid #eee; border-radius: 8px; font-size: 0.85rem;">
+                        <option value="">Todos os status</option>
+                        <option value="andamento">Em andamento</option>
+                        <option value="finalizado">Finalizados</option>
+                    </select>
 
                     <div style="display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #eee; border-radius: 8px; padding: 0 10px; height: 40px;">
                         <i class="fa-regular fa-calendar" style="color: var(--text-light); font-size: 0.85rem;"></i>
@@ -4547,8 +4556,8 @@ function renderPedidosTable() {
         const store = findPedidoDestination(p.storeId);
         const itemCount = (p.itens || []).length;
         return `
-            <tr>
-                <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="viewPedido('${p.id}')" title="Ver detalhes do pedido">${p.numeroPedido || '-'}</strong>${authorLineHtml(p)}</td>
+            <tr class="${p.finalizado ? 'pedido-finalizado' : ''}">
+                <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="viewPedido('${p.id}')" title="Ver detalhes do pedido">${p.numeroPedido || '-'}</strong>${pedidoStatusBadgeHtml(p)}${authorLineHtml(p)}</td>
                 <td>${p.clienteNome || '-'}${p.clienteCodigo ? ` <span style="color:var(--text-muted); font-size:0.78rem;">(${p.clienteCodigo})</span>` : ''}</td>
                 <td>${store ? store.name : '<span style="color:var(--text-muted);">loja removida</span>'}</td>
                 <td>${store ? `<span class="network-tag">${store.network}</span>` : '-'}</td>
@@ -4559,6 +4568,9 @@ function renderPedidosTable() {
                 <td>${itemCount} ${itemCount === 1 ? 'item' : 'itens'}</td>
                 <td style="white-space: nowrap;">
                     <button class="btn-edit-small" onclick="viewPedido('${p.id}')" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
+                    ${p.finalizado
+                        ? `<button class="btn-edit-small" onclick="setPedidoFinalizado('${p.id}', false)" title="Reabrir pedido" style="color: var(--text-muted);"><i class="fa-solid fa-rotate-left"></i></button>`
+                        : `<button class="btn-edit-small" onclick="setPedidoFinalizado('${p.id}', true)" title="Finalizar pedido" style="color: #2e7d32;"><i class="fa-solid fa-circle-check"></i></button>`}
                     <button class="btn-edit-small" onclick="openPedidoModal('${p.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
                     <button class="btn-edit-small" onclick="deletePedido('${p.id}')" title="Excluir" style="color: var(--primary-red);"><i class="fa-solid fa-trash"></i></button>
                 </td>
@@ -4612,6 +4624,55 @@ window.removePedidoDate = function(kind, index) {
     renderPedidoDateInputs(kind);
 };
 
+// ---------- Finalização do pedido ----------
+// Quando o pedido foi concluído com sucesso, o usuário o marca como finalizado. Fica
+// visível para todos (selo na lista, quadro na visualização). Quem finalizou e quando
+// (finalizedBy) é gravado pelo servidor; reabrir apaga o carimbo.
+function formatFinalizedStamp(p) {
+    if (!p.finalizedBy) return 'Finalizado';
+    const when = new Date(p.finalizedBy.t * 1000);
+    return `Finalizado em ${when.toLocaleDateString('pt-BR')} às ${when.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} por ${p.finalizedBy.n || p.finalizedBy.u}`;
+}
+
+function pedidoStatusBadgeHtml(p) {
+    return p.finalizado
+        ? `<div><span class="pedido-status-badge done" title="${escapeHtml(formatFinalizedStamp(p))}"><i class="fa-solid fa-circle-check"></i> Finalizado</span></div>`
+        : '';
+}
+
+window.setPedidoFinalizado = async function(pedidoId, finalizar) {
+    const atual = pedidos.find(x => x.id === pedidoId);
+    if (!atual) return;
+    const pergunta = finalizar
+        ? `Marcar o pedido ${atual.numeroPedido || ''} como finalizado?\nTodos os usuários verão que ele foi concluído.`
+        : `Reabrir o pedido ${atual.numeroPedido || ''}?\nEle volta a aparecer como em andamento.`;
+    if (!confirm(pergunta)) return;
+
+    await syncWithServer(); // parte dos dados mais recentes do servidor
+    const p = pedidos.find(x => x.id === pedidoId);
+    if (!p) { alert('Este pedido não existe mais (pode ter sido excluído por outro usuário).'); return; }
+    if (finalizar) {
+        p.finalizado = true;
+        // Carimbo provisório (aparece na hora e no modo local, sem servidor); com o servidor,
+        // ele é substituído pelo oficial na sincronização
+        p.finalizedBy = {
+            t: Math.floor(Date.now() / 1000),
+            u: currentUser ? currentUser.username : '',
+            n: currentUser ? currentUser.name : 'Usuário'
+        };
+    } else {
+        delete p.finalizado;
+        delete p.finalizedBy;
+    }
+    await persistPedidos(); // a sincronização devolve o carimbo de quem finalizou
+    renderPedidosTable();
+    const modal = document.getElementById('pedidoModal');
+    if (modal && modal.style.display === 'flex' && document.getElementById('pedidoModalBody').dataset.viewing === pedidoId) {
+        viewPedido(pedidoId);
+    }
+    showToast(finalizar ? `Pedido ${p.numeroPedido || ''} finalizado.` : `Pedido ${p.numeroPedido || ''} reaberto.`, 'success');
+};
+
 // ---------- Modal: visualizar pedido (somente leitura) ----------
 // Usa a mesma janela do cadastro, mas sem campos editáveis: serve para consultar o
 // pedido sem risco de alterar algo por engano.
@@ -4631,7 +4692,9 @@ window.viewPedido = function(pedidoId) {
     const itens = p.itens || [];
 
     document.getElementById('pedidoModalTitle').textContent = `Pedido ${p.numeroPedido || ''}`.trim();
+    body.dataset.viewing = p.id;
     body.innerHTML = `
+        ${p.finalizado ? `<div class="pedido-finalizado-banner"><i class="fa-solid fa-circle-check"></i> ${escapeHtml(formatFinalizedStamp(p))}</div>` : ''}
         ${authorshipHtml(p)}
         <div class="pedido-view-grid">
             ${field('Número do Pedido', escapeHtml(p.numeroPedido))}
@@ -4671,6 +4734,9 @@ window.viewPedido = function(pedidoId) {
 
         <div class="form-actions" style="display: flex; gap: 10px;">
             <button type="button" class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="document.getElementById('pedidoModal').style.display='none'">Fechar</button>
+            ${p.finalizado
+                ? `<button type="button" class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="setPedidoFinalizado('${p.id}', false)"><i class="fa-solid fa-rotate-left"></i> Reabrir pedido</button>`
+                : `<button type="button" class="btn btn-success" style="flex: 1; justify-content: center; width: auto;" onclick="setPedidoFinalizado('${p.id}', true)"><i class="fa-solid fa-circle-check"></i> Finalizar pedido</button>`}
             <button type="button" class="btn btn-primary" style="flex: 1; justify-content: center;" onclick="openPedidoModal('${p.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
         </div>
     `;
@@ -5029,7 +5095,7 @@ window.exportPedidosCSV = function() {
     const filtered = getFilteredPedidosList();
     if (filtered.length === 0) { alert('Não há pedidos para exportar com os filtros atuais.'); return; }
 
-    let csvContent = 'data:text/csv;charset=utf-8,﻿Nº Pedido;Código Cliente;Nome Cliente;Loja;Rede;Nº NF;Data Pedido;Datas Agendamento;Datas Entrega;Unidade(s);Itens;Observações\n';
+    let csvContent = 'data:text/csv;charset=utf-8,﻿Nº Pedido;Código Cliente;Nome Cliente;Loja;Rede;Nº NF;Data Pedido;Datas Agendamento;Datas Entrega;Unidade(s);Itens;Observações;Status\n';
     filtered.forEach(p => {
         const store = findPedidoDestination(p.storeId);
         const itensStr = (p.itens || []).map(it => `${it.descricao} (${it.quantidade}x)`).join(' | ');
@@ -5046,7 +5112,8 @@ window.exportPedidosCSV = function() {
             formatPedidoDates(p, 'Entrega', ' | '),
             unidadesStr,
             `"${itensStr.replace(/"/g, '""')}"`,
-            `"${(p.observacoes || '').replace(/"/g, '""')}"`
+            `"${(p.observacoes || '').replace(/"/g, '""')}"`,
+            p.finalizado ? formatFinalizedStamp(p) : 'Em andamento'
         ].join(';') + '\n';
     });
 
@@ -6633,6 +6700,8 @@ const AUDIT_ACTIONS = {
     update: { label: 'Editou', tone: 'update' },
     delete: { label: 'Excluiu', tone: 'delete' },
     resolve: { label: 'Resolveu', tone: 'create' },
+    finalize: { label: 'Finalizou', tone: 'create' },
+    reopen: { label: 'Reabriu', tone: 'update' },
     clear: { label: 'Limpou', tone: 'update' },
     csv: { label: 'Importou', tone: 'update' },
     password: { label: 'Trocou a senha', tone: 'update' },
@@ -6673,6 +6742,7 @@ const AUDIT_FIELDS = {
     datasEntrega: ['Datas de entrega', value => (value || []).map(formatDate).join(', ') || '—'],
     observacoes: ['Observações', auditText],
     itens: ['Itens', value => (value || []).map(item => `${item.descricao} (${item.quantidade}x)`).join('; ') || '—'],
+    finalizado: ['Status', value => value ? 'Finalizado' : 'Em andamento'],
     name: ['Nome', auditText],
     role: ['Cargo', auditText],
     admin: ['Administrador', auditYesNo]
@@ -6710,7 +6780,9 @@ function describeAuditEntry(entry) {
     if (entry.e === 'pedido') {
         return {
             subject: `Pedido ${auditText(d.numeroPedido)}${d.clienteNome ? ' — ' + d.clienteNome : ''} — ${auditStoreName(d.storeId)}`,
-            lines: isUpdate
+            lines: entry.a === 'finalize' ? ['Pedido marcado como finalizado']
+                : entry.a === 'reopen' ? ['Pedido reaberto (voltou para em andamento)']
+                : isUpdate
                 ? auditChangeLines(d.changes)
                 : auditSnapshotLines(d, ['numeroNF', 'dataPedido', 'datasAgendamento', 'datasEntrega', 'itens', 'observacoes'])
         };

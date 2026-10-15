@@ -211,6 +211,7 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 
 - Cadastro com número do pedido, cliente, loja, nota fiscal, data do pedido e observações.
 - Visualização do pedido em modo somente leitura, pelo ícone de olho ou clicando no número do pedido, sem risco de alterar algo por engano.
+- Finalização do pedido: quando ele foi concluído com sucesso, o usuário o marca como finalizado. A lista mostra o selo "Finalizado" para todos, com data e autor, e há filtro por status (em andamento ou finalizados). O pedido pode ser reaberto; as duas ações ficam na auditoria.
 - Centros de distribuição podem ser o destino de um pedido sem contar como loja: aparecem só no campo "Loja" do pedido, fora de visitas, rotas e indicadores.
 - Até três datas de agendamento e três de entrega por pedido, para pedidos entregues em partes. Todas aparecem na lista, no CSV e no PDF.
 - Busca de cliente por código (`cd-clientes.js`), que preenche o nome e restringe a escolha de loja às redes daquele cliente.

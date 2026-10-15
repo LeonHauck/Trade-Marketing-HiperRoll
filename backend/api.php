@@ -277,7 +277,7 @@ function auditLog(string $entity, string $action, $id, array $details = []): voi
 const AUDIT_FIELDS = [
     'visits'  => ['storeId', 'date', 'ruptures', 'extraPoints', 'isExtra', 'notes'],
     'pedidos' => ['numeroPedido', 'clienteCodigo', 'clienteNome', 'storeId', 'numeroNF', 'dataPedido',
-                  'datasAgendamento', 'datasEntrega', 'observacoes', 'itens'],
+                  'datasAgendamento', 'datasEntrega', 'observacoes', 'itens', 'finalizado'],
 ];
 
 function auditSnapshot(string $collection, array $item): array {
@@ -311,15 +311,24 @@ function withAuthorship(string $collection, ?array $old, array $new): array {
         }
         return $new;
     }
-    unset($new['createdBy'], $new['lastChange']);
+    unset($new['createdBy'], $new['lastChange'], $new['finalizedBy']);
     $stamp = ['t' => time(), 'u' => $me, 'n' => $users[$me]['name'] ?? $me];
+
+    // Pedido finalizado: guarda quem finalizou e quando (mantém o carimbo enquanto
+    // continuar finalizado; ao reabrir, o carimbo some)
+    if ($collection === 'pedidos' && !empty($new['finalizado'])) {
+        $new['finalizedBy'] = ($old !== null && !empty($old['finalizado']) && isset($old['finalizedBy'])) ? $old['finalizedBy'] : $stamp;
+    }
+
     if ($old === null) {
         $new['createdBy']  = $stamp;
         $new['lastChange'] = $stamp + ['a' => 'create'];
         return $new;
     }
     if (isset($old['createdBy'])) $new['createdBy'] = $old['createdBy'];
-    $changed = json_encode(auditSnapshot($collection, $old)) !== json_encode(auditSnapshot($collection, $new));
+    // Finalizar ou reabrir não conta como "editou" (tem carimbo e registro próprios)
+    $withoutStatus = function ($item) use ($collection) { $snap = auditSnapshot($collection, $item); unset($snap['finalizado']); return json_encode($snap); };
+    $changed = $withoutStatus($old) !== $withoutStatus($new);
     if ($changed) $new['lastChange'] = $stamp + ['a' => 'update'];
     elseif (isset($old['lastChange'])) $new['lastChange'] = $old['lastChange'];
     return $new;
@@ -341,6 +350,13 @@ function auditListEvents(string $collection, array $events): void {
             }
             if (count($changes) === 0) continue;
             $identity = array_intersect_key($after, array_flip(['storeId', 'date', 'numeroPedido', 'clienteNome']));
+            // Pedido finalizado ou reaberto vira um registro próprio; se houve outras alterações
+            // junto, elas seguem num registro de edição separado
+            if (isset($changes['finalizado'])) {
+                auditLog($entities[$collection], $after['finalizado'] ? 'finalize' : 'reopen', $key, $identity);
+                unset($changes['finalizado']);
+                if (count($changes) === 0) continue;
+            }
             auditLog($entities[$collection], 'update', $key, $identity + ['changes' => $changes]);
         } elseif ($collection === 'resolved_history' && $type === 'create' && !empty($new['resolvedManually'])) {
             // Só a baixa feita à mão no painel; a resolução automática já aparece na visita que a causou
