@@ -1412,6 +1412,7 @@ const STORES_DATA = [
         "id":  "barcelos-atacadista-barcelos-atacadista-guarus-plaza",
         "name":  "BARCELOS ATACADISTA - GUARUS PLAZA",
         "network":  "BARCELOS ATACADISTA",
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1427,6 +1428,7 @@ const STORES_DATA = [
         "id":  "barcelos-atacadista-barcelos-atacadista-itaborai",
         "name":  "BARCELOS ATACADISTA - ITABORAI",
         "network":  "BARCELOS ATACADISTA",
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1442,6 +1444,7 @@ const STORES_DATA = [
         "id":  "barcelos-atacadista-barcelos-atacadista-sao-goncalo",
         "name":  "BARCELOS ATACADISTA - SAO GONCALO",
         "network":  "BARCELOS ATACADISTA",
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1457,7 +1460,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-13-de-maio",
         "name":  "SUPER BOM - 13 DE MAIO",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1473,7 +1476,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-campo-grande",
         "name":  "SUPER BOM - CAMPO GRANDE",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1489,7 +1492,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-colubande",
         "name":  "SUPER BOM - COLUBANDE",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1505,7 +1508,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-curicica",
         "name":  "SUPER BOM - CURICICA",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1521,7 +1524,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-goytacazes",
         "name":  "SUPER BOM - GOYTACAZES",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1537,7 +1540,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-guarus-plaza",
         "name":  "SUPER BOM - GUARUS PLAZA",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1553,7 +1556,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-ips",
         "name":  "SUPER BOM - IPS",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1569,7 +1572,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-nova-iguacu",
         "name":  "SUPER BOM - NOVA IGUACU",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1585,7 +1588,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-partage-shopping",
         "name":  "SUPER BOM - PARTAGE SHOPPING",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1601,7 +1604,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-sao-pedro-da-aldeia",
         "name":  "SUPER BOM - SAO PEDRO DA ALDEIA",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1617,7 +1620,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-28-de-marco",
         "name":  "SUPER BOM - 28 DE MARCO",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1633,7 +1636,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-tarcisio-miranda",
         "name":  "SUPER BOM - TARCISIO MIRANDA",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1649,7 +1652,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-campista",
         "name":  "SUPER BOM - CAMPISTA",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1665,7 +1668,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-bartolomeu",
         "name":  "SUPER BOM - BARTOLOMEU",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1681,7 +1684,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-alberto-torres",
         "name":  "SUPER BOM - ALBERTO TORRES",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1697,7 +1700,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-visconde-jose-alves-de-azevedo",
         "name":  "SUPER BOM - VISCONDE JOSE ALVES DE AZEVEDO",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1713,7 +1716,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-uebe-turf",
         "name":  "SUPER BOM - UEBE TURF",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1729,7 +1732,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-alberto-lamego",
         "name":  "SUPER BOM - ALBERTO LAMEGO",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
@@ -1745,7 +1748,7 @@ const STORES_DATA = [
         "id":  "super-bom-super-bom-sao-joao-da-barra",
         "name":  "SUPER BOM - SAO JOAO DA BARRA",
         "network":  "SUPER BOM",
-        "frequency": 2,
+        "frequency": 1,
         "productIds":  [
                            "economico-15l",
                            "economico-30l",
