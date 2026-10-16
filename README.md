@@ -45,7 +45,7 @@ O **Trade Marketing HiperRoll** centraliza a rotina da equipe de trade marketing
 - acompanha cada **ruptura** (produto em falta na gôndola) desde a identificação até a resolução;
 - sinaliza lojas **em atraso** de acordo com a frequência de visita combinada;
 - sugere **rotas semanais** para os promotores, priorizando o que é mais urgente;
-- dá a cada **promotor** uma tela de celular com a rota do dia, onde ele tira as fotos de cada loja, que saem com data, hora e localização;
+- dá a cada **promotor** uma tela de celular com a rota do dia, onde ele tira as fotos de cada loja, que saem com data, hora e localização e já contam como visita da loja;
 - controla **pedidos comerciais** por cliente, loja e datas de agendamento e entrega;
 - exporta tudo em **CSV e PDF**, respeitando os filtros aplicados na tela.
 
@@ -168,7 +168,7 @@ Busca de cliente por código, loja restrita às redes do cliente, até três dat
 
 Tela do promotor, pensada para o celular. Mostra as lojas do dia na ordem da rota, com o horário previsto, o atalho para o mapa e o botão **Tirar fotos**, que abre a câmera. As lojas já fotografadas ficam marcadas, com a quantidade e as miniaturas das fotos do dia.
 
-O promotor não registra visita nem rupturas e não vê o restante do sistema: só a própria rota e as fotos.
+A primeira foto do dia numa loja já conta como visita, e a loja fica em dia no Dashboard. O promotor não confere rupturas e não vê o restante do sistema: só a própria rota e as fotos.
 
 </td>
 <td width="60%" valign="top">
@@ -184,6 +184,12 @@ O promotor não registra visita nem rupturas e não vê o restante do sistema: s
 Todas as fotos das visitas, com a loja, a data e hora em que chegaram ao servidor, quem tirou e a distância entre o ponto onde a foto foi tirada e o endereço da loja. Filtros por período, usuário, loja e local, download em `.zip` e, para administradores, a limpeza das fotos antigas.
 
 <img src="docs/screenshots/15-fotos.png" alt="Aba de fotos" width="100%">
+
+### Visitas do promotor no histórico
+
+As visitas criadas pelas fotos do promotor aparecem no Histórico de Visitas com o selo **Fotos do promotor**, sem número de rupturas, porque elas não foram conferidas. Quando a equipe registra a visita da mesma loja na mesma data, ela completa essa visita, com rupturas, pontos extras e observações, e as fotos do promotor continuam nela.
+
+<img src="docs/screenshots/16-visitas-do-promotor.png" alt="Visitas do promotor no histórico" width="100%">
 
 ### Auditoria
 
@@ -239,7 +245,11 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 
 - Tela de celular com as paradas do dia, o progresso (lojas fotografadas / lojas do dia), os próximos dias da rota e um campo para fotografar uma loja fora da rota.
 - As fotos vêm direto da câmera do celular. Cada uma recebe um carimbo com a loja, a data e hora, as coordenadas e o nome de quem tirou.
-- O promotor só tira as fotos: não registra visita nem rupturas. As fotos ficam agrupadas por loja e dia, e as visitas continuam sendo registradas pela equipe interna.
+- O promotor só tira as fotos, sem preencher formulário de visita nem rupturas.
+- **A primeira foto do dia numa loja cria a visita daquela loja**, feita pelo servidor em nome do promotor. Com isso a loja conta como visitada no Dashboard (em dia ou em atraso). As demais fotos do mesmo dia e loja entram nessa mesma visita. Se a equipe já registrou a visita da loja naquele dia, as fotos entram na visita dela.
+- A visita do promotor **não mexe em rupturas**: não dá baixa em itens em falta, não entra na taxa nem nos gráficos de ruptura, não conta como "2ª visita sem resolver" e não substitui o lembrete "Rupturas na última visita" do formulário.
+- Quando a equipe registra a visita da mesma loja e data, pelo **Nova Visita** ou pelo botão de editar no histórico, ela **completa** a visita do promotor em vez de criar outra. A visita passa a valer para rupturas normalmente e mantém as fotos e o nome do promotor. A auditoria registra quem completou.
+- Uma foto que ficou na fila por falta de sinal conta no dia em que foi tirada.
 - Ao tirar a foto, o celular informa a localização (GPS). O servidor grava a hora oficial do envio, quem enviou e calcula a distância até o endereço cadastrado da loja; a aba Fotos destaca as fotos tiradas a mais de 300 m.
 - Sem sinal, as fotos ficam guardadas no celular e são enviadas sozinhas quando a conexão volta. A tela avisa quantas estão pendentes e tem o botão **Enviar agora**.
 - Na aba **Fotos**, o botão **Baixar .zip** baixa as fotos do período e do usuário filtrados, com uma planilha `fotos.csv` (data, usuário, loja, coordenadas e distância).
@@ -268,7 +278,7 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 
 ### Auditoria
 
-- O servidor registra, com usuário, data e hora: visitas e pedidos adicionados, editados e excluídos; baixas manuais de ruptura; planos de rota criados e excluídos; importações de CSV; limpeza de notificações; limpeza de fotos antigas; criação, alteração e exclusão de usuários; trocas de senha; e entradas no sistema.
+- O servidor registra, com usuário, data e hora: visitas e pedidos adicionados, editados e excluídos (inclusive as visitas criadas pelas fotos do promotor); baixas manuais de ruptura; planos de rota criados e excluídos; importações de CSV; limpeza de notificações; limpeza de fotos antigas; criação, alteração e exclusão de usuários; trocas de senha; e entradas no sistema.
 - Nas edições, o registro guarda o valor de antes e o de depois de cada campo alterado. Nas exclusões, guarda o que foi apagado.
 - Cada visita e cada pedido guarda quem adicionou e quem editou por último. O administrador vê isso nas listas ("por Fulano") e, com data e hora, dentro do modal de detalhes da visita e de edição do pedido. As rupturas resolvidas manualmente mostram quem deu a baixa.
 - A aba **Auditoria** é exclusiva de administradores, com busca, filtros por mês, usuário e aba, e exportação em CSV.
@@ -431,7 +441,7 @@ Todas as chamadas vão para `backend/api.php?action=<ação>`. Fora `login`, `lo
 | `load` | GET | Retorna todo o estado: visitas, rupturas, histórico, pedidos, status das lojas, fotos e a versão dos dados |
 | `version` | GET | Retorna só a versão dos dados, para o painel saber se há novidades |
 | `sync` | POST | Aplica as alterações enviadas (itens criados, alterados e excluídos) e devolve o estado atualizado |
-| `upload_photo` | POST | Envia uma foto (de uma visita ou da rota do promotor), com a loja e a localização do celular; o servidor grava a hora, o usuário e a distância até a loja |
+| `upload_photo` | POST | Envia uma foto (de uma visita ou da rota do promotor), com a loja e a localização do celular; o servidor grava a hora, o usuário e a distância até a loja. Na rota do promotor, a primeira foto do dia na loja cria a visita |
 | `delete_photos` | POST | Remove as fotos de uma visita |
 | `photo` | GET | Abre uma foto de `uploads/` (exige sessão) |
 | `photos_list` | GET | Lista as fotos com os dados de cada uma (permissão Fotos) |

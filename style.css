@@ -2360,6 +2360,44 @@ body.page-myroute .top-header {
     color: var(--text-muted);
 }
 
+/* ---------- Visita do promotor (só fotos) ---------- */
+.status-tag.promoter {
+    background: #eef4ff;
+    color: var(--primary-blue);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.visit-promoter-dash {
+    color: var(--text-muted);
+}
+
+.visit-promoter-note {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #eef4ff;
+    border: 1px solid #c9dcf5;
+    color: #24456e;
+    font-size: 0.88rem;
+}
+
+.visit-promoter-note i {
+    margin-top: 3px;
+    color: var(--primary-blue);
+}
+
+.visit-promoter-note.subtle {
+    background: #f8fafc;
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
 /* ---------- Aba Fotos ---------- */
 .photos-summary {
     margin-bottom: 14px;

@@ -275,6 +275,16 @@ function collectSyncState() {
     };
 }
 
+// Fotos por visita vindas do servidor. Devolve true se algo mudou na tela.
+function applyPhotoMap(photoMap) {
+    let changed = false;
+    Object.entries(photoMap || {}).forEach(([visitId, photos]) => {
+        if (JSON.stringify(photoCache[visitId] || []) !== JSON.stringify(photos)) changed = true;
+        photoCache[visitId] = photos;
+    });
+    return changed;
+}
+
 // Adota o estado devolvido pelo servidor (já com o que os outros usuários gravaram).
 function applyServerState(state) {
     visits = state.visits || [];
@@ -290,10 +300,21 @@ function applyServerState(state) {
         const upd = storeUpdates[s.id];
         return upd ? { ...s, lastVisit: upd.lastVisit, currentStatus: upd.currentStatus } : s;
     });
-
-    Object.entries(state.photo_map || {}).forEach(([visitId, photos]) => {
-        photoCache[visitId] = photos;
+    // Visitas criadas pelo servidor (fotos do promotor) não passam pelo status gravado pelo
+    // painel: a última visita de cada loja vem das próprias visitas
+    const latestByStore = getVisitsByStoreIndex();
+    let storeStatusChanged = false;
+    stores.forEach(s => {
+        const latest = (latestByStore.get(s.id) || [])[0];
+        if (latest && latest.date && (!s.lastVisit || latest.date > s.lastVisit)) {
+            s.lastVisit = latest.date;
+            s.status = 'visited';
+            storeStatusChanged = true;
+        }
     });
+    if (storeStatusChanged) checkOverdueStores();
+
+    applyPhotoMap(state.photo_map);
 
     saveAppStateLocally(); // fire and forget
     persistLocalStorageJson('hr_pedidos', pedidos);
@@ -338,6 +359,8 @@ async function syncWithServer() {
     if (result.changed) {
         applyServerState(result.state);
         refreshCurrentView();
+    } else if (result.state && applyPhotoMap(result.state.photo_map)) {
+        refreshCurrentView(); // só chegaram fotos novas (ex.: do promotor)
     }
     if (result.pending) await syncWithServer(); // algo foi alterado durante o envio: manda agora
     processPhotoOutbox(); // aproveita que há conexão para reenviar fotos pendentes
@@ -614,11 +637,23 @@ function updateGlobalNetworkText(spanEl) {
     }
 }
 
+// Visita do promotor: criada pelo servidor na primeira foto do dia numa loja (Minha Rota).
+// Conta como visita para o status da loja, mas não confere rupturas: fica fora de tudo
+// que calcula, resolve ou resume rupturas. Quando a equipe registra a visita completa da
+// mesma loja e data, ela deixa de ser "só do promotor" (ver handleVisitSubmit).
+function isPromoterOnlyVisit(visit) {
+    return !!(visit && visit.promoterVisit);
+}
+
+function ruptureVisits(list = visits) {
+    return list.filter(v => !isPromoterOnlyVisit(v));
+}
+
 async function hydrateResolvedHistoryFromVisits() {
     if (!Array.isArray(visits) || visits.length === 0) return false;
 
     // Rebuild the active rupture map from the latest visits.
-    const latestVisitByStore = visits.reduce((acc, visit) => {
+    const latestVisitByStore = ruptureVisits().reduce((acc, visit) => {
         if (!visit || !visit.storeId || !visit.date) return acc;
         const current = acc[visit.storeId];
         if (!current || new Date(visit.date) > new Date(current.date)) {
@@ -634,7 +669,7 @@ async function hydrateResolvedHistoryFromVisits() {
         });
     });
 
-    const sortedVisits = [...visits]
+    const sortedVisits = ruptureVisits()
         .filter(v => Array.isArray(v.ruptures) && v.ruptures.length > 0)
         .sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -2541,7 +2576,10 @@ async function processPhotoOutbox() {
             }
         }
         await IndexedDBHelper.set(PHOTO_OUTBOX_KEY, remaining);
-        if (sent > 0) showToast(`${sent} foto(s) pendente(s) enviada(s).`, 'success');
+        if (sent > 0) {
+            showToast(`${sent} foto(s) pendente(s) enviada(s).`, 'success');
+            if (outbox.some(item => item.meta && item.meta.source === 'route')) setTimeout(() => syncWithServer(), 0);
+        }
     } finally {
         photoOutboxRunning = false;
     }
@@ -3491,7 +3529,7 @@ function renderHistoryViewData() {
                     <td>${formatDate(visit.date)}${authorLineHtml(visit)}</td>
                     <td><strong>${store ? store.name : 'Loja Removida'}${visit.isExtra ? ' <span class="badge-visit-extra">⭐ Visita Extra</span>' : ''}</strong></td>
                     <td>${store ? store.network : '-'}</td>
-                    <td><span class="badge-rupture"${(visit.ruptures || []).length > 0 ? ` data-tooltip="${getRuptureTooltipAttr(visit.ruptures)}"` : ''}>${(visit.ruptures || []).length} Itens</span></td>
+                    <td>${isPromoterOnlyVisit(visit) ? '<span class="visit-promoter-dash" title="Rupturas não conferidas">—</span>' : `<span class="badge-rupture"${(visit.ruptures || []).length > 0 ? ` data-tooltip="${getRuptureTooltipAttr(visit.ruptures)}"` : ''}>${(visit.ruptures || []).length} Itens</span>`}</td>
                     <td>${getVisitResolutionBadge(visit)}</td>
                     <td>${(visit.extraPoints || []).map(ep => `<span class="badge-extra-point">${ep}</span>`).join('') || '-'}</td>
                     <td>${window.fixEncoding(visit.notes) || '-'}</td>
@@ -3581,7 +3619,7 @@ function renderReportsTable() {
             </td>
             <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="showVisitDetails(${visit.id})" title="Ver detalhes da visita">${store ? store.name : 'Loja Removida'}${visit.isExtra ? ' <span class="badge-visit-extra">⭐ Visita Extra</span>' : ''}</strong></td>
             <td><span class="network-tag">${store ? store.network : '-'}</span></td>
-            <td><span class="badge-rupture"${visit.ruptures.length > 0 ? ` data-tooltip="${getRuptureTooltipAttr(visit.ruptures)}"` : ''}>${visit.ruptures.length} Itens</span></td>
+            <td>${isPromoterOnlyVisit(visit) ? '<span class="status-tag promoter" title="Visita registrada pelas fotos do promotor; as rupturas não foram conferidas"><i class="fa-solid fa-camera"></i> Fotos do promotor</span>' : `<span class="badge-rupture"${visit.ruptures.length > 0 ? ` data-tooltip="${getRuptureTooltipAttr(visit.ruptures)}"` : ''}>${visit.ruptures.length} Itens</span>`}</td>
             <td>
                 <div class="history-photos">
                     ${(photoCache[visit.id] && photoCache[visit.id].length > 0) ? `<button class="btn btn-secondary btn-small" onclick="viewVisitPhotos('${visit.id}')" style="display:flex; align-items:center; gap:5px;"><i class="fa-solid fa-camera"></i> ${photoCache[visit.id].length} Fotos</button>` : '<span style="color:#ccc; font-size: 0.7rem;">Sem fotos</span>'}
@@ -3934,6 +3972,7 @@ function getFilteredReportVisits() {
 // Retorna os dados dos "Principais Insights" como texto puro (sentences + details),
 // para desenho nativo no jsPDF — sem depender de rasterizar HTML (ver drawVisitsReportHeaderNative).
 function computeReportInsights(filteredVisits) {
+    filteredVisits = ruptureVisits(filteredVisits);
     const storeMap = new Map();
     const networkCounts = {};
     let totalRuptureItems = 0;
@@ -5649,6 +5688,7 @@ function drawPdfInsightsBox(pdf, { marginH, marginV, contentWidthMm, contentBott
 // tanto pelo Relatório de Visitas quanto pelo PDF de Rupturas, cada um com seu
 // próprio recorte de dados (mas o mesmo tipo de gráfico/insight).
 async function buildVisitsChartsAndInsights(filteredVisits) {
+    filteredVisits = ruptureVisits(filteredVisits);
     const productRuptureData = {};
     filteredVisits.forEach(v => {
         const store = stores.find(s => s.id === v.storeId);
@@ -6181,7 +6221,7 @@ function renderChecklist(searchTerm = '', storeProductIds = null) {
     // Se houver loja selecionada, exibe dados da ÚLTIMA visita (com ou sem rupturas)
     const selectedStoreId = storeSelect ? storeSelect.value : null;
     if (selectedStoreId && lastRupturesContainer) {
-        const lastVisit = [...visits].filter(v => v.storeId === selectedStoreId).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+        const lastVisit = ruptureVisits().filter(v => v.storeId === selectedStoreId).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
         if (lastVisit) {
             const formattedDate = lastVisit.date ? formatDate(lastVisit.date) : '';
             if (Array.isArray(lastVisit.ruptures) && lastVisit.ruptures.length > 0) {
@@ -6336,20 +6376,29 @@ async function handleVisitSubmit(e) {
     // ============================================================
     // MODO NOVA VISITA (comportamento original)
     // ============================================================
+    // Mesma loja e data de uma visita do promotor (só fotos): a equipe completa aquela
+    // visita em vez de criar outra. Ela mantém as fotos e passa a valer para rupturas.
+    const promoterIdx = visits.findIndex(v => isPromoterOnlyVisit(v) && v.storeId === storeId && v.date === visitDate);
+    const promoterVisit = promoterIdx !== -1 ? visits.splice(promoterIdx, 1)[0] : null;
+    if (promoterVisit) invalidateVisitsIndex();
+
     const newVisit = {
-        id: Date.now(),
+        id: promoterVisit ? promoterVisit.id : Date.now(),
         storeId,
         date: visitDate,
         ruptures: checkedProducts,
         extraPoints: checkedExtraPoints,
         isExtra,
         notes,
-        photos: []  // fotos ficam apenas em memória (photoCache), não no localStorage
+        photos: [],  // fotos ficam apenas em memória (photoCache), não no localStorage
+        ...(promoterVisit ? { promoterUser: promoterVisit.promoterUser, promoterName: promoterVisit.promoterName, createdBy: promoterVisit.createdBy } : {})
     };
 
-    // Fotos: enviadas ao servidor com localização; as que falharem ficam na fila deste aparelho
+    // Fotos: enviadas ao servidor; as que falharem ficam na fila deste aparelho
     if (selectedPhotos.length > 0) {
+        const existingPhotos = photoCache[newVisit.id] || [];
         await uploadVisitPhotos(newVisit.id, selectedPhotos.map(p => ({ ...p, meta: { ...p.meta, storeId: newVisit.storeId } })));
+        photoCache[newVisit.id] = existingPhotos.concat(photoCache[newVisit.id] || []);
     }
     
     // Atualiza Estado
@@ -6539,6 +6588,7 @@ function renderValidatedRuptures(storeFilter) {
             const storeVisits = getStoreVisitsIndexed(r.storeId); // já ordenadas: mais recente primeiro
             let streak = 0;
             for (const v of storeVisits) {
+                if (isPromoterOnlyVisit(v)) continue;
                 if (v.ruptures && v.ruptures.includes(r.productId)) {
                     streak++;
                 } else {
@@ -6916,8 +6966,8 @@ async function handleUserFormSubmit(e) {
 
 // ---------- Aba "Minha Rota" (tela do promotor, pensada para o celular) ----------
 // Mostra as lojas do dia dos planos de rota atribuídos a este usuário (promoterUser).
-// O promotor não registra visita nem rupturas: só tira as fotos de cada loja. As fotos
-// ficam agrupadas por loja e dia (routePhotoKey), no lugar do id de uma visita.
+// O promotor não registra visita nem rupturas: só tira as fotos de cada loja. A primeira
+// foto do dia numa loja vira a visita dela (criada pelo servidor, ver isPromoterOnlyVisit).
 function myRouteDays() {
     const me = currentUser ? currentUser.username : '';
     const days = [];
@@ -6934,7 +6984,8 @@ function localTodayISO() {
     return formatISODate(new Date(now.getTime() - now.getTimezoneOffset() * 60000));
 }
 
-// Grupo das fotos de uma loja num dia, ex.: "rota-20261016-k3f9a1" (só letras, números e hífen)
+// Grupo das fotos de uma loja num dia, ex.: "rota-20261016-k3f9a1" (só letras, números e
+// hífen). É o que vai na fila sem sinal; no envio, o servidor troca pela visita da loja.
 function routePhotoKey(storeId, date) {
     let hash = 0;
     for (const ch of storeId) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
@@ -6984,11 +7035,12 @@ async function handleRoutePhotos(files) {
             }
             items.push({ b64, meta });
         }
-        const key = routePhotoKey(store.id, localTodayISO());
-        const before = (photoCache[key] || []).slice();
-        const urls = await uploadVisitPhotos(key, items);
-        photoCache[key] = before.concat(photoCache[key] || []);
-        if (urls.length > 0) showToast(`${urls.length} foto(s) enviada(s) — ${store.name}`, 'success');
+        // O servidor junta as fotos na visita da loja nesse dia (e a cria na primeira foto)
+        const urls = await uploadVisitPhotos(routePhotoKey(store.id, localTodayISO()), items);
+        if (urls.length > 0) {
+            await syncWithServer(); // traz a visita criada e o mapa de fotos
+            showToast(`${urls.length} foto(s) enviada(s) — ${store.name}`, 'success');
+        }
         if (!location) setTimeout(() => showToast('Foto sem localização: ative o GPS e permita a localização para este site.', 'warning'), 3500);
     } finally {
         routePhotoBusy = false;
@@ -7010,11 +7062,11 @@ async function renderMyRouteView() {
     const input = document.getElementById('routePhotoInput');
     if (input) input.onchange = e => handleRoutePhotos(Array.from(e.target.files));
 
-    // Fotos de hoje por loja: as já enviadas (photoCache) e as que aguardam sinal (fila)
+    // Fotos de hoje por loja: as já enviadas (da visita da loja hoje) e as que aguardam sinal (fila)
     const photosToday = storeId => {
-        const key = routePhotoKey(storeId, today);
-        const sent = (photoCache[key] || []).filter(p => String(p).startsWith('uploads/'));
-        const waiting = outbox.filter(item => item.visitId === key).length;
+        const visit = visits.find(v => v.storeId === storeId && v.date === today);
+        const sent = visit ? (photoCache[visit.id] || []).filter(p => String(p).startsWith('uploads/')) : [];
+        const waiting = outbox.filter(item => item.visitId === routePhotoKey(storeId, today)).length;
         return { sent, total: sent.length + waiting };
     };
     const doneCount = todayStops.filter(stop => photosToday(stop.storeId).total > 0).length;
@@ -7340,7 +7392,8 @@ const AUDIT_FIELDS = {
     name: ['Nome', auditText],
     role: ['Cargo', auditText],
     admin: ['Administrador', auditYesNo],
-    perms: ['Pode ver', value => describePerms(value)]
+    perms: ['Pode ver', value => describePerms(value)],
+    promoterVisit: ['Só fotos do promotor (rupturas não conferidas)', auditYesNo]
 };
 
 function auditFieldLine(field, ...values) {
@@ -7369,6 +7422,8 @@ function describeAuditEntry(entry) {
             subject: `Visita de ${auditDate(d.date)} — ${auditStoreName(d.storeId)}`,
             lines: isUpdate
                 ? auditChangeLines(d.changes)
+                : d.promoter
+                ? ['Visita do promotor, criada pela primeira foto do dia na loja (rupturas não conferidas)']
                 : [auditFieldLine('ruptures', d.ruptures), ...auditSnapshotLines(d, ['extraPoints', 'isExtra', 'notes'])]
         };
     }
@@ -7639,6 +7694,13 @@ window.openEditVisit = function(visitId) {
     if (!requirePerm('visits')) return;
     const visit = visits.find(v => v.id === visitId);
     if (!visit) { alert('Visita não encontrada.'); return; }
+    // Visita só com as fotos do promotor: abre o registro normal da loja nessa data, que
+    // completa a mesma visita (com rupturas, pontos extras e observações)
+    if (isPromoterOnlyVisit(visit)) {
+        openVisitForStore(visit.storeId);
+        document.getElementById('visitDate').value = visit.date;
+        return;
+    }
 
     const store = stores.find(s => s.id === visit.storeId);
 
@@ -7831,7 +7893,9 @@ window.showVisitDetails = function(visitId) {
         otherVisits.forEach(v => {
             let itemsHtml = '';
             
-            if (v.ruptures && v.ruptures.length > 0) {
+            if (isPromoterOnlyVisit(v)) {
+                itemsHtml = `<span style="color: var(--text-muted); display: block; margin-top: 8px;"><i class="fa-solid fa-camera"></i> Fotos do promotor${v.promoterName ? ' (' + escapeHtml(v.promoterName) + ')' : ''} · rupturas não conferidas</span>`;
+            } else if (v.ruptures && v.ruptures.length > 0) {
                 const itemsList = v.ruptures.map(pId => {
                     const prod = products.find(p => p.id === pId);
                     const name = prod ? prod.name : 'Produto Desconhecido';
@@ -7882,6 +7946,12 @@ window.showVisitDetails = function(visitId) {
             <span style="color: var(--text-muted); font-size: 0.9rem;">Data da Visita: ${formatDate(visit.date)}</span>
         </div>
         ${authorshipHtml(visit)}
+        ${isPromoterOnlyVisit(visit) ? `
+            <div class="visit-promoter-note">
+                <i class="fa-solid fa-camera"></i>
+                <div><strong>Visita registrada pelas fotos do promotor${visit.promoterName ? ' ' + escapeHtml(visit.promoterName) : ''}.</strong>
+                Conta para o status da loja, mas as rupturas não foram conferidas. Ao registrar a visita desta loja nesta data, a equipe completa esta mesma visita.</div>
+            </div>` : (visit.promoterName ? `<div class="visit-promoter-note subtle"><i class="fa-solid fa-camera"></i><div>Fotos do promotor ${escapeHtml(visit.promoterName)}; rupturas conferidas pela equipe.</div></div>` : '')}
         <div style="margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: ${summary.totalItems > 0 && resolvedCount === summary.totalItems ? '#f4fff5' : '#f8fafc'}; border: 1px solid ${summary.totalItems > 0 && resolvedCount === summary.totalItems ? '#c8e6c9' : '#e5e7eb'};">
             <strong style="display:block; margin-bottom: 4px; color: var(--primary-blue);">Progresso de resolução</strong>
             <span style="font-size: 0.92rem; color: var(--text-muted);">${summary.label}</span>
@@ -7925,6 +7995,7 @@ window.showVisitDetails = function(visitId) {
 
 
 function getVisitResolutionSummary(visit) {
+    if (isPromoterOnlyVisit(visit)) return { totalItems: 0, resolvedCount: 0, label: 'Fotos do promotor (rupturas não conferidas)', promoterOnly: true };
     if (!visit || !visit.ruptures || visit.ruptures.length === 0) return { totalItems: 0, resolvedCount: 0, label: 'Sem rupturas' };
     const totalItems = visit.ruptures.length;
     let resolvedCount = 0;
@@ -7944,6 +8015,7 @@ function getVisitResolutionSummary(visit) {
 
 function getVisitResolutionBadge(visit) {
     const summary = getVisitResolutionSummary(visit);
+    if (summary.promoterOnly) return '<span class="status-tag promoter" title="Visita registrada pelas fotos do promotor; as rupturas não foram conferidas"><i class="fa-solid fa-camera"></i> Fotos do promotor</span>';
     if (summary.totalItems === 0) return '<span class="status-tag ok">Sem Rupturas</span>';
     if (summary.resolvedCount === 0) return '<span class="status-tag error">Pendente</span>';
     if (summary.resolvedCount < summary.totalItems) return `<span class="status-tag warning">Parcial (${summary.resolvedCount}/${summary.totalItems})</span>`;

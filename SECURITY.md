@@ -32,6 +32,7 @@ Vale manter pelo menos dois administradores, para o item 6 nunca ser necessário
 - As fotos ficam em `uploads/`, que o `uploads/.htaccess` bloqueia para o navegador. Elas só abrem pelo painel, com login. Ao publicar, confira se esse arquivo foi enviado: sem ele, quem souber o endereço de uma foto consegue abri-la.
 - Quem tem a aba **Fotos** vê, baixa e filtra todas as fotos. Só administradores apagam, e a limpeza fica na auditoria.
 - Cada foto guarda quem enviou, a hora do servidor e a localização do celular no momento da foto. O sistema não acompanha a localização do promotor fora disso.
+- A primeira foto do dia numa loja cria a visita daquela loja em nome do promotor. Quem cria é o servidor, e isso fica na auditoria; o promotor continua sem acesso ao formulário de visitas.
 - A localização vem do próprio celular. Ela serve para conferência do dia a dia, não como prova: um aparelho adulterado consegue informar outra posição.
 - Fotos tiradas sem sinal ficam guardadas no celular até serem enviadas. Peça ao promotor para abrir o sistema com internet ao fim do dia, até o aviso de fotos pendentes sumir.
 

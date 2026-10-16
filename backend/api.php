@@ -242,6 +242,28 @@ function filterPhotosByPeriod(array $photos, string $from, string $to): array {
     }));
 }
 
+// Visita do promotor: a primeira foto do dia numa loja vira a visita daquela loja, para o
+// status da loja (em dia / em atraso) contar a passagem dele. Ela não traz rupturas e o
+// painel não a usa para dar baixa nem para calcular rupturas. Se já existe uma visita da
+// loja nesse dia (do promotor ou da equipe), as fotos entram nela. Devolve o id da visita.
+function promoterVisitFor(string $storeId, string $day): string {
+    global $me, $users;
+    $visits = readData('visits.json', []);
+    foreach ($visits as $v) {
+        if (is_array($v) && ($v['storeId'] ?? '') === $storeId && ($v['date'] ?? '') === $day) return keyPart($v['id'] ?? '');
+    }
+    $id = (int) round(microtime(true) * 1000);
+    $visit = withAuthorship('visits', null, [
+        'id' => $id, 'storeId' => $storeId, 'date' => $day, 'ruptures' => [], 'extraPoints' => [],
+        'notes' => '', 'isExtra' => false, 'photos' => [],
+        'promoterVisit' => true, 'promoterUser' => $me, 'promoterName' => $users[$me]['name'] ?? $me,
+    ]);
+    $visits[] = $visit;
+    writeData('visits.json', $visits);
+    auditLog('visit', 'create', (string) $id, auditSnapshot('visits', $visit) + ['promoter' => true]);
+    return (string) $id;
+}
+
 // --- Sincronização por diferenças (ação "sync") ---
 // Cada painel envia só o que ele mesmo criou, alterou ou excluiu; o servidor aplica
 // isso por cima do que já tem. Assim o que outro usuário gravou nunca é apagado por
@@ -341,7 +363,7 @@ function auditLog(string $entity, string $action, $id, array $details = []): voi
 
 // Campos de cada item que interessam à auditoria (o resto é controle interno do painel).
 const AUDIT_FIELDS = [
-    'visits'  => ['storeId', 'date', 'ruptures', 'extraPoints', 'isExtra', 'notes'],
+    'visits'  => ['storeId', 'date', 'ruptures', 'extraPoints', 'isExtra', 'notes', 'promoterVisit'],
     'pedidos' => ['numeroPedido', 'clienteCodigo', 'clienteNome', 'storeId', 'numeroNF', 'dataPedido',
                   'datasAgendamento', 'datasEntrega', 'observacoes', 'itens', 'finalizado'],
 ];
@@ -358,6 +380,8 @@ function auditSnapshot(string $collection, array $item): array {
         $value = $item[$field] ?? null;
         $snapshot[$field] = ($value === '' || $value === [] || $value === false) ? null : $value;
     }
+    // "Só fotos do promotor" só aparece nas visitas criadas pelas fotos do promotor
+    if ($collection === 'visits' && $snapshot['promoterVisit'] === null) unset($snapshot['promoterVisit']);
     return $snapshot;
 }
 
@@ -411,8 +435,10 @@ function auditListEvents(string $collection, array $events): void {
             $before  = auditSnapshot($collection, $old);
             $after   = auditSnapshot($collection, $new);
             $changes = [];
-            foreach ($after as $field => $value) {
-                if (json_encode($before[$field]) !== json_encode($value)) $changes[$field] = [$before[$field], $value];
+            foreach (array_keys($before + $after) as $field) {
+                $old = $before[$field] ?? null;
+                $value = $after[$field] ?? null;
+                if (json_encode($old) !== json_encode($value)) $changes[$field] = [$old, $value];
             }
             if (count($changes) === 0) continue;
             $identity = array_intersect_key($after, array_flip(['storeId', 'date', 'numeroPedido', 'clienteNome']));
@@ -861,6 +887,17 @@ switch ($action) {
             break;
         }
 
+        // Foto da rota do promotor: vai para a visita da loja naquele dia (criada na primeira foto).
+        // O dia é o da foto (hora do celular, se plausível), para uma foto que ficou na fila sem
+        // sinal contar no dia em que foi tirada.
+        $source = in_array($_POST['source'] ?? '', ['route', 'visit'], true) ? $_POST['source'] : null;
+        $photoStoreId = preg_replace('/[^a-z0-9-]/', '', (string) ($_POST['store_id'] ?? ''));
+        if ($source === 'route' && $photoStoreId !== '') {
+            $taken = (isset($_POST['device_time']) && is_numeric($_POST['device_time'])) ? (int) $_POST['device_time'] : 0;
+            $day = ($taken > time() - 7 * 86400 && $taken < time() + 3600) ? date('Y-m-d', $taken) : date('Y-m-d');
+            $visitId = promoterVisitFor($photoStoreId, $day);
+        }
+
         $ext      = ($mime === 'image/jpeg') ? 'jpg' : explode('/', $mime)[1];
         $filename = 'photo_' . $visitId . '_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
         $dest     = $uploadDir . $filename;
@@ -875,7 +912,7 @@ switch ($action) {
             // Dados da foto: o horário e quem enviou vêm do servidor; a localização vem do
             // GPS do celular, e a distância até a loja é calculada aqui
             $num = function ($key) { return (isset($_POST[$key]) && is_numeric($_POST[$key])) ? (float) $_POST[$key] : null; };
-            $storeId = preg_replace('/[^a-z0-9-]/', '', (string) ($_POST['store_id'] ?? ''));
+            $storeId = $photoStoreId;
             $lat = $num('lat'); $lng = $num('lng');
             $storeGeo = $storeId !== '' ? storeCoordinates($storeId) : null;
             $record = [
@@ -890,7 +927,7 @@ switch ($action) {
                 'lng'        => $lng,
                 'acc'        => $num('accuracy'),
                 'dist'       => ($lat !== null && $lng !== null && $storeGeo) ? round(distanceMeters($lat, $lng, $storeGeo[0], $storeGeo[1])) : null,
-                'src'        => in_array($_POST['source'] ?? '', ['route', 'visit'], true) ? $_POST['source'] : null,
+                'src'        => $source,
             ];
             $photos = readData('photos.json', []);
             $photos[] = $record;
