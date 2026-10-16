@@ -45,6 +45,7 @@ O **Trade Marketing HiperRoll** centraliza a rotina da equipe de trade marketing
 - acompanha cada **ruptura** (produto em falta na gôndola) desde a identificação até a resolução;
 - sinaliza lojas **em atraso** de acordo com a frequência de visita combinada;
 - sugere **rotas semanais** para os promotores, priorizando o que é mais urgente;
+- dá a cada **promotor** uma tela de celular com a rota do dia, onde ele tira as fotos de cada loja, que saem com data, hora e localização;
 - controla **pedidos comerciais** por cliente, loja e datas de agendamento e entrega;
 - exporta tudo em **CSV e PDF**, respeitando os filtros aplicados na tela.
 
@@ -159,6 +160,31 @@ Busca de cliente por código, loja restrita às redes do cliente, até três dat
 </tr>
 </table>
 
+### Minha Rota (promotor)
+
+<table>
+<tr>
+<td width="40%" valign="top">
+
+Tela do promotor, pensada para o celular. Mostra as lojas do dia na ordem da rota, com o horário previsto, o atalho para o mapa e o botão **Tirar fotos**, que abre a câmera. As lojas já fotografadas ficam marcadas, com a quantidade e as miniaturas das fotos do dia.
+
+O promotor não registra visita nem rupturas e não vê o restante do sistema: só a própria rota e as fotos.
+
+</td>
+<td width="60%" valign="top">
+
+<img src="docs/screenshots/14-minha-rota.png" alt="Tela Minha Rota no celular" width="320">
+
+</td>
+</tr>
+</table>
+
+### Fotos
+
+Todas as fotos das visitas, com a loja, a data e hora em que chegaram ao servidor, quem tirou e a distância entre o ponto onde a foto foi tirada e o endereço da loja. Filtros por período, usuário, loja e local, download em `.zip` e, para administradores, a limpeza das fotos antigas.
+
+<img src="docs/screenshots/15-fotos.png" alt="Aba de fotos" width="100%">
+
 ### Auditoria
 
 Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o antes e depois de cada alteração. Visível só para administradores, com filtros por mês, usuário e aba.
@@ -182,6 +208,7 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 ### Visitas
 
 - Registro com data, checklist de itens em falta, pontos extras (Display, Clips Strips, Blacklight, Outros), fotos e observações.
+- As fotos são reduzidas para 1280 px antes do envio (cerca de 200 KB).
 - Marcação de **visita extra**.
 - Resolução automática: quando um item deixa de ser apontado em uma visita posterior à mesma loja, a ruptura vai para o histórico de resolvidas.
 - Edição de visita, alteração de data e exclusão individual ou em lote.
@@ -206,6 +233,17 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 - Estimativa de tempo: 30 minutos por visita, mais 5 minutos por item cadastrado na loja, mais o deslocamento (média urbana de 28 km/h), dentro de uma jornada de 8 horas iniciada às 08:00.
 - Distâncias calculadas a partir de coordenadas próprias (`store-geo.js`), sem API paga de mapas.
 - Abertura da rota do dia no Google Maps e exportação do plano em PDF.
+- Cada plano pode ser atribuído a um promotor (usuário com a permissão **Minha Rota**). Os planos ficam no servidor: quem tem a aba Rotas vê todos, e o promotor recebe só os dele.
+
+### Minha Rota e fotos
+
+- Tela de celular com as paradas do dia, o progresso (lojas fotografadas / lojas do dia), os próximos dias da rota e um campo para fotografar uma loja fora da rota.
+- As fotos vêm direto da câmera do celular. Cada uma recebe um carimbo com a loja, a data e hora, as coordenadas e o nome de quem tirou.
+- O promotor só tira as fotos: não registra visita nem rupturas. As fotos ficam agrupadas por loja e dia, e as visitas continuam sendo registradas pela equipe interna.
+- Ao tirar a foto, o celular informa a localização (GPS). O servidor grava a hora oficial do envio, quem enviou e calcula a distância até o endereço cadastrado da loja; a aba Fotos destaca as fotos tiradas a mais de 300 m.
+- Sem sinal, as fotos ficam guardadas no celular e são enviadas sozinhas quando a conexão volta. A tela avisa quantas estão pendentes e tem o botão **Enviar agora**.
+- Na aba **Fotos**, o botão **Baixar .zip** baixa as fotos do período e do usuário filtrados, com uma planilha `fotos.csv` (data, usuário, loja, coordenadas e distância).
+- O administrador apaga do servidor as fotos anteriores a uma data pelo botão **Apagar antigas**. A limpeza fica registrada na auditoria.
 
 ### Pedidos
 
@@ -224,13 +262,13 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 - O cabeçalho de todos os PDFs traz como responsável quem estava logado ao exportar.
 - Administradores cadastram, editam e excluem usuários e podem redefinir senhas pela janela **Usuários**.
 - Cada pessoa troca a própria senha pelo botão **Trocar Senha**.
-- Permissões por usuário: o administrador marca quais abas cada pessoa vê (Dashboard, Lojas, Produtos, Histórico de Visitas, Rotas, Rupturas, Pedidos) e se ela pode registrar e editar visitas. Há o atalho "Promotor" (Lojas, Rotas e registro de visitas). Quem não tem acesso a Pedidos não recebe os pedidos do servidor.
+- Permissões por usuário: o administrador marca quais abas cada pessoa vê (Dashboard, Lojas, Produtos, Histórico de Visitas, Rotas, Rupturas, Pedidos, Fotos, Minha Rota) e se ela pode registrar e editar visitas. O atalho "Promotor" libera só a Minha Rota. Quem não tem acesso a Pedidos não recebe os pedidos do servidor; quem não tem a aba Fotos não consegue listar nem baixar as fotos.
 - Os usuários com acesso a uma aba enxergam e alteram os mesmos dados dela.
 - Várias pessoas podem usar o sistema ao mesmo tempo: o que uma grava aparece para as outras em até um minuto, sem recarregar a página, e ninguém sobrescreve o lançamento do colega.
 
 ### Auditoria
 
-- O servidor registra, com usuário, data e hora: visitas e pedidos adicionados, editados e excluídos; baixas manuais de ruptura; planos de rota criados e excluídos; importações de CSV; limpeza de notificações; criação, alteração e exclusão de usuários; trocas de senha; e entradas no sistema.
+- O servidor registra, com usuário, data e hora: visitas e pedidos adicionados, editados e excluídos; baixas manuais de ruptura; planos de rota criados e excluídos; importações de CSV; limpeza de notificações; limpeza de fotos antigas; criação, alteração e exclusão de usuários; trocas de senha; e entradas no sistema.
 - Nas edições, o registro guarda o valor de antes e o de depois de cada campo alterado. Nas exclusões, guarda o que foi apagado.
 - Cada visita e cada pedido guarda quem adicionou e quem editou por último. O administrador vê isso nas listas ("por Fulano") e, com data e hora, dentro do modal de detalhes da visita e de edição do pedido. As rupturas resolvidas manualmente mostram quem deu a baixa.
 - A aba **Auditoria** é exclusiva de administradores, com busca, filtros por mês, usuário e aba, e exportação em CSV.
@@ -268,11 +306,12 @@ flowchart LR
 
 - **Cadastros fixos em arquivos JS.** Lojas e produtos ficam em `data.js`; coordenadas em `store-geo.js`; catálogo comercial em `products-hiperroll.js`; códigos de cliente em `cd-clientes.js`.
 - **Persistência local.** `db.js` usa IndexedDB quando o sistema é servido por HTTP(S) e recorre ao `localStorage` quando aberto direto do arquivo.
-- **Sincronização por diferenças.** `storage.js` guarda o último estado recebido do servidor e, ao gravar, envia só o que aquele usuário criou, alterou ou excluiu. O servidor aplica isso por cima do que já tem e devolve o estado completo, então uma tela desatualizada nunca apaga o que outro usuário gravou. Os planos de rota ficam apenas no navegador.
+- **Sincronização por diferenças.** `storage.js` guarda o último estado recebido do servidor e, ao gravar, envia só o que aquele usuário criou, alterou ou excluiu. O servidor aplica isso por cima do que já tem e devolve o estado completo, então uma tela desatualizada nunca apaga o que outro usuário gravou. Os planos de rota sincronizam do mesmo jeito; na primeira abertura desta versão, os planos que existiam só no navegador são enviados ao servidor.
 - **Atualização automática.** Com a tela visível, o painel consulta a versão dos dados a cada minuto, ao voltar para a aba e antes de cada gravação; só baixa o estado completo quando alguém gravou algo.
 - **Gravações em fila.** O servidor usa uma trava para atender uma gravação por vez e troca cada arquivo de uma vez só, de modo que duas pessoas salvando no mesmo instante não corrompem nem perdem dados.
 - **Tolerância a queda de conexão.** Uma alteração que não chegou ao servidor fica guardada no navegador e é reenviada na próxima sincronização ou na próxima abertura da página.
-- **Backend sem banco de dados.** `backend/api.php` lê e grava arquivos JSON em `backend/data/` e salva as fotos em `uploads/`.
+- **Backend sem banco de dados.** `backend/api.php` lê e grava arquivos JSON em `backend/data/` e salva as fotos em `uploads/`, com os dados de cada uma (hora, usuário, localização e distância da loja) em `backend/data/photos.json`.
+- **Fotos só com login.** A pasta `uploads/` é bloqueada para o navegador (`uploads/.htaccess`); as fotos são exibidas por `api.php?action=photo`, que confere a sessão.
 - **Login validado no servidor.** Usuário e senha são conferidos pelo `api.php`, que só responde a quem tem sessão aberta. Nenhuma credencial fica no código.
 - **PDF desenhado nativamente.** Cabeçalhos, gráficos e tabelas são desenhados direto no jsPDF, em vez de capturar a tela como imagem. Isso mantém o arquivo leve, com texto pesquisável, e evita páginas em branco em relatórios com milhares de registros.
 - **Consultas rápidas.** As visitas são indexadas por loja em memória, e as tabelas longas carregam de 50 em 50 registros.
@@ -316,6 +355,7 @@ Trade-Marketing-HiperRoll/
 │   └── .htaccess            # Bloqueia o acesso direto aos dados e ao config.php
 │
 ├── uploads/                 # Fotos das visitas (conteúdo não versionado)
+│   └── .htaccess            # Bloqueia o acesso direto às fotos
 ├── docs/screenshots/        # Imagens usadas neste README
 ├── serve.ps1                # Servidor estático local em PowerShell
 ├── README-local-server.md   # Instruções do servidor local
@@ -362,7 +402,8 @@ Sem o backend PHP, o sistema abre em modo local: aceita qualquer login e guarda 
 
 1. Envie todos os arquivos para a pasta pública da hospedagem.
 2. Abra `https://seu-dominio/backend/setup.php` e crie o primeiro usuário, que será o administrador. A página grava `backend/config.php` no servidor e se bloqueia em seguida. Os demais usuários são criados dentro do painel, na janela **Usuários**.
-3. Garanta permissão de escrita para o PHP em `backend/`, `backend/data/` e `uploads/`. As pastas de dados são criadas automaticamente no primeiro acesso.
+3. Garanta permissão de escrita para o PHP em `backend/`, `backend/data/` e `uploads/`. As pastas de dados são criadas automaticamente no primeiro acesso. Envie também o `uploads/.htaccess`, que impede abrir as fotos sem login.
+   O download das fotos em `.zip` usa a extensão `ZipArchive` do PHP, ativa na maioria das hospedagens. Sem ela, o botão fica desabilitado e as fotos continuam acessíveis uma a uma.
 4. Abra `backend/test_write.php` no navegador para confirmar que a gravação funciona.
 5. Ao publicar uma nova versão, atualize o sufixo `?v=` dos scripts e do CSS no `index.html` para que os navegadores não usem a cópia em cache.
 
@@ -385,13 +426,18 @@ Todas as chamadas vão para `backend/api.php?action=<ação>`. Fora `login`, `lo
 | `user_save` | POST | Cria ou altera um usuário: nome, cargo, permissão e senha (somente administrador) |
 | `user_delete` | POST | Exclui um usuário e encerra as sessões dele (somente administrador) |
 | `audit_log` | GET | Registros de auditoria de um mês (somente administrador) |
-| `audit_event` | POST | Registra na auditoria uma ação que só existe no navegador (plano de rota, importação de CSV) |
+| `audit_event` | POST | Registra na auditoria uma ação feita no navegador (plano de rota, importação de CSV) |
 | `session` | GET | Informa se a sessão do navegador ainda é válida |
 | `load` | GET | Retorna todo o estado: visitas, rupturas, histórico, pedidos, status das lojas, fotos e a versão dos dados |
 | `version` | GET | Retorna só a versão dos dados, para o painel saber se há novidades |
 | `sync` | POST | Aplica as alterações enviadas (itens criados, alterados e excluídos) e devolve o estado atualizado |
-| `upload_photo` | POST | Envia uma foto de visita |
+| `upload_photo` | POST | Envia uma foto (de uma visita ou da rota do promotor), com a loja e a localização do celular; o servidor grava a hora, o usuário e a distância até a loja |
 | `delete_photos` | POST | Remove as fotos de uma visita |
+| `photo` | GET | Abre uma foto de `uploads/` (exige sessão) |
+| `photos_list` | GET | Lista as fotos com os dados de cada uma (permissão Fotos) |
+| `photos_zip` | GET | Baixa as fotos de um período em `.zip`, com `fotos.csv` (permissão Fotos) |
+| `photos_delete` | POST | Apaga as fotos anteriores a uma data (somente administrador) |
+| `promoters` | GET | Lista os usuários com Minha Rota, para atribuir planos (permissão Rotas) |
 
 As ações `save_*` e `delete_*` de versões anteriores continuam no código apenas para abas que ficaram abertas com o painel antigo.
 
@@ -407,7 +453,8 @@ As ações `save_*` e `delete_*` de versões anteriores continuam no código ape
 - **Tentativas de login.** Após 8 senhas erradas do mesmo IP (no login ou na troca de senha), o acesso fica bloqueado por 15 minutos.
 - **Auditoria.** Cada alteração fica registrada no servidor com o usuário que a fez, em arquivos mensais dentro de `backend/data/`. Senhas nunca são gravadas nos registros.
 - **Mesma origem.** A API não envia cabeçalhos de CORS: só o próprio site consegue chamá-la.
-- **Limites conhecidos.** As abas visíveis são definidas por usuário, mas só Pedidos é bloqueado também no servidor; visitas, lojas e rupturas são enviadas a todos os usuários logados, porque o registro de visitas depende delas. As fotos em `uploads/` são servidas por endereço direto, sem passar pelo login.
+- **Fotos.** Só abrem com login; listar, baixar em `.zip` e apagar dependem da permissão Fotos (apagar, de administrador). A localização é lida só no momento da foto: o sistema não acompanha o promotor fora disso.
+- **Limites conhecidos.** As abas visíveis são definidas por usuário. O servidor bloqueia de fato Pedidos, Fotos e os planos de rota (o promotor recebe só os dele e não consegue alterá-los); visitas, lojas e rupturas são enviadas a todos os usuários logados, porque o registro de visitas depende delas. A distância da foto usa o GPS informado pelo celular, que um aparelho adulterado pode falsificar.
 
 Mais orientações em [SECURITY.md](./SECURITY.md).
 
@@ -421,6 +468,9 @@ Mais orientações em [SECURITY.md](./SECURITY.md).
 | Lançamento de um colega não aparece | Aguarde até um minuto ou recarregue a página; se persistir, saia e entre de novo e confirme que `backend/data/` aceita escrita |
 | Erro “Arquivo de dados ilegível no servidor” | Um arquivo de `backend/data/` está corrompido; restaure-o de um backup. O sistema não grava por cima para não perder o conteúdo |
 | Fotos não são salvas | Verifique a permissão de escrita em `uploads/` com `backend/test_write.php` |
+| Fotos aparecem "sem localização" | No celular, ative o GPS e permita a localização para o site no navegador. A localização só funciona em HTTPS |
+| Fotos quebradas na aba Fotos | Confira se a sessão não expirou (entre de novo) e se o arquivo ainda existe em `uploads/` |
+| Promotor não vê a rota | O plano precisa estar atribuído a ele no campo Promotor da aba Rotas e ter paradas na data de hoje |
 | Tela de login diz “Sistema ainda não configurado” | Falta o `backend/config.php`: abra `backend/setup.php` e defina usuário e senha |
 | Login bloqueado por excesso de tentativas | Aguarde 15 minutos ou apague `backend/data/login_attempts.json` no servidor |
 | Alguém esqueceu a senha | Um administrador define outra na janela **Usuários** |

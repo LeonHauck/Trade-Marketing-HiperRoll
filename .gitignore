@@ -33,6 +33,7 @@ desktop.ini
 # Uploads temporários (manter apenas a pasta)
 uploads/*
 !uploads/.gitkeep
+!uploads/.htaccess
 
 # Dados operacionais reais — histórico de visitas/status das lojas não deve
 # ficar versionado (isso é dado do negócio, não código)

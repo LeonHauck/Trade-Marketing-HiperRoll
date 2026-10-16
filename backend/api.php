@@ -114,7 +114,7 @@ if (isset($_COOKIE[session_name()]) || $action === 'login') {
 // neles avança a "versão" dos dados, que os painéis consultam para saber se precisam
 // buscar novidades.
 const STATE_FILES = ['visits.json', 'store_updates.json', 'ruptures.json', 'dismissed.json',
-                     'resolved_history.json', 'photo_map.json', 'pedidos.json'];
+                     'resolved_history.json', 'photo_map.json', 'pedidos.json', 'route_plans.json'];
 
 // Números com casas decimais (ids de ruptura) saem do json_encode sempre na forma mais
 // curta que volta ao mesmo valor, independente da configuração da hospedagem.
@@ -181,7 +181,65 @@ function fullState(): array {
         'resolved_history'   => readData('resolved_history.json', []),
         'photo_map'          => $asObject(readData('photo_map.json', [])),
         'pedidos'            => canAccess('pedidos') ? readData('pedidos.json', []) : [],
+        'route_plans'        => visibleRoutePlans(),
     ];
+}
+
+// Planos de rota: quem tem a aba Rotas vê todos; o promotor vê só os atribuídos a ele.
+function visibleRoutePlans(): array {
+    global $me;
+    $plans = readData('route_plans.json', []);
+    if (canAccess('routes')) return $plans;
+    return array_values(array_filter($plans, function ($p) use ($me) {
+        return is_array($p) && ($p['promoterUser'] ?? '') === $me;
+    }));
+}
+
+// --- Fotos ---
+// Coordenadas da loja, lidas de store-geo.js (o mesmo arquivo usado pela aba Rotas).
+function storeCoordinates(string $storeId): ?array {
+    static $geo = null;
+    if ($geo === null) {
+        $geo = [];
+        $src = @file_get_contents(dirname(__DIR__) . '/store-geo.js');
+        if ($src !== false && preg_match_all('/"([a-z0-9-]+)":\s*\{[^}]*?lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)/', $src, $m, PREG_SET_ORDER)) {
+            foreach ($m as $row) $geo[$row[1]] = [(float) $row[2], (float) $row[3]];
+        }
+    }
+    return $geo[$storeId] ?? null;
+}
+
+function distanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): float {
+    $r = 6371000;
+    $dLat = deg2rad($lat2 - $lat1);
+    $dLng = deg2rad($lng2 - $lng1);
+    $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+    return 2 * $r * asin(min(1, sqrt($a)));
+}
+
+// Todas as fotos: as enviadas com dados (photos.json) e as antigas, que só existem no
+// mapa por visita (photo_map.json) e não têm localização nem autor.
+function allPhotos(): array {
+    $photos = readData('photos.json', []);
+    $known = [];
+    foreach ($photos as $p) $known[$p['file'] ?? ''] = true;
+    foreach (readData('photo_map.json', []) as $visitId => $list) {
+        foreach ((array) $list as $rel) {
+            if (isset($known[$rel]) || !is_string($rel)) continue;
+            $abs = dirname(__DIR__) . '/' . $rel;
+            $photos[] = ['file' => $rel, 'visitId' => (string) $visitId, 'storeId' => '', 't' => is_file($abs) ? filemtime($abs) : 0,
+                         'u' => '', 'n' => '', 'lat' => null, 'lng' => null, 'acc' => null, 'dist' => null, 'legacy' => true];
+        }
+    }
+    return $photos;
+}
+
+// Fotos com data (do servidor) entre $from e $to, inclusive; datas vazias não limitam.
+function filterPhotosByPeriod(array $photos, string $from, string $to): array {
+    return array_values(array_filter($photos, function ($p) use ($from, $to) {
+        $day = date('Y-m-d', (int) ($p['t'] ?? 0));
+        return ($from === '' || $day >= $from) && ($to === '' || $day <= $to);
+    }));
 }
 
 // --- Sincronização por diferenças (ação "sync") ---
@@ -202,6 +260,7 @@ function itemKey(string $collection, $item): ?string {
     switch ($collection) {
         case 'visits':
         case 'pedidos':
+        case 'route_plans':
             return isset($item['id']) ? keyPart($item['id']) : null;
         case 'validated_ruptures':
             return isset($item['productId'], $item['storeId'])
@@ -534,7 +593,7 @@ if (in_array($action, ['users_list', 'user_save', 'user_delete'], true)) {
         // Permissões: sem o campo, mantém as que já existiam (ou "tudo", para usuário novo)
         $perms    = isset($body['perms']) && is_array($body['perms'])
             ? array_values(array_intersect(USER_PERMISSIONS, array_map('strval', $body['perms'])))
-            : ($isNew ? USER_PERMISSIONS : userPermissions($users[$username] ?? []));
+            : ($isNew ? array_values(array_diff(USER_PERMISSIONS, ['myroute'])) : userPermissions($users[$username] ?? []));
 
         if ($isNew) {
             if (!preg_match(USERNAME_PATTERN, $username)) {
@@ -563,7 +622,7 @@ if (in_array($action, ['users_list', 'user_save', 'user_delete'], true)) {
         if (!writeAuthUsers($configFile, $updated)) respondError(500, 'Não foi possível gravar o usuário no servidor.');
 
         if ($isNew) {
-            auditLog('user', 'create', $username, ['name' => $name, 'role' => $role, 'admin' => $admin, 'perms' => $admin ? USER_PERMISSIONS : $perms]);
+            auditLog('user', 'create', $username, ['name' => $name, 'role' => $role, 'admin' => $admin, 'perms' => $admin ? userPermissions(['admin' => true]) : $perms]);
         } else {
             $userChanges = [];
             foreach (['name' => $name, 'role' => $role, 'admin' => $admin] as $field => $value) {
@@ -673,10 +732,13 @@ switch ($action) {
         $changes = (isset($body['changes']) && is_array($body['changes'])) ? $body['changes'] : [];
 
         $lists = ['visits' => 'visits.json', 'pedidos' => 'pedidos.json',
-                  'validated_ruptures' => 'ruptures.json', 'resolved_history' => 'resolved_history.json'];
+                  'validated_ruptures' => 'ruptures.json', 'resolved_history' => 'resolved_history.json',
+                  'route_plans' => 'route_plans.json'];
         $allSaved = true;
-        // Quem não tem acesso à aba Pedidos não recebe nem altera pedidos
+        // Quem não tem acesso à aba Pedidos não recebe nem altera pedidos; planos de rota
+        // só são alterados por quem tem a aba Rotas
         if (!canAccess('pedidos')) unset($lists['pedidos']);
+        if (!canAccess('routes')) unset($lists['route_plans']);
         foreach ($lists as $collection => $file) {
             if (isset($changes[$collection])) $allSaved = syncList($collection, $file, $changes[$collection]) && $allSaved;
         }
@@ -780,6 +842,7 @@ switch ($action) {
     // ── Upload de foto ────────────────────────────────────────
     case 'upload_photo':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
+        if (!canAccess('visits') && !canAccess('myroute')) respondError(403, 'Sem permissão para enviar fotos.');
 
         if (!isset($_FILES['photo'])) {
             http_response_code(400);
@@ -809,7 +872,31 @@ switch ($action) {
             $photoMap[$visitId][] = 'uploads/' . $filename;
             writeData('photo_map.json', $photoMap);
 
-            echo json_encode(['ok' => true, 'url' => 'uploads/' . $filename]);
+            // Dados da foto: o horário e quem enviou vêm do servidor; a localização vem do
+            // GPS do celular, e a distância até a loja é calculada aqui
+            $num = function ($key) { return (isset($_POST[$key]) && is_numeric($_POST[$key])) ? (float) $_POST[$key] : null; };
+            $storeId = preg_replace('/[^a-z0-9-]/', '', (string) ($_POST['store_id'] ?? ''));
+            $lat = $num('lat'); $lng = $num('lng');
+            $storeGeo = $storeId !== '' ? storeCoordinates($storeId) : null;
+            $record = [
+                'file'       => 'uploads/' . $filename,
+                'visitId'    => $visitId,
+                'storeId'    => $storeId,
+                't'          => time(),
+                'u'          => $me,
+                'n'          => $users[$me]['name'] ?? $me,
+                'deviceTime' => $num('device_time'),
+                'lat'        => $lat,
+                'lng'        => $lng,
+                'acc'        => $num('accuracy'),
+                'dist'       => ($lat !== null && $lng !== null && $storeGeo) ? round(distanceMeters($lat, $lng, $storeGeo[0], $storeGeo[1])) : null,
+                'src'        => in_array($_POST['source'] ?? '', ['route', 'visit'], true) ? $_POST['source'] : null,
+            ];
+            $photos = readData('photos.json', []);
+            $photos[] = $record;
+            writeData('photos.json', $photos);
+
+            echo json_encode(['ok' => true, 'url' => 'uploads/' . $filename, 'photo' => $record]);
         } else {
             http_response_code(500);
             echo json_encode(['ok' => false, 'error' => 'Falha ao mover arquivo']);
@@ -829,8 +916,95 @@ switch ($action) {
             }
             unset($photoMap[$visitId]);
             writeData('photo_map.json', $photoMap);
+            $photos = array_values(array_filter(readData('photos.json', []), function ($p) use ($visitId) {
+                return (string) ($p['visitId'] ?? '') !== $visitId;
+            }));
+            writeData('photos.json', $photos);
         }
         echo json_encode(['ok' => true]);
+        break;
+
+    // ── Abre uma foto (as fotos não são acessíveis direto pela pasta: só com login) ──
+    case 'photo':
+        $path = (string) ($_GET['path'] ?? '');
+        $abs  = dirname(__DIR__) . '/' . $path;
+        if (!preg_match('#^uploads/[A-Za-z0-9_.-]+\.(jpg|jpeg|png|webp|gif)$#', $path) || !is_file($abs)) {
+            respondError(404, 'Foto não encontrada.');
+        }
+        $types = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'gif' => 'image/gif'];
+        header('Content-Type: ' . $types[strtolower(pathinfo($abs, PATHINFO_EXTENSION))]);
+        header('Cache-Control: private, max-age=604800');
+        header('Content-Length: ' . filesize($abs));
+        readfile($abs);
+        break;
+
+    // ── Lista de fotos (aba Fotos) ─────────────────────────────
+    case 'photos_list':
+        if (!canAccess('photos')) respondError(403, 'Sem permissão para a aba Fotos.');
+        echo json_encode(['ok' => true, 'photos' => allPhotos(), 'zip' => class_exists('ZipArchive')]);
+        break;
+
+    // ── Baixa as fotos de um período em um arquivo .zip ────────
+    case 'photos_zip':
+        if (!canAccess('photos')) respondError(403, 'Sem permissão para a aba Fotos.');
+        if (!class_exists('ZipArchive')) respondError(501, 'O servidor não tem suporte a arquivos .zip. Baixe as fotos uma a uma pela aba Fotos.');
+        $selected = filterPhotosByPeriod(allPhotos(), (string) ($_GET['from'] ?? ''), (string) ($_GET['to'] ?? ''));
+        $user = (string) ($_GET['user'] ?? '');
+        if ($user !== '') $selected = array_values(array_filter($selected, function ($p) use ($user) { return ($p['u'] ?? '') === $user; }));
+        if (count($selected) === 0) respondError(404, 'Nenhuma foto no período escolhido.');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'fotos');
+        $zip = new ZipArchive();
+        if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) respondError(500, 'Não foi possível montar o arquivo .zip.');
+        $lines = ["arquivo;data e hora;usuario;loja;latitude;longitude;precisao (m);distancia da loja (m)"];
+        foreach ($selected as $p) {
+            $abs = dirname(__DIR__) . '/' . $p['file'];
+            if (!is_file($abs)) continue;
+            $name = date('Y-m-d_His', $p['t']) . '_' . ($p['storeId'] ?: 'loja') . '_' . basename($p['file']);
+            $zip->addFile($abs, $name);
+            $lines[] = implode(';', [$name, date('d/m/Y H:i', $p['t']), $p['n'] ?? '', $p['storeId'] ?? '',
+                                     $p['lat'] ?? '', $p['lng'] ?? '', $p['acc'] ?? '', $p['dist'] ?? '']);
+        }
+        $zip->addFromString('fotos.csv', "\xEF\xBB\xBF" . implode("\r\n", $lines));
+        $zip->close();
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="fotos_' . date('Y-m-d') . '.zip"');
+        header('Content-Length: ' . filesize($tmp));
+        readfile($tmp);
+        @unlink($tmp);
+        break;
+
+    // ── Apaga as fotos anteriores a uma data (só administrador) ──
+    case 'photos_delete':
+        if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok' => false]); break; }
+        if (empty($users[$me]['admin'])) respondError(403, 'Apenas administradores podem apagar fotos.');
+        $before = (string) ($body['before'] ?? '');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $before)) respondError(400, 'Informe a data limite.');
+        $doomed = filterPhotosByPeriod(allPhotos(), '', date('Y-m-d', strtotime($before . ' -1 day')));
+        $files = array_flip(array_map(function ($p) { return $p['file']; }, $doomed));
+
+        foreach ($files as $rel => $_) { $abs = dirname(__DIR__) . '/' . $rel; if (is_file($abs)) @unlink($abs); }
+        $photoMap = readData('photo_map.json', []);
+        foreach ($photoMap as $vid => $list) {
+            $photoMap[$vid] = array_values(array_filter((array) $list, function ($rel) use ($files) { return !isset($files[$rel]); }));
+            if (count($photoMap[$vid]) === 0) unset($photoMap[$vid]);
+        }
+        writeData('photo_map.json', count($photoMap) > 0 ? $photoMap : new stdClass());
+        writeData('photos.json', array_values(array_filter(readData('photos.json', []), function ($p) use ($files) { return !isset($files[$p['file'] ?? '']); })));
+        auditLog('photos', 'clear', null, ['count' => count($doomed), 'before' => $before]);
+        echo json_encode(['ok' => true, 'deleted' => count($doomed)]);
+        break;
+
+    // ── Promotores (para escolher o responsável de um plano de rota) ──
+    case 'promoters':
+        if (!canAccess('routes')) respondError(403, 'Sem permissão para a aba Rotas.');
+        $list = [];
+        foreach ($users as $login => $u) {
+            if (in_array('myroute', userPermissions($u), true) && empty($u['admin'])) {
+                $list[] = ['username' => $login, 'name' => $u['name'] ?? $login];
+            }
+        }
+        echo json_encode(['ok' => true, 'promoters' => $list]);
         break;
 
     default:

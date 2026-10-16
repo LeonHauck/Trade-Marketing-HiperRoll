@@ -196,7 +196,7 @@ let validatedRuptures = [];
 let dismissedNotifications = [];
 let resolvedRupturesHistory = [];
 let historyBackfillNotice = '';
-let routePlans = []; // planos de rota semanal (aba "Rotas") — persistência local, sem sync com servidor
+let routePlans = []; // planos de rota semanal (aba "Rotas") — sincronizados com o servidor (o promotor vê os dele)
 let pedidos = []; // pedidos comerciais (aba "Pedidos") — sincroniza com o servidor
 
 // Funções auxiliares para o padrão de atualizações leves de lojas
@@ -270,7 +270,8 @@ function collectSyncState() {
         validated_ruptures: validatedRuptures,
         resolved_history: resolvedRupturesHistory,
         dismissed: dismissedNotifications,
-        store_updates: storeUpdates
+        store_updates: storeUpdates,
+        route_plans: routePlans
     };
 }
 
@@ -282,6 +283,7 @@ function applyServerState(state) {
     validatedRuptures = state.validated_ruptures || [];
     resolvedRupturesHistory = state.resolved_history || [];
     dismissedNotifications = state.dismissed || [];
+    if (Array.isArray(state.route_plans)) routePlans = state.route_plans;
 
     const storeUpdates = state.store_updates || {};
     stores = stores.map(s => {
@@ -316,6 +318,10 @@ function refreshCurrentView() {
         renderProductsTable();
     } else if (currentPage === 'pedidos') {
         renderPedidosTable();
+    } else if (currentPage === 'routes') {
+        renderRoutePlanList();
+    } else if (currentPage === 'myroute') {
+        renderMyRouteView();
     }
     updateStats();
     if (currentPage === 'dashboard') filterRupturesByStore(); // respeita a busca por loja do painel de alertas
@@ -334,6 +340,7 @@ async function syncWithServer() {
         refreshCurrentView();
     }
     if (result.pending) await syncWithServer(); // algo foi alterado durante o envio: manda agora
+    processPhotoOutbox(); // aproveita que há conexão para reenviar fotos pendentes
     return result.changed;
 }
 
@@ -741,7 +748,19 @@ async function init() {
     // Sincronização com o servidor (se disponível) — só com login válido. Na primeira
     // vez o estado do servidor substitui o local; depois o painel segue buscando novidades.
     if (typeof Storage !== 'undefined' && Storage.isServer && safeGetItem('hr_logged_in') === 'true') {
+        const localPlansBeforeSync = routePlans.slice();
         await syncWithServer();
+        // Uma única vez: os planos de rota ficavam só neste navegador; envia os que o
+        // servidor ainda não conhece para o promotor também enxergá-los
+        if (safeGetItem('hr_route_plans_migrated') !== 'true' && hasPerm('routes')) {
+            const known = new Set(routePlans.map(p => p.id));
+            const missing = localPlansBeforeSync.filter(p => !known.has(p.id));
+            if (missing.length > 0) {
+                routePlans = routePlans.concat(missing);
+                await syncWithServer();
+            }
+            safeSetItem('hr_route_plans_migrated', 'true');
+        }
         startServerPolling();
     }
 
@@ -814,22 +833,26 @@ const USER_PERMISSIONS = [
     { key: 'routes', label: 'Rotas' },
     { key: 'history', label: 'Rupturas' },
     { key: 'pedidos', label: 'Pedidos' },
-    { key: 'visits', label: 'Registrar e editar visitas' }
+    { key: 'photos', label: 'Fotos' },
+    { key: 'visits', label: 'Registrar e editar visitas' },
+    { key: 'myroute', label: 'Minha Rota (promotor)' }
 ];
 const PERMISSION_PRESETS = {
-    all: USER_PERMISSIONS.map(p => p.key),
-    promotor: ['stores', 'routes', 'visits']
+    all: USER_PERMISSIONS.map(p => p.key).filter(key => key !== 'myroute'),
+    promotor: ['myroute']
 };
 
 // Sem usuário identificado (modo local, sem servidor) tudo fica liberado
 function hasPerm(key) {
+    // "Minha Rota" é a tela do promotor: só aparece para quem a recebeu explicitamente
+    if (key === 'myroute') return !!currentUser && !currentUser.admin && Array.isArray(currentUser.perms) && currentUser.perms.includes(key);
     if (!currentUser || currentUser.admin || !Array.isArray(currentUser.perms)) return true;
     return currentUser.perms.includes(key);
 }
 
 // Primeira aba que o usuário pode ver (para onde ele vai ao entrar)
 function firstAllowedPage() {
-    const page = ['dashboard', 'reports', 'routes', 'stores', 'history', 'products', 'pedidos'].find(hasPerm);
+    const page = ['dashboard', 'reports', 'routes', 'stores', 'history', 'products', 'pedidos', 'photos', 'myroute'].find(hasPerm);
     return page || null;
 }
 
@@ -1250,67 +1273,24 @@ function setupEventListeners() {
     if (visitPhotosInput) {
         visitPhotosInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
+            e.target.value = ''; // permite escolher a mesma foto de novo
             for (const file of files) {
+                // Fotos do registro de visita (equipe interna): só reduzidas, sem carimbo nem GPS.
+                // A loja entra no envio, ao salvar a visita.
+                let base64;
                 try {
-                    // Tenta comprimir a imagem para otimizar espaço no localStorage
-                    const base64 = await compressImage(file);
-                    selectedPhotos.push(base64);
-                    
-                    const preview = document.createElement('div');
-                    preview.className = 'preview-item';
-                    preview.innerHTML = `<img src="${base64}">`;
-                    photoPreviewContainer.appendChild(preview);
+                    base64 = await stampPhoto(file, null);
                 } catch (err) {
-                    console.error("Erro ao comprimir imagem, usando original:", err);
-                    const base64 = await convertToBase64(file);
-                    selectedPhotos.push(base64);
-                    
-                    const preview = document.createElement('div');
-                    preview.className = 'preview-item';
-                    preview.innerHTML = `<img src="${base64}">`;
-                    photoPreviewContainer.appendChild(preview);
+                    console.error('Erro ao comprimir imagem, usando original:', err);
+                    base64 = await convertToBase64(file);
                 }
+                selectedPhotos.push({ b64: base64, meta: { deviceTime: Date.now(), source: 'visit' } });
+
+                const preview = document.createElement('div');
+                preview.className = 'preview-item';
+                preview.innerHTML = `<img src="${base64}">`;
+                photoPreviewContainer.appendChild(preview);
             }
-        });
-    }
-
-    function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-
-                    // Mantém proporï¿½ï¿½o da imagem ao redimensionar
-                    if (width > height) {
-                        if (width > maxWidth) {
-                            height = Math.round((height * maxWidth) / width);
-                            width = maxWidth;
-                        }
-                    } else {
-                        if (height > maxHeight) {
-                            width = Math.round((width * maxHeight) / height);
-                            height = maxHeight;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    // Converte para jpeg comprimido
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-                    resolve(compressedBase64);
-                };
-                img.onerror = (err) => reject(err);
-            };
-            reader.onerror = (err) => reject(err);
         });
     }
 
@@ -1639,6 +1619,8 @@ function renderPage(page) {
         page = allowed;
     }
     currentPage = page;
+    // Minha Rota é a tela do celular do promotor: sem a barra de busca e filtros do painel
+    document.body.classList.toggle('page-myroute', page === 'myroute');
     
     window.reportsTableLimit = 50;
     window.historyVisitsLimit = 50;
@@ -1672,6 +1654,10 @@ function renderPage(page) {
         renderPedidosView();
     } else if (page === 'audit') {
         renderAuditView();
+    } else if (page === 'photos') {
+        renderPhotosView();
+    } else if (page === 'myroute') {
+        renderMyRouteView();
     }
 }
 
@@ -2417,6 +2403,150 @@ function renderRoutePlanList() {
     }).join('');
 }
 
+// ---------- Promotor do plano de rota ----------
+// Lista dos usuários com "Minha Rota" (carregada uma vez). O plano guarda o login
+// (promoterUser), que é o que faz a rota aparecer no celular dele, e o nome para exibição.
+let promotersCache = null;
+
+async function loadPromoters() {
+    if (promotersCache) return promotersCache;
+    const result = (typeof Storage !== 'undefined' && Storage.isServer) ? await Storage.listPromoters() : null;
+    promotersCache = (result && result.ok) ? result.promoters : [];
+    return promotersCache;
+}
+
+// Seletor de promotor; sem promotores cadastrados (ou sem servidor), um campo de texto livre.
+function promoterFieldHtml(selectId, textId, currentUser, currentName) {
+    setTimeout(async () => {
+        const list = await loadPromoters();
+        const holder = document.getElementById(selectId + 'Holder');
+        if (!holder || list.length === 0) return;
+        holder.innerHTML = `
+            <select id="${selectId}" onchange="onRoutePromoterChange('${selectId}')">
+                <option value="">Sem promotor definido</option>
+                ${list.map(p => `<option value="${escapeHtml(p.username)}" ${p.username === currentUser ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
+            </select>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;">A rota aparece na tela "Minha Rota" do promotor escolhido.</p>`;
+    }, 0);
+    return `<div id="${selectId}Holder"><input type="text" id="${textId}" value="${escapeHtml(currentName)}" placeholder="Nome do promotor"${textId === 'routeManualPromoterName' ? ' oninput="window._routeManualDraftPlan.promoterName = this.value"' : ''}></div>`;
+}
+
+window.onRoutePromoterChange = function(selectId) {
+    if (selectId !== 'routeManualPromoterUser' || !window._routeManualDraftPlan) return;
+    const select = document.getElementById(selectId);
+    window._routeManualDraftPlan.promoterUser = select.value || undefined;
+    window._routeManualDraftPlan.promoterName = select.value ? select.selectedOptions[0].textContent.trim() : '';
+};
+
+// ---------- Fotos: câmera, localização e carimbo ----------
+// A foto só vem da câmera (campo com capture="environment"); junto com ela vão a
+// localização do GPS e a hora do celular. O servidor grava a hora oficial e calcula a
+// distância até a loja. O carimbo fica desenhado na própria imagem.
+const PHOTO_MAX_SIDE = 1280;
+const PHOTO_NEAR_STORE_METERS = 300;
+
+function getCurrentLocation() {
+    return new Promise(resolve => {
+        if (!navigator.geolocation) { resolve(null); return; }
+        navigator.geolocation.getCurrentPosition(
+            pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy) }),
+            () => resolve(null),
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+        );
+    });
+}
+
+function loadImageFile(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = err => { URL.revokeObjectURL(url); reject(err); };
+        img.src = url;
+    });
+}
+
+// Reduz a foto e desenha o carimbo (loja, data/hora, coordenadas, usuário) no rodapé.
+// Sem "info", só reduz.
+async function stampPhoto(file, info) {
+    const img = await loadImageFile(file);
+    const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(img.width, img.height));
+    const width = Math.round(img.width * scale);
+    const height = Math.round(img.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+    if (!info) return canvas.toDataURL('image/jpeg', 0.72);
+
+    const when = new Date(info.deviceTime);
+    const lines = [
+        info.storeName,
+        `${when.toLocaleDateString('pt-BR')} ${when.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` +
+            (info.location ? ` · ${info.location.lat.toFixed(5)}, ${info.location.lng.toFixed(5)} (±${info.location.accuracy} m)` : ' · localização indisponível'),
+        info.userName
+    ].filter(Boolean);
+    const fontSize = Math.max(14, Math.round(width / 42));
+    const lineHeight = Math.round(fontSize * 1.3);
+    const boxHeight = lineHeight * lines.length + Math.round(fontSize * 0.8);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, height - boxHeight, width, boxHeight);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `600 ${fontSize}px Arial, sans-serif`;
+    ctx.textBaseline = 'top';
+    lines.forEach((line, i) => ctx.fillText(line, Math.round(fontSize * 0.6), height - boxHeight + Math.round(fontSize * 0.4) + i * lineHeight, width - fontSize));
+    return canvas.toDataURL('image/jpeg', 0.72);
+}
+
+// Fotos que não chegaram ao servidor (sem sinal) ficam guardadas neste aparelho e são
+// reenviadas na próxima sincronização.
+const PHOTO_OUTBOX_KEY = 'hr_photo_outbox';
+let photoOutboxRunning = false;
+
+async function uploadVisitPhotos(visitId, items) {
+    const urls = [];
+    const pending = [];
+    for (const item of items) {
+        const result = (typeof Storage !== 'undefined' && Storage.isServer) ? await Storage.uploadPhoto(item.b64, visitId, item.meta) : null;
+        if (result) urls.push(result.url);
+        else pending.push({ visitId, b64: item.b64, meta: item.meta });
+    }
+    if (pending.length > 0 && typeof Storage !== 'undefined' && Storage.isServer) {
+        const outbox = (await IndexedDBHelper.get(PHOTO_OUTBOX_KEY)) || [];
+        await IndexedDBHelper.set(PHOTO_OUTBOX_KEY, outbox.concat(pending));
+        showToast(`${pending.length} foto(s) sem conexão: serão enviadas automaticamente quando o sinal voltar.`, 'warning');
+    }
+    photoCache[visitId] = urls.concat(pending.map(p => p.b64));
+    return urls;
+}
+
+async function processPhotoOutbox() {
+    if (photoOutboxRunning || typeof Storage === 'undefined' || !Storage.isServer) return;
+    photoOutboxRunning = true;
+    try {
+        const outbox = (await IndexedDBHelper.get(PHOTO_OUTBOX_KEY)) || [];
+        if (outbox.length === 0) return;
+        const remaining = [];
+        let sent = 0;
+        for (const item of outbox) {
+            if (remaining.length > 0) { remaining.push(item); continue; } // sem sinal: tenta o resto depois
+            const result = await Storage.uploadPhoto(item.b64, item.visitId, item.meta);
+            if (result) {
+                sent++;
+                const list = (photoCache[item.visitId] || []).filter(p => p !== item.b64);
+                photoCache[item.visitId] = list.concat(result.url);
+            } else {
+                remaining.push(item);
+            }
+        }
+        await IndexedDBHelper.set(PHOTO_OUTBOX_KEY, remaining);
+        if (sent > 0) showToast(`${sent} foto(s) pendente(s) enviada(s).`, 'success');
+    } finally {
+        photoOutboxRunning = false;
+    }
+}
+
 // Os planos de rota ficam só neste navegador; o aviso abaixo é o que os coloca na auditoria.
 function logRoutePlanEvent(type, plan) {
     if (!plan || typeof Storage === 'undefined') return;
@@ -2434,6 +2564,7 @@ window.deleteRoutePlan = function(planId) {
     logRoutePlanEvent('route_delete', routePlans.find(p => p.id === planId));
     routePlans = routePlans.filter(p => p.id !== planId);
     saveAppStateLocally();
+    syncWithServer();
     const weekArea = document.getElementById('routeWeekViewArea');
     if (weekArea) weekArea.innerHTML = '';
     renderRoutePlanList();
@@ -2561,7 +2692,7 @@ function renderRouteBuilderAutoHtml() {
         </div>
         <div class="form-group">
             <label>Promotor (opcional)</label>
-            <input type="text" id="routeAutoPromoterName" placeholder="Nome do promotor">
+            ${promoterFieldHtml('routeAutoPromoterUser', 'routeAutoPromoterName', null, '')}
         </div>
         ${geoCount === 0 ? `<p style="color: var(--primary-red); font-size: 0.85rem;">Nenhuma loja tem coordenadas cadastradas ainda — não é possível gerar sugestões.</p>` : ''}
         <div class="form-actions">
@@ -2607,7 +2738,10 @@ window.updateRouteManualWeekdayHint = function() {
 
 window.generateAndSaveAutoPlan = function() {
     const weekStart = document.getElementById('routeAutoWeekStart').value;
-    const promoterName = document.getElementById('routeAutoPromoterName').value.trim();
+    const promoterSelect = document.getElementById('routeAutoPromoterUser');
+    const promoterName = (promoterSelect && promoterSelect.value)
+        ? promoterSelect.selectedOptions[0].textContent.trim()
+        : (document.getElementById('routeAutoPromoterName')?.value.trim() || '');
     if (!weekStart) { alert('Selecione a data de início do plano.'); return; }
 
     const checkedNets = Array.from(document.querySelectorAll('.route-auto-network-checkbox:checked')).map(cb => cb.value);
@@ -2617,8 +2751,11 @@ window.generateAndSaveAutoPlan = function() {
     if (eligibleStores.length === 0) { alert('Nenhuma loja com coordenadas cadastradas nas redes selecionadas.'); return; }
 
     const plan = generateAutoWeekPlan(weekStart, promoterName, eligibleStores);
+    const promoterUser = document.getElementById('routeAutoPromoterUser')?.value || '';
+    if (promoterUser) plan.promoterUser = promoterUser;
     routePlans.push(plan);
     saveAppStateLocally();
+    syncWithServer();
     logRoutePlanEvent('route_create', plan);
 
     document.getElementById('routeBuilderModal').style.display = 'none';
@@ -2978,8 +3115,8 @@ function renderManualDraftSummary() {
             <strong style="font-size: 0.85rem;">Dias já atribuídos neste plano:</strong>
             <p style="font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 10px;">${assignedLabels.join(', ') || 'nenhum ainda'}</p>
             <div class="form-group">
-                <label>Nome do promotor (opcional)</label>
-                <input type="text" id="routeManualPromoterName" value="${plan.promoterName || ''}" placeholder="Nome do promotor" oninput="window._routeManualDraftPlan.promoterName = this.value">
+                <label>Promotor (opcional)</label>
+                ${promoterFieldHtml('routeManualPromoterUser', 'routeManualPromoterName', plan.promoterUser || null, plan.promoterName || '')}
             </div>
             <button class="btn btn-success" style="width:100%;" onclick="saveManualRoutePlan()">Salvar Plano</button>
         </div>
@@ -2998,6 +3135,7 @@ window.saveManualRoutePlan = function() {
     plan.updatedAt = new Date().toISOString();
     routePlans.push(plan);
     saveAppStateLocally();
+    syncWithServer();
     logRoutePlanEvent('route_create', plan);
 
     window._routeManualDraftPlan = null;
@@ -3609,7 +3747,7 @@ window.viewVisitPhotos = function(visitId) {
         <head><title>Fotos da Visita</title></head>
         <body style="padding: 20px; text-align: center;">
             <h2 style="color:#203a4c; margin-bottom:20px;">Fotos da Visita</h2>
-            ${photos.map(p => `<img src="${p}" style="max-width:100%; height:auto; display:block; margin:auto; margin-bottom:20px; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border:1px solid #ddd;">`).join('')}
+            ${photos.map(p => `<img src="${Storage.photoUrl(p)}" style="max-width:100%; height:auto; display:block; margin:auto; margin-bottom:20px; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border:1px solid #ddd;">`).join('')}
         </body>
         </html>
     `);
@@ -6167,6 +6305,11 @@ async function handleVisitSubmit(e) {
 
             try {
                 await persistAppState();
+                if (selectedPhotos.length > 0) {
+                    const added = photoCache[editingVisitId] || [];
+                    await uploadVisitPhotos(editingVisitId, selectedPhotos.map(p => ({ ...p, meta: { ...p.meta, storeId } })));
+                    photoCache[editingVisitId] = added.concat(photoCache[editingVisitId] || []);
+                }
                 renderValidatedRuptures();
                 selectedPhotos = [];
                 document.getElementById('photoPreviewContainer').innerHTML = '';
@@ -6204,19 +6347,9 @@ async function handleVisitSubmit(e) {
         photos: []  // fotos ficam apenas em memória (photoCache), não no localStorage
     };
 
-    // Guarda fotos só em memória para a sessão atual
+    // Fotos: enviadas ao servidor com localização; as que falharem ficam na fila deste aparelho
     if (selectedPhotos.length > 0) {
-        photoCache[newVisit.id] = [...selectedPhotos];
-        
-        // ?? Upload para o servidor (em background)
-        if (typeof Storage !== 'undefined' && Storage.isServer) {
-            const urls = [];
-            for (const b64 of selectedPhotos) {
-                const u = await Storage.uploadPhoto(b64, newVisit.id);
-                if (u) urls.push(u);
-            }
-            if (urls.length > 0) photoCache[newVisit.id] = urls;
-        }
+        await uploadVisitPhotos(newVisit.id, selectedPhotos.map(p => ({ ...p, meta: { ...p.meta, storeId: newVisit.storeId } })));
     }
     
     // Atualiza Estado
@@ -6669,7 +6802,7 @@ function renderUsersList() {
 
 function describePerms(perms) {
     const list = Array.isArray(perms) ? perms : PERMISSION_PRESETS.all;
-    if (list.length === USER_PERMISSIONS.length) return 'tudo';
+    if (PERMISSION_PRESETS.all.every(key => list.includes(key))) return list.includes('myroute') ? 'tudo, inclusive Minha Rota' : 'tudo';
     if (list.length === 0) return 'nada';
     return USER_PERMISSIONS.filter(p => list.includes(p.key)).map(p => p.label).join(', ');
 }
@@ -6781,6 +6914,369 @@ async function handleUserFormSubmit(e) {
     showToast(original ? 'Usuário atualizado.' : `Usuário ${payload.name} criado.`, 'success');
 }
 
+// ---------- Aba "Minha Rota" (tela do promotor, pensada para o celular) ----------
+// Mostra as lojas do dia dos planos de rota atribuídos a este usuário (promoterUser).
+// O promotor não registra visita nem rupturas: só tira as fotos de cada loja. As fotos
+// ficam agrupadas por loja e dia (routePhotoKey), no lugar do id de uma visita.
+function myRouteDays() {
+    const me = currentUser ? currentUser.username : '';
+    const days = [];
+    routePlans.filter(plan => plan.promoterUser === me).forEach(plan => {
+        (plan.days || []).forEach(day => {
+            if (day && day.date && (day.stops || []).length > 0) days.push(day);
+        });
+    });
+    return days.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function localTodayISO() {
+    const now = new Date();
+    return formatISODate(new Date(now.getTime() - now.getTimezoneOffset() * 60000));
+}
+
+// Grupo das fotos de uma loja num dia, ex.: "rota-20261016-k3f9a1" (só letras, números e hífen)
+function routePhotoKey(storeId, date) {
+    let hash = 0;
+    for (const ch of storeId) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    return `rota-${date.replace(/-/g, '')}-${hash.toString(36)}`;
+}
+
+let routePhotoStoreId = null;
+let routePhotoBusy = false;
+
+window.takeRoutePhotos = function(storeId) {
+    if (!storeId) { alert('Escolha a loja antes de tirar as fotos.'); return; }
+    if (routePhotoBusy) return;
+    routePhotoStoreId = storeId;
+    const input = document.getElementById('routePhotoInput');
+    input.value = '';
+    input.click();
+};
+
+function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+async function handleRoutePhotos(files) {
+    const store = stores.find(s => s.id === routePhotoStoreId);
+    if (!store || files.length === 0) return;
+    routePhotoBusy = true;
+    const status = document.getElementById('myRouteStatus');
+    const setStatus = text => { if (status) { status.textContent = text; status.style.display = text ? '' : 'none'; } };
+    try {
+        setStatus('Obtendo localização...');
+        const location = await getCurrentLocation();
+        setStatus(`Enviando ${files.length} foto(s)...`);
+        const items = [];
+        for (const file of files) {
+            const meta = { storeId: store.id, deviceTime: Date.now(), source: 'route', ...(location || {}) };
+            let b64;
+            try {
+                b64 = await stampPhoto(file, { storeName: store.name, deviceTime: meta.deviceTime, location, userName: currentUser ? currentUser.name : '' });
+            } catch (err) {
+                console.error('Erro ao processar a foto, usando a original:', err);
+                b64 = await fileToDataUrl(file);
+            }
+            items.push({ b64, meta });
+        }
+        const key = routePhotoKey(store.id, localTodayISO());
+        const before = (photoCache[key] || []).slice();
+        const urls = await uploadVisitPhotos(key, items);
+        photoCache[key] = before.concat(photoCache[key] || []);
+        if (urls.length > 0) showToast(`${urls.length} foto(s) enviada(s) — ${store.name}`, 'success');
+        if (!location) setTimeout(() => showToast('Foto sem localização: ative o GPS e permita a localização para este site.', 'warning'), 3500);
+    } finally {
+        routePhotoBusy = false;
+        setStatus('');
+        if (currentPage === 'myroute') renderMyRouteView();
+    }
+}
+
+async function renderMyRouteView() {
+    const today = localTodayISO();
+    const days = myRouteDays();
+    const todayStops = days.filter(day => day.date === today)
+        .flatMap(day => day.stops)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+    const nextDays = days.filter(day => day.date > today).slice(0, 6);
+    const outbox = (typeof Storage !== 'undefined' && Storage.isServer) ? ((await IndexedDBHelper.get(PHOTO_OUTBOX_KEY)) || []) : [];
+    if (currentPage !== 'myroute') return;
+
+    const input = document.getElementById('routePhotoInput');
+    if (input) input.onchange = e => handleRoutePhotos(Array.from(e.target.files));
+
+    // Fotos de hoje por loja: as já enviadas (photoCache) e as que aguardam sinal (fila)
+    const photosToday = storeId => {
+        const key = routePhotoKey(storeId, today);
+        const sent = (photoCache[key] || []).filter(p => String(p).startsWith('uploads/'));
+        const waiting = outbox.filter(item => item.visitId === key).length;
+        return { sent, total: sent.length + waiting };
+    };
+    const doneCount = todayStops.filter(stop => photosToday(stop.storeId).total > 0).length;
+
+    const stopHtml = (stop, index) => {
+        const store = stores.find(s => s.id === stop.storeId);
+        if (!store) return '';
+        const photos = photosToday(store.id);
+        const mapsUrl = (store.lat && store.lng)
+            ? `https://www.google.com/maps/dir/?api=1&destination=${store.lat},${store.lng}`
+            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address || store.name)}`;
+        const arrival = typeof stop.arrivalEstimateMin === 'number'
+            ? `${String(Math.floor(stop.arrivalEstimateMin / 60)).padStart(2, '0')}:${String(stop.arrivalEstimateMin % 60).padStart(2, '0')}` : '';
+        return `
+            <div class="myroute-stop ${photos.total > 0 ? 'done' : ''}">
+                <div class="myroute-stop-number">${photos.total > 0 ? '<i class="fa-solid fa-check"></i>' : index + 1}</div>
+                <div class="myroute-stop-body">
+                    <strong>${escapeHtml(store.name)}</strong>
+                    ${store.address ? `<div class="myroute-stop-address">${escapeHtml(store.address)}</div>` : ''}
+                    <div class="myroute-stop-meta">
+                        ${arrival ? `<span><i class="fa-regular fa-clock"></i> chegada prevista ${arrival}</span>` : ''}
+                        ${photos.total > 0 ? `<span class="myroute-done-label"><i class="fa-solid fa-circle-check"></i> ${photos.total} foto(s) hoje</span>` : ''}
+                    </div>
+                    ${photos.sent.length > 0 ? `<div class="myroute-thumbs">${photos.sent.slice(-4).map(p => `<img src="${Storage.photoUrl(p)}" alt="Foto enviada" loading="lazy">`).join('')}</div>` : ''}
+                    <div class="myroute-stop-actions">
+                        <a class="btn btn-secondary" href="${mapsUrl}" target="_blank" rel="noopener"><i class="fa-solid fa-diamond-turn-right"></i> Mapa</a>
+                        <button class="btn ${photos.total > 0 ? 'btn-secondary' : 'btn-primary'}" onclick="takeRoutePhotos('${store.id}')"><i class="fa-solid fa-camera"></i> ${photos.total > 0 ? 'Mais fotos' : 'Tirar fotos'}</button>
+                    </div>
+                </div>
+            </div>`;
+    };
+
+    const otherStores = [...stores].sort((a, b) => a.name.localeCompare(b.name));
+    contentArea.innerHTML = `
+        <div class="myroute">
+            <div class="panel myroute-header">
+                <div>
+                    <h2>Olá, ${escapeHtml(currentUser ? currentUser.name.split(' ')[0] : '')}</h2>
+                    <p>${weekdayLabelPtBR(today)}, ${formatDate(today)}</p>
+                </div>
+                <div class="myroute-header-side">
+                    ${todayStops.length > 0 ? `<div class="myroute-progress"><strong>${doneCount}/${todayStops.length}</strong><span>lojas</span></div>` : ''}
+                    <div class="myroute-account">
+                        <button class="btn-icon" onclick="openChangePasswordModal()" title="Trocar senha"><i class="fa-solid fa-key"></i></button>
+                        <button class="btn-icon" onclick="logout()" title="Sair do sistema"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </div>
+                </div>
+            </div>
+            <div id="myRouteStatus" class="panel myroute-status" style="display: none;"></div>
+            ${outbox.length > 0 ? `
+                <div class="panel myroute-pending">
+                    <span><i class="fa-solid fa-cloud-arrow-up"></i> ${outbox.length} foto(s) aguardando sinal para envio</span>
+                    <button class="btn btn-secondary btn-small" onclick="processPhotoOutbox().then(() => renderMyRouteView())">Enviar agora</button>
+                </div>` : ''}
+            <div class="panel">
+                <h3 class="myroute-title">Rota de hoje</h3>
+                ${todayStops.length > 0
+                    ? todayStops.map(stopHtml).join('')
+                    : '<p class="empty-state">Nenhuma loja programada para hoje.</p>'}
+            </div>
+            <div class="panel">
+                <h3 class="myroute-title">Fotos de outra loja</h3>
+                <div class="myroute-other">
+                    <select id="myRouteOtherStore">
+                        <option value="">Escolha a loja...</option>
+                        ${otherStores.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+                    </select>
+                    <button class="btn btn-secondary" onclick="takeRoutePhotos(document.getElementById('myRouteOtherStore').value)"><i class="fa-solid fa-camera"></i> Tirar fotos</button>
+                </div>
+            </div>
+            ${nextDays.length > 0 ? `
+                <div class="panel">
+                    <h3 class="myroute-title">Próximos dias</h3>
+                    ${nextDays.map(day => `
+                        <div class="myroute-next-day">
+                            <strong>${weekdayLabelPtBR(day.date)}, ${formatDate(day.date)}</strong>
+                            <span>${day.stops.map(stop => escapeHtml((stores.find(s => s.id === stop.storeId) || {}).name || '')).filter(Boolean).join(' · ')}</span>
+                        </div>`).join('')}
+                </div>` : ''}
+        </div>
+    `;
+}
+
+// ---------- Aba "Fotos" ----------
+// Todas as fotos enviadas, com data e hora do servidor, quem tirou e a distância até a
+// loja (calculada pelo servidor a partir do GPS do celular). Dá para baixar um período
+// em .zip e o administrador pode apagar as fotos antigas para liberar espaço.
+const PHOTOS_PAGE_SIZE = 120;
+let photosData = { photos: [], zip: false };
+let photosLimit = PHOTOS_PAGE_SIZE;
+
+function photoStoreId(photo) {
+    if (photo.storeId) return photo.storeId;
+    const visit = visits.find(v => String(v.id) === String(photo.visitId));
+    return visit ? visit.storeId : '';
+}
+
+// Fotos do registro de visita (equipe interna) não levam GPS: não entram no alerta de local
+function photoWithoutGpsByDesign(photo) {
+    return photo.legacy || (photo.src === 'visit' && typeof photo.lat !== 'number');
+}
+
+function photoDistanceBadge(photo) {
+    if (photo.legacy) return '<span class="photo-badge neutral" title="Foto anterior ao registro de localização">sem dados</span>';
+    if (photoWithoutGpsByDesign(photo)) return '<span class="photo-badge neutral" title="Enviada pelo registro de visita, sem localização">pela visita</span>';
+    if (typeof photo.dist === 'number') {
+        if (photo.dist <= PHOTO_NEAR_STORE_METERS) return `<span class="photo-badge ok" title="Distância até a loja"><i class="fa-solid fa-location-dot"></i> na loja (${photo.dist} m)</span>`;
+        const label = photo.dist >= 1000 ? `${(photo.dist / 1000).toFixed(1).replace('.', ',')} km` : `${photo.dist} m`;
+        return `<span class="photo-badge warn" title="A foto foi tirada longe do endereço cadastrado da loja"><i class="fa-solid fa-triangle-exclamation"></i> a ${label} da loja</span>`;
+    }
+    if (typeof photo.lat === 'number') return '<span class="photo-badge neutral"><i class="fa-solid fa-location-dot"></i> loja sem coordenadas</span>';
+    return '<span class="photo-badge warn"><i class="fa-solid fa-location-crosshairs"></i> sem localização</span>';
+}
+
+function renderPhotosView() {
+    const monthAgo = new Date();
+    monthAgo.setDate(monthAgo.getDate() - 30);
+    photosLimit = PHOTOS_PAGE_SIZE;
+    contentArea.innerHTML = `
+        <div class="panel">
+            <div class="panel-header" style="display: block; margin-bottom: 20px;">
+                <h2 style="margin-bottom: 8px;">Fotos das visitas</h2>
+                <p style="margin: 0 0 12px; color: var(--text-muted);">Data e hora registradas pelo servidor no envio. A distância compara o GPS do celular com o endereço cadastrado da loja.</p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+                    <div class="header-filters" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; flex: 1; min-width: 0;">
+                        <div class="search-bar" style="width: 220px;">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="photosSearch" placeholder="Buscar loja..." oninput="photosLimit = PHOTOS_PAGE_SIZE; renderPhotosGrid()">
+                        </div>
+                        <input type="date" id="photosFrom" class="filter-select" style="height: 42px; width: auto;" value="${formatISODate(monthAgo)}" onchange="renderPhotosGrid()" title="De">
+                        <input type="date" id="photosTo" class="filter-select" style="height: 42px; width: auto;" onchange="renderPhotosGrid()" title="Até">
+                        <select id="photosUser" class="filter-select" style="height: 42px; width: auto;" onchange="renderPhotosGrid()"><option value="">Todos os usuários</option></select>
+                        <select id="photosPlace" class="filter-select" style="height: 42px; width: auto;" onchange="renderPhotosGrid()">
+                            <option value="">Qualquer local</option>
+                            <option value="ok">Na loja</option>
+                            <option value="warn">Longe da loja ou sem localização</option>
+                        </select>
+                    </div>
+                    <div class="header-actions" style="display: flex; gap: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="loadPhotosData()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                        <button class="btn btn-secondary" id="photosZipBtn" onclick="downloadPhotosZip()"><i class="fa-solid fa-file-zipper"></i> Baixar .zip</button>
+                        ${currentUser && currentUser.admin ? '<button class="btn btn-danger" onclick="openPhotosCleanup()"><i class="fa-solid fa-trash-can"></i> Apagar antigas</button>' : ''}
+                    </div>
+                </div>
+                <div id="photosCleanupBox" class="photos-cleanup" style="display: none;"></div>
+            </div>
+            <div id="photosSummary" class="photos-summary"></div>
+            <div id="photosGrid" class="photo-grid"><p class="empty-state">Carregando fotos...</p></div>
+        </div>
+    `;
+    loadPhotosData();
+}
+
+window.loadPhotosData = async function() {
+    const result = (typeof Storage !== 'undefined' && Storage.isServer) ? await Storage.listPhotos() : { ok: false, error: 'As fotos ficam no servidor: abra o sistema publicado para vê-las.' };
+    if (!document.getElementById('photosGrid')) return;
+    if (!result.ok) {
+        photosData = { photos: [], zip: false };
+        document.getElementById('photosGrid').innerHTML = `<p class="empty-state">${escapeHtml(result.error)}</p>`;
+        return;
+    }
+    photosData = { photos: result.photos.sort((a, b) => b.t - a.t), zip: result.zip };
+    const users = new Map(photosData.photos.filter(p => p.u).map(p => [p.u, p.n || p.u]));
+    const userSelect = document.getElementById('photosUser');
+    const selected = userSelect.value;
+    userSelect.innerHTML = '<option value="">Todos os usuários</option>' +
+        [...users].sort((a, b) => a[1].localeCompare(b[1])).map(([u, n]) => `<option value="${escapeHtml(u)}" ${u === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+    renderPhotosGrid();
+};
+
+function filteredPhotos() {
+    const from = document.getElementById('photosFrom').value;
+    const to = document.getElementById('photosTo').value;
+    const user = document.getElementById('photosUser').value;
+    const place = document.getElementById('photosPlace').value;
+    const search = document.getElementById('photosSearch').value.trim().toLowerCase();
+    return photosData.photos.filter(photo => {
+        const day = formatISODate(new Date(photo.t * 1000 - new Date(photo.t * 1000).getTimezoneOffset() * 60000));
+        if (from && day < from) return false;
+        if (to && day > to) return false;
+        if (user && photo.u !== user) return false;
+        const near = typeof photo.dist === 'number' && photo.dist <= PHOTO_NEAR_STORE_METERS;
+        if (place === 'ok' && !near) return false;
+        if (place === 'warn' && (near || photoWithoutGpsByDesign(photo))) return false;
+        if (search) {
+            const store = stores.find(s => s.id === photoStoreId(photo));
+            if (!store || !store.name.toLowerCase().includes(search)) return false;
+        }
+        return true;
+    });
+}
+
+window.renderPhotosGrid = function() {
+    const grid = document.getElementById('photosGrid');
+    if (!grid) return;
+    const list = filteredPhotos();
+    const zipBtn = document.getElementById('photosZipBtn');
+    if (zipBtn) zipBtn.disabled = !photosData.zip || list.length === 0;
+    if (zipBtn) zipBtn.title = photosData.zip ? 'Baixa as fotos do período e do usuário escolhidos, com uma planilha (fotos.csv)' : 'O servidor não tem suporte a .zip';
+    const far = list.filter(p => !photoWithoutGpsByDesign(p) && !(typeof p.dist === 'number' && p.dist <= PHOTO_NEAR_STORE_METERS)).length;
+    document.getElementById('photosSummary').innerHTML = `<strong>${list.length}</strong> foto(s) no filtro${far > 0 ? ` · <span class="photo-badge warn">${far} longe da loja ou sem localização</span>` : ''}`;
+
+    if (list.length === 0) {
+        grid.innerHTML = '<p class="empty-state">Nenhuma foto encontrada com esses filtros.</p>';
+        return;
+    }
+    grid.innerHTML = list.slice(0, photosLimit).map(photo => {
+        const store = stores.find(s => s.id === photoStoreId(photo));
+        const url = Storage.photoUrl(photo.file);
+        const when = new Date(photo.t * 1000).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const mapLink = typeof photo.lat === 'number'
+            ? `<a href="https://www.google.com/maps/search/?api=1&query=${photo.lat},${photo.lng}" target="_blank" rel="noopener" title="Ver no mapa onde a foto foi tirada"><i class="fa-solid fa-map-location-dot"></i></a>` : '';
+        return `
+            <div class="photo-card">
+                <a href="${url}" target="_blank" rel="noopener"><img src="${url}" loading="lazy" alt="Foto da visita"></a>
+                <div class="photo-card-info">
+                    <strong title="${escapeHtml(store ? store.name : '')}">${escapeHtml(store ? store.name : 'Loja não identificada')}</strong>
+                    <span>${when}${photo.n ? ' · ' + escapeHtml(photo.n) : ''}</span>
+                    <div class="photo-card-footer">${photoDistanceBadge(photo)}${mapLink}</div>
+                </div>
+            </div>`;
+    }).join('') + (list.length > photosLimit
+        ? `<div class="photo-grid-more"><button class="btn btn-secondary" onclick="photosLimit += PHOTOS_PAGE_SIZE; renderPhotosGrid()">Mostrar mais (${list.length - photosLimit} restantes)</button></div>` : '');
+};
+
+window.downloadPhotosZip = function() {
+    const from = document.getElementById('photosFrom').value;
+    const to = document.getElementById('photosTo').value;
+    const user = document.getElementById('photosUser').value;
+    window.location.href = Storage.photosZipUrl({ from, to, user });
+};
+
+window.openPhotosCleanup = function() {
+    const box = document.getElementById('photosCleanupBox');
+    if (!box) return;
+    if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+    const limit = new Date();
+    limit.setMonth(limit.getMonth() - 6);
+    box.style.display = 'flex';
+    box.innerHTML = `
+        <span><i class="fa-solid fa-triangle-exclamation"></i> Apagar do servidor todas as fotos tiradas antes de</span>
+        <input type="date" id="photosCleanupDate" class="filter-select" style="height: 38px; width: auto;" value="${formatISODate(limit)}">
+        <button class="btn btn-danger btn-small" onclick="confirmPhotosCleanup()">Apagar</button>
+        <span class="photos-cleanup-hint">Baixe o .zip do período antes, se quiser guardar uma cópia. Não dá para desfazer.</span>`;
+};
+
+window.confirmPhotosCleanup = async function() {
+    const before = document.getElementById('photosCleanupDate').value;
+    if (!before) return;
+    const count = photosData.photos.filter(p => p.t * 1000 < new Date(before + 'T00:00:00').getTime()).length;
+    if (count === 0) { alert(`Não há fotos anteriores a ${formatDate(before)}.`); return; }
+    if (!confirm(`Apagar ${count} foto(s) tiradas antes de ${formatDate(before)}?\n\nAs fotos somem do servidor e das visitas. Não dá para desfazer.`)) return;
+    const result = await Storage.deletePhotosBefore(before);
+    if (!result.ok) { alert(result.error); return; }
+    Object.keys(photoCache).forEach(visitId => {
+        photoCache[visitId] = (photoCache[visitId] || []).filter(p => !photosData.photos.some(photo => photo.file === p && photo.t * 1000 < new Date(before + 'T00:00:00').getTime()));
+    });
+    showToast(`${result.deleted} foto(s) apagada(s).`, 'success');
+    document.getElementById('photosCleanupBox').style.display = 'none';
+    loadPhotosData();
+};
+
 // ---------- Aba "Auditoria" (somente administradores) ----------
 // O servidor registra quem adicionou, editou ou excluiu cada coisa (backend/api.php,
 // "Auditoria"). Aqui é só a consulta: o registro guarda ids, e os nomes de loja e de
@@ -6790,7 +7286,7 @@ let auditEntries = [];
 
 const AUDIT_AREAS = {
     visit: 'Visitas', pedido: 'Pedidos', rupture: 'Rupturas', route: 'Rotas',
-    import: 'Importação', notifications: 'Notificações', user: 'Usuários', session: 'Acesso'
+    import: 'Importação', notifications: 'Notificações', user: 'Usuários', session: 'Acesso', photos: 'Fotos'
 };
 
 const AUDIT_ACTIONS = {
@@ -6911,6 +7407,9 @@ function describeAuditEntry(entry) {
         return { subject, lines: auditSnapshotLines(d, ['role', 'admin']) };
     }
     if (entry.e === 'session') return { subject: 'Entrada no sistema', lines: [] };
+    if (entry.e === 'photos') {
+        return { subject: 'Fotos das visitas', lines: [`${auditText(d.count)} foto(s) anteriores a ${auditDate(d.before)} apagadas`] };
+    }
     return { subject: auditText(entry.e), lines: [] };
 }
 

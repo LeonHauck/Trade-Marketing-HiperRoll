@@ -2131,3 +2131,350 @@ body.logged-in .app-container {
 .route-store-checklist-row.no-coords { opacity: 0.5; }
 .route-store-checklist-row.no-coords input,
 .route-store-checklist-row.no-coords label { cursor: not-allowed; }
+
+/* ---------- Minha Rota (tela do promotor) ---------- */
+.myroute {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.myroute .panel {
+    margin-bottom: 0;
+}
+
+.myroute-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.myroute-header h2 {
+    margin: 0 0 4px;
+}
+
+.myroute-header p {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+body.page-myroute .top-header {
+    display: none !important;
+}
+
+.myroute-header-side {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.myroute-account {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+}
+
+@media (max-width: 720px) {
+    body.page-myroute .sidebar {
+        display: none;
+    }
+
+    body.page-myroute .main-content {
+        padding: 12px;
+    }
+
+    .myroute {
+        gap: 12px;
+    }
+
+    .myroute .panel {
+        padding: 1rem;
+    }
+
+    .myroute-account {
+        display: flex;
+    }
+}
+
+.myroute-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--accent-blue);
+    border-radius: 12px;
+    padding: 8px 14px;
+    line-height: 1.1;
+}
+
+.myroute-progress strong {
+    font-size: 1.4rem;
+    color: var(--primary-blue);
+}
+
+.myroute-progress span {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.myroute-pending {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: #fff8e6;
+    border: 1px solid #f5d38a;
+    color: #8a5a00;
+}
+
+.myroute-title {
+    margin: 0 0 12px;
+    font-size: 1rem;
+}
+
+.myroute-stop {
+    display: flex;
+    gap: 12px;
+    padding: 14px 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.myroute-stop:first-of-type {
+    border-top: none;
+}
+
+.myroute-stop-number {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-blue);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.myroute-stop.done .myroute-stop-number {
+    background: #27ae60;
+}
+
+.myroute-stop-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.myroute-stop-address {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.myroute-stop-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+.myroute-done-label {
+    color: #27ae60;
+    font-weight: 600;
+}
+
+.myroute-stop-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.myroute-stop-actions .btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+    text-decoration: none;
+}
+
+.myroute-status {
+    text-align: center;
+    font-weight: 600;
+    color: var(--primary-blue);
+}
+
+.myroute-thumbs {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.myroute-thumbs img {
+    width: 56px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.myroute-other {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.myroute-other select {
+    flex: 1 1 220px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    font: inherit;
+}
+
+.myroute-other .btn {
+    min-height: 44px;
+    justify-content: center;
+}
+
+.myroute-next-day {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 0;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.85rem;
+}
+
+.myroute-next-day:first-of-type {
+    border-top: none;
+}
+
+.myroute-next-day span {
+    color: var(--text-muted);
+}
+
+/* ---------- Aba Fotos ---------- */
+.photos-summary {
+    margin-bottom: 14px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.photos-cleanup {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid #f1b0b0;
+    background: #fff4f4;
+    border-radius: 10px;
+    color: #a12b2b;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.photos-cleanup-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    flex-basis: 100%;
+}
+
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.photo-card {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+}
+
+.photo-card img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    display: block;
+    background: #f0f2f5;
+}
+
+.photo-card-info {
+    padding: 8px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.8rem;
+    min-width: 0;
+}
+
+.photo-card-info strong {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.photo-card-info > span {
+    color: var(--text-muted);
+}
+
+.photo-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.photo-card-footer a {
+    color: var(--primary-blue);
+}
+
+.photo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.photo-badge.ok {
+    background: #e6f6ec;
+    color: #1e8449;
+}
+
+.photo-badge.warn {
+    background: #fff1e0;
+    color: #b35c00;
+}
+
+.photo-badge.neutral {
+    background: #eef0f3;
+    color: #5f6b7a;
+}
+
+.photo-grid-more {
+    grid-column: 1 / -1;
+    text-align: center;
+}
+
+@media (max-width: 720px) {
+    .photo-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+}

@@ -9,13 +9,15 @@ const MIN_PASSWORD_LENGTH = 10;
 const USERNAME_PATTERN    = '/^[A-Za-z0-9._-]{3,40}$/';
 const DEFAULT_USER_ROLE   = 'Trade Marketing';
 
-// O que um usuário pode ver/fazer no painel. Administrador sempre tem tudo (e também
+// O que um usuário pode ver/fazer no painel. Administrador sempre tem tudo, menos "Minha Rota" (e também
 // Usuários e Auditoria, que não entram nesta lista). Usuário sem a chave "perms" gravada
-// (criado antes desta opção existir) também tem tudo.
-const USER_PERMISSIONS = ['dashboard', 'stores', 'products', 'reports', 'routes', 'history', 'pedidos', 'visits'];
+// (criado antes desta opção existir) tem tudo, menos "Minha Rota", que é a tela do promotor.
+const USER_PERMISSIONS = ['dashboard', 'stores', 'products', 'reports', 'routes', 'history', 'pedidos', 'visits', 'photos', 'myroute'];
 
 function userPermissions(array $user): array {
-    if (!empty($user['admin']) || !isset($user['perms']) || !is_array($user['perms'])) return USER_PERMISSIONS;
+    if (!empty($user['admin']) || !isset($user['perms']) || !is_array($user['perms'])) {
+        return array_values(array_diff(USER_PERMISSIONS, ['myroute']));
+    }
     return array_values(array_intersect(USER_PERMISSIONS, $user['perms']));
 }
 // Hash bcrypt que não corresponde a nenhuma senha: usado só para o login de um usuário

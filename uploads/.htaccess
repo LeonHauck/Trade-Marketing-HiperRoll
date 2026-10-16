@@ -1,0 +1,9 @@
+# Fotos das visitas: nada desta pasta é aberto direto pelo navegador.
+# Elas são exibidas pela API (backend/api.php?action=photo), que confere o login.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

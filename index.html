@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trade Marketing - Hiperroll Dashboard</title>
     <link rel="icon" href="logo-hiperroll.png">
-    <link rel="stylesheet" href="style.css?v=20261016">
+    <link rel="stylesheet" href="style.css?v=20261016p">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -86,6 +86,10 @@
             </div>
 
             <nav class="nav-menu">
+                <a href="#" class="nav-item" data-page="myroute" style="display: none;">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                    <span>Minha Rota</span>
+                </a>
                 <a href="#" class="nav-item active" data-page="dashboard">
                     <i class="fa-solid fa-chart-line"></i>
                     <span>Dashboard</span>
@@ -113,6 +117,10 @@
                 <a href="#" class="nav-item" data-page="pedidos">
                     <i class="fa-solid fa-cart-shopping"></i>
                     <span>Pedidos</span>
+                </a>
+                <a href="#" class="nav-item" data-page="photos">
+                    <i class="fa-solid fa-camera"></i>
+                    <span>Fotos</span>
                 </a>
                 <!-- Só para administradores (applyCurrentUser em app.js) -->
                 <a href="#" class="nav-item" data-page="audit" id="navAudit" style="display: none;">
@@ -483,13 +491,15 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Câmera da tela Minha Rota (promotor) -->
+    <input type="file" id="routePhotoInput" accept="image/*" capture="environment" multiple style="display: none;">
     <script defer src="data.js?v=20261016c"></script>
     <script defer src="store-geo.js?v=20261016"></script>
     <script defer src="products-hiperroll.js?v=20261016"></script>
     <script defer src="cd-clientes.js?v=20261010"></script>
-    <script defer src="storage.js?v=20261016"></script>
+    <script defer src="storage.js?v=20261016p"></script>
     <script defer src="db.js?v=20260713"></script>
-    <script defer src="app.js?v=20261016b"></script>
+    <script defer src="app.js?v=20261016p"></script>
 </body>
 
 </html>

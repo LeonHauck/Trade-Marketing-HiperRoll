@@ -174,7 +174,8 @@ const Storage = (function () {
         visits: v => String(v.id),
         pedidos: p => String(p.id),
         validated_ruptures: r => `${r.productId}:${r.storeId}`,
-        resolved_history: h => `${h.visitId || h.id}:${h.productId}:${h.storeId}`
+        resolved_history: h => `${h.visitId || h.id}:${h.productId}:${h.storeId}`,
+        route_plans: p => String(p.id)
     };
     const OUTBOX_KEY = 'hr_sync_outbox';
 
@@ -315,8 +316,9 @@ const Storage = (function () {
     }
 
     // --- Upload de foto para o servidor ---
-    // Retorna a URL pública da foto ou null em caso de erro
-    async function uploadPhoto(base64DataUrl, visitId) {
+    // meta: { storeId, lat, lng, accuracy, deviceTime } (localização e hora do celular).
+    // Retorna { url, photo } ou null em caso de erro (a foto fica na fila para reenvio).
+    async function uploadPhoto(base64DataUrl, visitId, meta = {}) {
         if (!isServer) return null;
         try {
             // Converte base64 para Blob
@@ -326,16 +328,49 @@ const Storage = (function () {
             const formData = new FormData();
             formData.append('photo', blob, `photo_${visitId}.jpg`);
             formData.append('visit_id', String(visitId));
+            if (meta.storeId) formData.append('store_id', meta.storeId);
+            ['lat', 'lng', 'accuracy'].forEach(key => { if (typeof meta[key] === 'number') formData.append(key, String(meta[key])); });
+            if (meta.deviceTime) formData.append('device_time', String(Math.floor(meta.deviceTime / 1000)));
+            if (meta.source) formData.append('source', meta.source); // 'route' (promotor) ou 'visit' (registro de visita)
 
-            const result = await call('upload_photo', formData, true);
+            const result = await call('upload_photo', formData, true, false);
             if (result && result.ok) {
-                return result.url; // ex: "uploads/photo_1234_123456789_1234.jpg"
+                return { url: result.url, photo: result.photo }; // url ex: "uploads/photo_1234_123456789_1234.jpg"
             }
             return null;
         } catch (err) {
             console.warn('[Storage] Falha no upload de foto:', err.message);
             return null;
         }
+    }
+
+    // Endereço para exibir uma foto. As fotos não são abertas direto da pasta uploads/
+    // (que fica bloqueada): passam pela API, que confere o login.
+    function photoUrl(path) {
+        if (!path || !isServer || !String(path).startsWith('uploads/')) return path;
+        return new URL(`${API_URL}?action=photo&path=${encodeURIComponent(path)}`, window.location.href).href;
+    }
+
+    // --- Aba Fotos ---
+    function listPhotos() {
+        return accountRequest('photos_list');
+    }
+
+    function photosZipUrl({ from, to, user }) {
+        const params = new URLSearchParams({ action: 'photos_zip' });
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        if (user) params.set('user', user);
+        return `${API_URL}?${params.toString()}`;
+    }
+
+    function deletePhotosBefore(before) {
+        return accountRequest('photos_delete', { before });
+    }
+
+    // Promotores (usuários com "Minha Rota"), para escolher o responsável de um plano
+    function listPromoters() {
+        return accountRequest('promoters');
     }
 
     // --- Deleta fotos de uma visita no servidor ---
@@ -358,6 +393,11 @@ const Storage = (function () {
         logout,
         sync,
         uploadPhoto,
+        photoUrl,
+        listPhotos,
+        photosZipUrl,
+        deletePhotosBefore,
+        listPromoters,
         deleteVisitPhotos,
     };
 
