@@ -43,7 +43,7 @@ Versões antigas deste repositório tinham uma senha e um token escritos no cód
 
 ## Limites conhecidos
 
-- Todos os usuários enxergam e alteram os mesmos dados; não há permissões por tela. A única distinção é quem pode gerenciar usuários.
+- O administrador define quais abas cada usuário vê. O servidor bloqueia de fato só os Pedidos (quem não tem a aba não recebe nem altera pedidos); as demais abas ficam escondidas na tela, mas os dados de visitas, lojas e rupturas chegam ao navegador de qualquer usuário logado, porque o registro de visitas depende deles.
 - Planos de rota e importações de CSV ficam só no navegador de quem os fez; a auditoria registra que aconteceram, mas depende de o painel conseguir avisar o servidor naquele momento.
 - Com login compartilhado entre pessoas, a auditoria aponta o login, não a pessoa.
 - As fotos em `uploads/` são acessíveis por endereço direto, sem login. Não fotografe nada sensível.

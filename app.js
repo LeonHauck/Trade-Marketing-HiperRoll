@@ -803,8 +803,60 @@ function getUserInitials(name) {
     return (parts[0][0] + last).toUpperCase();
 }
 
+// ---------- Permissões (o que cada usuário pode ver/fazer) ----------
+// Definidas pelo administrador na janela "Usuários". O servidor também confere:
+// sem a permissão "pedidos" ele nem envia os pedidos para o navegador.
+const USER_PERMISSIONS = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'stores', label: 'Lojas' },
+    { key: 'products', label: 'Produtos' },
+    { key: 'reports', label: 'Histórico de Visitas' },
+    { key: 'routes', label: 'Rotas' },
+    { key: 'history', label: 'Rupturas' },
+    { key: 'pedidos', label: 'Pedidos' },
+    { key: 'visits', label: 'Registrar e editar visitas' }
+];
+const PERMISSION_PRESETS = {
+    all: USER_PERMISSIONS.map(p => p.key),
+    promotor: ['stores', 'routes', 'visits']
+};
+
+// Sem usuário identificado (modo local, sem servidor) tudo fica liberado
+function hasPerm(key) {
+    if (!currentUser || currentUser.admin || !Array.isArray(currentUser.perms)) return true;
+    return currentUser.perms.includes(key);
+}
+
+// Primeira aba que o usuário pode ver (para onde ele vai ao entrar)
+function firstAllowedPage() {
+    const page = ['dashboard', 'reports', 'routes', 'stores', 'history', 'products', 'pedidos'].find(hasPerm);
+    return page || null;
+}
+
+function applyPermissionsToLayout() {
+    document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+        const page = item.getAttribute('data-page');
+        if (page === 'audit') return; // controlado pelo perfil de administrador
+        item.style.display = hasPerm(page) ? '' : 'none';
+    });
+    const toggle = (el, visible) => { if (el) el.style.display = visible ? '' : 'none'; };
+    toggle(document.getElementById('filterOverdueBtn'), hasPerm('dashboard'));
+    toggle(document.querySelector('button[onclick="exportDashboardPDF()"]'), hasPerm('dashboard'));
+    // Importar CSV altera o cadastro de lojas e produtos: só administrador
+    toggle(document.getElementById('importBtn'), !currentUser || !!currentUser.admin);
+    toggle(document.getElementById('addVisitBtn'), hasPerm('visits'));
+}
+
+// Aviso padrão quando alguém tenta uma ação sem permissão
+function requirePerm(key) {
+    if (hasPerm(key)) return true;
+    alert('Seu usuário não tem permissão para esta ação. Fale com um administrador.');
+    return false;
+}
+
 function applyCurrentUser(user) {
     currentUser = user || null;
+    applyPermissionsToLayout();
     const avatar = document.getElementById('userAvatar');
     const nameEl = document.getElementById('userName');
     const roleEl = document.getElementById('userRole');
@@ -1271,8 +1323,10 @@ function setupEventListeners() {
         });
     }
 
-    addVisitBtn.addEventListener('click', () => visitModal.style.display = 'flex');
-    importBtn.addEventListener('click', () => spreadsheetInput.click());
+    importBtn.addEventListener('click', () => {
+        if (currentUser && !currentUser.admin) { alert('Somente administradores podem importar CSV.'); return; }
+        spreadsheetInput.click();
+    });
 
     // Garante reset do modo ediï¿½ï¿½o ao fechar o modal pelo "X"
     closeModal.addEventListener('click', () => {
@@ -1301,6 +1355,7 @@ function setupEventListeners() {
     });
 
     addVisitBtn.addEventListener('click', () => {
+        if (!requirePerm('visits')) return;
         _resetEditMode();
         visitModal.style.display = 'flex';
         document.getElementById('visitDate').valueAsDate = new Date();
@@ -1574,6 +1629,15 @@ function processCSV(csvText) {
 }
 
 function renderPage(page) {
+    // Aba sem permissão: vai para a primeira permitida
+    if (page !== 'audit' && !hasPerm(page)) {
+        const allowed = firstAllowedPage();
+        if (!allowed) {
+            contentArea.innerHTML = '<div class="panel"><p class="empty-state" style="padding: 2rem;">Seu usuário ainda não tem acesso a nenhuma aba. Fale com um administrador.</p></div>';
+            return;
+        }
+        page = allowed;
+    }
     currentPage = page;
     
     window.reportsTableLimit = 50;
@@ -6593,6 +6657,7 @@ function renderUsersList() {
                 <div class="users-list-info">
                     <strong>${escapeHtml(u.name)}${isMe ? ' <span>(você)</span>' : ''}</strong>
                     <span>${escapeHtml(u.username)}${u.role ? ' · ' + escapeHtml(u.role) : ''}</span>
+                    ${u.admin ? '' : `<span class="users-perms">Vê: ${escapeHtml(describePerms(u.perms))}</span>`}
                 </div>
                 ${u.admin ? '<span class="users-admin-tag">Administrador</span>' : ''}
                 <button class="btn-edit-small" onclick="editUser('${escapeHtml(u.username)}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
@@ -6601,6 +6666,36 @@ function renderUsersList() {
         `;
     }).join('');
 }
+
+function describePerms(perms) {
+    const list = Array.isArray(perms) ? perms : PERMISSION_PRESETS.all;
+    if (list.length === USER_PERMISSIONS.length) return 'tudo';
+    if (list.length === 0) return 'nada';
+    return USER_PERMISSIONS.filter(p => list.includes(p.key)).map(p => p.label).join(', ');
+}
+
+function renderPermissionCheckboxes(selected) {
+    const box = document.getElementById('userFormPerms');
+    if (!box) return;
+    box.innerHTML = USER_PERMISSIONS.map(p => `
+        <label class="user-perm-option">
+            <input type="checkbox" class="user-perm-checkbox" value="${p.key}" ${selected.includes(p.key) ? 'checked' : ''}>
+            <span>${p.label}</span>
+        </label>
+    `).join('');
+    updatePermissionsAvailability();
+}
+
+window.applyPermissionPreset = function(preset) {
+    document.querySelectorAll('.user-perm-checkbox').forEach(cb => { cb.checked = PERMISSION_PRESETS[preset].includes(cb.value); });
+};
+
+// Administrador vê tudo: as caixas ficam travadas enquanto a opção estiver marcada
+window.updatePermissionsAvailability = function() {
+    const isAdmin = document.getElementById('userFormAdmin').checked;
+    document.getElementById('userFormPermsBlock').classList.toggle('is-disabled', isAdmin);
+    document.querySelectorAll('.user-perm-checkbox, .user-perm-preset').forEach(el => { el.disabled = isAdmin; });
+};
 
 function showUserFormError(message) {
     const errorMsg = document.getElementById('userFormError');
@@ -6618,6 +6713,7 @@ window.resetUserForm = function() {
     document.getElementById('userFormPasswordLabel').textContent = 'Senha inicial (mínimo 10 caracteres)';
     document.getElementById('userFormSubmit').textContent = 'Criar usuário';
     document.getElementById('userFormCancel').style.display = 'none';
+    renderPermissionCheckboxes(PERMISSION_PRESETS.all);
     showUserFormError('');
 };
 
@@ -6631,6 +6727,7 @@ window.editUser = function(username) {
     document.getElementById('userFormName').value = user.name;
     document.getElementById('userFormRole').value = user.role || '';
     document.getElementById('userFormAdmin').checked = !!user.admin;
+    renderPermissionCheckboxes(Array.isArray(user.perms) ? user.perms : PERMISSION_PRESETS.all);
     document.getElementById('userFormPassword').required = false;
     document.getElementById('userFormTitle').textContent = `Editar ${user.name}`;
     document.getElementById('userFormPasswordLabel').textContent = 'Nova senha (em branco mantém a atual)';
@@ -6663,6 +6760,7 @@ async function handleUserFormSubmit(e) {
         name: document.getElementById('userFormName').value.trim(),
         role: document.getElementById('userFormRole').value.trim(),
         admin: document.getElementById('userFormAdmin').checked,
+        perms: Array.from(document.querySelectorAll('.user-perm-checkbox:checked')).map(cb => cb.value),
         password: document.getElementById('userFormPassword').value
     };
 
@@ -6745,7 +6843,8 @@ const AUDIT_FIELDS = {
     finalizado: ['Status', value => value ? 'Finalizado' : 'Em andamento'],
     name: ['Nome', auditText],
     role: ['Cargo', auditText],
-    admin: ['Administrador', auditYesNo]
+    admin: ['Administrador', auditYesNo],
+    perms: ['Pode ver', value => describePerms(value)]
 };
 
 function auditFieldLine(field, ...values) {
@@ -7007,6 +7106,7 @@ window.logout = async function() {
 };
 
 window.openVisitForStore = function(storeId) {
+    if (!requirePerm('visits')) return;
     _resetEditMode();
     visitModal.style.display = 'flex';
     storeSelect.value = storeId;
@@ -7037,6 +7137,7 @@ function _resetEditMode() {
 
 // Abre o modal prï¿½-populado com os dados da visita para ediï¿½ï¿½o
 window.openEditVisit = function(visitId) {
+    if (!requirePerm('visits')) return;
     const visit = visits.find(v => v.id === visitId);
     if (!visit) { alert('Visita não encontrada.'); return; }
 

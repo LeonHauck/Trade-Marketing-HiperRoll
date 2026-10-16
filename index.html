@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trade Marketing - Hiperroll Dashboard</title>
     <link rel="icon" href="logo-hiperroll.png">
-    <link rel="stylesheet" href="style.css?v=20261015">
+    <link rel="stylesheet" href="style.css?v=20261016">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -343,9 +343,19 @@
                         </div>
                     </div>
                     <label class="user-form-admin">
-                        <input type="checkbox" id="userFormAdmin">
-                        <span>Administrador (pode cadastrar e alterar usuários)</span>
+                        <input type="checkbox" id="userFormAdmin" onchange="updatePermissionsAvailability()">
+                        <span>Administrador (vê tudo, cadastra usuários e consulta a auditoria)</span>
                     </label>
+                    <div class="user-perms-block" id="userFormPermsBlock">
+                        <div class="user-perms-header">
+                            <strong>O que este usuário pode ver</strong>
+                            <span>
+                                <button type="button" class="pedido-date-add user-perm-preset" onclick="applyPermissionPreset('all')">Tudo</button>
+                                <button type="button" class="pedido-date-add user-perm-preset" onclick="applyPermissionPreset('promotor')">Promotor</button>
+                            </span>
+                        </div>
+                        <div id="userFormPerms" class="user-perms-grid"></div>
+                    </div>
                     <p id="userFormError" class="error-msg" style="display:none"></p>
                     <div class="form-actions" style="display: flex; gap: 10px;">
                         <button type="submit" class="btn btn-primary" id="userFormSubmit" style="flex: 1; justify-content: center;">Criar usuário</button>
@@ -477,9 +487,9 @@
     <script defer src="store-geo.js?v=20261016"></script>
     <script defer src="products-hiperroll.js?v=20261016"></script>
     <script defer src="cd-clientes.js?v=20261010"></script>
-    <script defer src="storage.js?v=20261012"></script>
+    <script defer src="storage.js?v=20261016"></script>
     <script defer src="db.js?v=20260713"></script>
-    <script defer src="app.js?v=20261015b"></script>
+    <script defer src="app.js?v=20261016b"></script>
 </body>
 
 </html>

@@ -132,8 +132,8 @@ const Storage = (function () {
     }
 
     // Sem "original" cria um usuário novo; com "original" altera o existente (a senha em branco é mantida).
-    function saveUser({ original, username, name, role, admin, password }) {
-        return accountRequest('user_save', { original, username, name, role, admin, password });
+    function saveUser({ original, username, name, role, admin, perms, password }) {
+        return accountRequest('user_save', { original, username, name, role, admin, perms, password });
     }
 
     function deleteUser(username) {

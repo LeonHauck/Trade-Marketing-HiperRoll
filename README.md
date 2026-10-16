@@ -224,7 +224,8 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 - O cabeçalho de todos os PDFs traz como responsável quem estava logado ao exportar.
 - Administradores cadastram, editam e excluem usuários e podem redefinir senhas pela janela **Usuários**.
 - Cada pessoa troca a própria senha pelo botão **Trocar Senha**.
-- Todos os usuários enxergam e alteram os mesmos dados.
+- Permissões por usuário: o administrador marca quais abas cada pessoa vê (Dashboard, Lojas, Produtos, Histórico de Visitas, Rotas, Rupturas, Pedidos) e se ela pode registrar e editar visitas. Há o atalho "Promotor" (Lojas, Rotas e registro de visitas). Quem não tem acesso a Pedidos não recebe os pedidos do servidor.
+- Os usuários com acesso a uma aba enxergam e alteram os mesmos dados dela.
 - Várias pessoas podem usar o sistema ao mesmo tempo: o que uma grava aparece para as outras em até um minuto, sem recarregar a página, e ninguém sobrescreve o lançamento do colega.
 
 ### Auditoria
@@ -237,7 +238,7 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 
 ### Importação de dados
 
-- **Importar CSV** adiciona lojas e produtos ao cadastro sem apagar o que já existe.
+- **Importar CSV** (somente administradores) adiciona lojas e produtos ao cadastro sem apagar o que já existe.
 - Aceita vírgula ou ponto e vírgula como separador e reconhece as colunas pelo cabeçalho (loja, item ou produto, rede, status).
 
 ---
@@ -406,7 +407,7 @@ As ações `save_*` e `delete_*` de versões anteriores continuam no código ape
 - **Tentativas de login.** Após 8 senhas erradas do mesmo IP (no login ou na troca de senha), o acesso fica bloqueado por 15 minutos.
 - **Auditoria.** Cada alteração fica registrada no servidor com o usuário que a fez, em arquivos mensais dentro de `backend/data/`. Senhas nunca são gravadas nos registros.
 - **Mesma origem.** A API não envia cabeçalhos de CORS: só o próprio site consegue chamá-la.
-- **Limites conhecidos.** Todos os usuários têm acesso aos mesmos dados; não há permissões por tela. As fotos em `uploads/` são servidas por endereço direto, sem passar pelo login.
+- **Limites conhecidos.** As abas visíveis são definidas por usuário, mas só Pedidos é bloqueado também no servidor; visitas, lojas e rupturas são enviadas a todos os usuários logados, porque o registro de visitas depende delas. As fotos em `uploads/` são servidas por endereço direto, sem passar pelo login.
 
 Mais orientações em [SECURITY.md](./SECURITY.md).
 

@@ -82,7 +82,14 @@ function publicUser(string $username): array {
         'name'     => $u['name'] ?? displayNameFromUsername($username),
         'role'     => $u['role'] ?? '',
         'admin'    => !empty($u['admin']),
+        'perms'    => userPermissions($u),
     ];
+}
+
+// O usuário logado tem esta permissão? (ver USER_PERMISSIONS em auth_config.php)
+function canAccess(string $perm): bool {
+    global $me, $users;
+    return $me !== null && isset($users[$me]) && in_array($perm, userPermissions($users[$me]), true);
 }
 
 function respondError(int $status, string $message): void {
@@ -173,7 +180,7 @@ function fullState(): array {
         'dismissed'          => readData('dismissed.json', []),
         'resolved_history'   => readData('resolved_history.json', []),
         'photo_map'          => $asObject(readData('photo_map.json', [])),
-        'pedidos'            => readData('pedidos.json', []),
+        'pedidos'            => canAccess('pedidos') ? readData('pedidos.json', []) : [],
     ];
 }
 
@@ -524,6 +531,10 @@ if (in_array($action, ['users_list', 'user_save', 'user_delete'], true)) {
         $admin    = !empty($body['admin']);
         $password = (string) ($body['password'] ?? '');
         $isNew    = $original === '';
+        // Permissões: sem o campo, mantém as que já existiam (ou "tudo", para usuário novo)
+        $perms    = isset($body['perms']) && is_array($body['perms'])
+            ? array_values(array_intersect(USER_PERMISSIONS, array_map('strval', $body['perms'])))
+            : ($isNew ? USER_PERMISSIONS : userPermissions($users[$username] ?? []));
 
         if ($isNew) {
             if (!preg_match(USERNAME_PATTERN, $username)) {
@@ -547,17 +558,21 @@ if (in_array($action, ['users_list', 'user_save', 'user_delete'], true)) {
             'hash'  => $password !== '' ? hashPassword($password) : $users[$username]['hash'],
             'admin' => $admin,
         ];
+        if (!$admin) $updated[$username]['perms'] = $perms;
         if ($countAdmins($updated) === 0) respondError(400, 'O sistema precisa de pelo menos um administrador.');
         if (!writeAuthUsers($configFile, $updated)) respondError(500, 'Não foi possível gravar o usuário no servidor.');
 
         if ($isNew) {
-            auditLog('user', 'create', $username, ['name' => $name, 'role' => $role, 'admin' => $admin]);
+            auditLog('user', 'create', $username, ['name' => $name, 'role' => $role, 'admin' => $admin, 'perms' => $admin ? USER_PERMISSIONS : $perms]);
         } else {
             $userChanges = [];
             foreach (['name' => $name, 'role' => $role, 'admin' => $admin] as $field => $value) {
                 $previous = $field === 'admin' ? !empty($users[$username]['admin']) : ($users[$username][$field] ?? '');
                 if ($previous !== $value) $userChanges[$field] = [$previous, $value];
             }
+            $previousPerms = userPermissions($users[$username]);
+            $newPerms      = userPermissions($updated[$username]);
+            if ($previousPerms !== $newPerms) $userChanges['perms'] = [$previousPerms, $newPerms];
             if (count($userChanges) > 0 || $password !== '') {
                 auditLog('user', 'update', $username, ['name' => $name, 'changes' => $userChanges, 'passwordReset' => $password !== '']);
             }
@@ -660,6 +675,8 @@ switch ($action) {
         $lists = ['visits' => 'visits.json', 'pedidos' => 'pedidos.json',
                   'validated_ruptures' => 'ruptures.json', 'resolved_history' => 'resolved_history.json'];
         $allSaved = true;
+        // Quem não tem acesso à aba Pedidos não recebe nem altera pedidos
+        if (!canAccess('pedidos')) unset($lists['pedidos']);
         foreach ($lists as $collection => $file) {
             if (isset($changes[$collection])) $allSaved = syncList($collection, $file, $changes[$collection]) && $allSaved;
         }
@@ -718,6 +735,7 @@ switch ($action) {
     // ── Salva pedidos (mesma regra das visitas) ───────────────
     case 'save_pedidos':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
+        if (!canAccess('pedidos')) respondError(403, 'Sem permissão para a aba Pedidos.');
         $incoming = (isset($body['pedidos']) && is_array($body['pedidos'])) ? $body['pedidos'] : [];
         echo json_encode(['ok' => syncList('pedidos', 'pedidos.json', ['upsert' => $incoming, 'remove' => []])]);
         break;
@@ -725,6 +743,7 @@ switch ($action) {
     // ── Exclui pedidos pelos ids ──────────────────────────────
     case 'delete_pedidos':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
+        if (!canAccess('pedidos')) respondError(403, 'Sem permissão para a aba Pedidos.');
         $ids = (isset($body['pedido_ids']) && is_array($body['pedido_ids'])) ? $body['pedido_ids'] : [];
         $remove = array_map(function ($id) { return ['id' => $id]; }, $ids);
         echo json_encode(['ok' => syncList('pedidos', 'pedidos.json', ['upsert' => [], 'remove' => $remove])]);

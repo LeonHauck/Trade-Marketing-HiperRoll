@@ -8,6 +8,16 @@
 const MIN_PASSWORD_LENGTH = 10;
 const USERNAME_PATTERN    = '/^[A-Za-z0-9._-]{3,40}$/';
 const DEFAULT_USER_ROLE   = 'Trade Marketing';
+
+// O que um usuário pode ver/fazer no painel. Administrador sempre tem tudo (e também
+// Usuários e Auditoria, que não entram nesta lista). Usuário sem a chave "perms" gravada
+// (criado antes desta opção existir) também tem tudo.
+const USER_PERMISSIONS = ['dashboard', 'stores', 'products', 'reports', 'routes', 'history', 'pedidos', 'visits'];
+
+function userPermissions(array $user): array {
+    if (!empty($user['admin']) || !isset($user['perms']) || !is_array($user['perms'])) return USER_PERMISSIONS;
+    return array_values(array_intersect(USER_PERMISSIONS, $user['perms']));
+}
 // Hash bcrypt que não corresponde a nenhuma senha: usado só para o login de um usuário
 // inexistente gastar o mesmo tempo de um existente (não revela quais logins existem).
 const DUMMY_PASSWORD_HASH = '$2y$10$abcdefghijklmnopqrstuuKuI1bHcQ3xY9mZ0aB2cD4eF6gH8iJ0kL';
