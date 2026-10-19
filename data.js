@@ -1400,7 +1400,7 @@ const STORES_DATA = [
                            "lixo-bahamas-50l",
                            "lixo-bahamas-100l"
                        ],
-        "frequency": 2,
+        "frequency": 1,
         "lastVisit":  null
     },
     {
@@ -1412,7 +1412,7 @@ const STORES_DATA = [
                            "lixo-bahamas-50l",
                            "lixo-bahamas-100l"
                        ],
-        "frequency": 2,
+        "frequency": 1,
         "lastVisit":  null
     },
     {
@@ -1424,7 +1424,7 @@ const STORES_DATA = [
                            "lixo-bahamas-50l",
                            "lixo-bahamas-100l"
                        ],
-        "frequency": 2,
+        "frequency": 1,
         "lastVisit":  null
     },
     {
