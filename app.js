@@ -2452,15 +2452,12 @@ function renderRoutePlanList() {
 }
 
 // ---------- Promotor do plano de rota ----------
-// Lista dos usuários com "Minha Rota" (carregada uma vez). O plano guarda o login
-// (promoterUser), que é o que faz a rota aparecer no celular dele, e o nome para exibição.
-let promotersCache = null;
-
+// Lista dos usuários com "Minha Rota", buscada a cada abertura do montador (assim um
+// promotor recém-cadastrado já aparece). O plano guarda o login (promoterUser), que é o
+// que faz a rota aparecer no celular dele, e o nome para exibição.
 async function loadPromoters() {
-    if (promotersCache) return promotersCache;
     const result = (typeof Storage !== 'undefined' && Storage.isServer) ? await Storage.listPromoters() : null;
-    promotersCache = (result && result.ok) ? result.promoters : [];
-    return promotersCache;
+    return (result && result.ok) ? result.promoters : null;
 }
 
 // Seletor de promotor; sem promotores cadastrados (ou sem servidor), um campo de texto livre.
@@ -2468,7 +2465,14 @@ function promoterFieldHtml(selectId, textId, currentUser, currentName) {
     setTimeout(async () => {
         const list = await loadPromoters();
         const holder = document.getElementById(selectId + 'Holder');
-        if (!holder || list.length === 0) return;
+        if (!holder) return;
+        if (!list || list.length === 0) {
+            // Sem promotor cadastrado (ou sem resposta do servidor): fica o campo de texto, só para identificar o plano
+            holder.insertAdjacentHTML('beforeend', `<p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;">${list
+                ? 'Nenhum promotor cadastrado. Para a rota aparecer no celular dele, crie o usuário em <strong>Usuários</strong> com o atalho <strong>Promotor</strong> e abra este plano de novo.'
+                : 'Não foi possível carregar a lista de promotores. O nome digitado aqui serve só para identificar o plano.'}</p>`);
+            return;
+        }
         holder.innerHTML = `
             <select id="${selectId}" onchange="onRoutePromoterChange('${selectId}')">
                 <option value="">Sem promotor definido</option>
