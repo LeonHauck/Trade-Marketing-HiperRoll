@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trade Marketing - Hiperroll Dashboard</title>
     <link rel="icon" href="logo-hiperroll.png">
-    <link rel="stylesheet" href="style.css?v=20261016p">
+    <link rel="stylesheet" href="style.css?v=20261019">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -154,9 +154,17 @@
                 Desenvolvido por <a href="https://www.linkedin.com/in/leon-hauck/" target="_blank" rel="noopener noreferrer">Leon Hauck</a>
             </div>
         </aside>
+        <!-- Celular: fundo escuro atrás do menu aberto (toque fecha o menu) -->
+        <div class="sidebar-backdrop" onclick="toggleMobileNav(false)"></div>
 
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Celular: barra do topo com o botão do menu -->
+            <div class="mobile-topbar">
+                <button class="mobile-menu-btn" onclick="toggleMobileNav()" aria-label="Abrir menu"><i class="fa-solid fa-bars"></i></button>
+                <img src="logo-hiperroll.png" alt="Hiperroll" class="mobile-logo">
+                <span class="mobile-page-title" id="mobilePageTitle"></span>
+            </div>
             <header class="top-header" style="display: flex; flex-direction: column; align-items: flex-start; height: auto; padding: 20px 28px; gap: 16px;">
                 <!-- Primeira Linha: Busca e Ações -->
                 <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; width: 100%; gap: 15px;">
@@ -499,7 +507,7 @@
     <script defer src="cd-clientes.js?v=20261010"></script>
     <script defer src="storage.js?v=20261016p"></script>
     <script defer src="db.js?v=20260713"></script>
-    <script defer src="app.js?v=20261016p"></script>
+    <script defer src="app.js?v=20261019"></script>
 </body>
 
 </html>

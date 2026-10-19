@@ -47,7 +47,8 @@ O **Trade Marketing HiperRoll** centraliza a rotina da equipe de trade marketing
 - sugere **rotas semanais** para os promotores, priorizando o que é mais urgente;
 - dá a cada **promotor** uma tela de celular com a rota do dia, onde ele tira as fotos de cada loja, que saem com data, hora e localização e já contam como visita da loja;
 - controla **pedidos comerciais** por cliente, loja e datas de agendamento e entrega;
-- exporta tudo em **CSV e PDF**, respeitando os filtros aplicados na tela.
+- exporta tudo em **CSV e PDF**, respeitando os filtros aplicados na tela;
+- funciona no computador e no celular, com layout próprio para telas pequenas.
 
 A aplicação é um front-end em JavaScript puro, sem etapa de build, com um backend PHP enxuto que grava os dados em arquivos JSON — o que permite hospedar em qualquer plano de hospedagem compartilhada, sem banco de dados.
 
@@ -190,6 +191,18 @@ Todas as fotos das visitas, com a loja, a data e hora em que chegaram ao servido
 As visitas criadas pelas fotos do promotor aparecem no Histórico de Visitas com o selo **Fotos do promotor**, sem número de rupturas, porque elas não foram conferidas. Quando a equipe registra a visita da mesma loja na mesma data, ela completa essa visita, com rupturas, pontos extras e observações, e as fotos do promotor continuam nela.
 
 <img src="docs/screenshots/16-visitas-do-promotor.png" alt="Visitas do promotor no histórico" width="100%">
+
+### No celular
+
+Em telas de até 720 px, a barra lateral vira um menu aberto pelo botão ☰ no topo, que também mostra o nome da aba atual. Os filtros de cada aba ficam empilhados em largura total, com botões e listas lado a lado quando cabem, e as tabelas rolam para o lado. A busca, o período e as redes do topo, que valem só para o Dashboard, aparecem apenas nele.
+
+<table>
+<tr>
+<td width="33%" valign="top"><img src="docs/screenshots/18-celular-menu.png" alt="Menu no celular"></td>
+<td width="33%" valign="top"><img src="docs/screenshots/17-celular-fotos.png" alt="Aba Fotos no celular"></td>
+<td width="33%" valign="top"><img src="docs/screenshots/19-celular-historico.png" alt="Histórico de visitas no celular"></td>
+</tr>
+</table>
 
 ### Auditoria
 

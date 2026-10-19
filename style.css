@@ -2516,3 +2516,292 @@ body.page-myroute .top-header {
         gap: 10px;
     }
 }
+
+/* =====================================================================
+   Celular (até 720 px)
+   A barra lateral vira um menu que abre pelo botão do topo; cabeçalhos e
+   filtros das abas empilham em largura total. Vários trechos das telas têm
+   estilo escrito direto no HTML (style="..."), por isso o !important.
+   ===================================================================== */
+.mobile-topbar,
+.sidebar-backdrop {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    /* --- Menu --- */
+    .mobile-topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 900;
+        margin: -12px -12px 12px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.96);
+        border-bottom: 1px solid var(--border-color);
+        backdrop-filter: blur(6px);
+    }
+
+    .mobile-menu-btn {
+        width: 42px;
+        height: 42px;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        background: #fff;
+        color: var(--navy-deep);
+        font-size: 1.1rem;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    .mobile-logo {
+        height: 32px;
+        width: auto;
+        border-radius: 6px;
+    }
+
+    .mobile-page-title {
+        font-weight: 700;
+        color: var(--navy-deep);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 1001;
+        width: 270px;
+        height: 100%;
+        padding: 1.25rem;
+        overflow-y: auto;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        box-shadow: var(--shadow-lg);
+    }
+
+    body.nav-open .sidebar {
+        transform: translateX(0);
+    }
+
+    body.nav-open .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(7, 26, 61, 0.45);
+    }
+
+    /* No menu aberto, os nomes voltam a aparecer (escondidos na faixa de ícones do tablet) */
+    .sidebar .logo-text,
+    .sidebar .nav-item span,
+    .sidebar .user-info,
+    .sidebar .logout-btn span,
+    .sidebar .sidebar-action-btn span,
+    .sidebar .sidebar-footer {
+        display: revert;
+    }
+
+    .sidebar .nav-item,
+    .sidebar .logout-btn,
+    .sidebar .sidebar-action-btn {
+        justify-content: flex-start;
+    }
+
+    .sidebar .logo-container {
+        padding: 8px 12px;
+    }
+
+    .sidebar .logo-container .site-logo {
+        max-width: 120px;
+    }
+
+    .main-content {
+        padding: 12px;
+    }
+
+    /* Promotor: a Minha Rota tem o próprio topo */
+    body.page-myroute .mobile-topbar {
+        display: none;
+    }
+
+    /* --- Cabeçalho geral (busca, botões e filtros do Dashboard) --- */
+    .top-header {
+        padding: 12px !important;
+        gap: 10px !important;
+        margin-bottom: 14px;
+    }
+
+    .top-header > div:first-child {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+
+    .top-header .search-bar {
+        flex: none !important;
+        width: 100% !important;
+    }
+
+    .top-header .header-actions {
+        flex-wrap: wrap;
+        gap: 8px !important;
+    }
+
+    .top-header .header-actions .btn {
+        flex: 1 1 calc(50% - 30px);
+        justify-content: center;
+        padding: 10px 12px;
+        font-size: 0.85rem;
+    }
+
+    .top-header .dashboard-filters {
+        width: 100%;
+        gap: 8px !important;
+    }
+
+    .top-header .dashboard-filters > * {
+        flex: 1 1 100%;
+        min-width: 0 !important;
+    }
+
+    /* A busca, o período e as redes do topo só valem para o Dashboard */
+    body:not([data-page="dashboard"]) .top-header .search-bar,
+    body:not([data-page="dashboard"]) .top-header .dashboard-filters,
+    body:not([data-page="dashboard"]) #filterOverdueBtn,
+    body:not([data-page="dashboard"]) .top-header button[onclick="exportDashboardPDF()"] {
+        display: none !important;
+    }
+
+    /* Importar CSV é tarefa de computador */
+    #importBtn {
+        display: none !important;
+    }
+
+    .notification-dropdown {
+        position: fixed !important;
+        left: 12px !important;
+        right: 12px !important;
+        top: 64px !important;
+        width: auto !important;
+        max-height: 70vh;
+    }
+
+    /* --- Cabeçalhos e filtros das abas --- */
+    .panel {
+        padding: 1rem;
+    }
+
+    .panel-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+    }
+
+    .panel-header h2 {
+        font-size: 1.15rem;
+    }
+
+    /* Contadores e selos ao lado do título não esticam */
+    .panel-header > *:not(div):not(h2):not(h3):not(p) {
+        align-self: flex-start;
+    }
+
+    .panel-header > div {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+
+    .panel-header .header-filters,
+    .panel-header .header-actions,
+    .panel-header .store-filters {
+        width: 100% !important;
+        flex: none !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+
+    .panel-header .store-filters {
+        padding: 10px !important;
+    }
+
+    /* Cada filtro ocupa a linha inteira; botões de filtro, listas e datas soltas ficam dois por linha */
+    .panel-header .header-filters > *,
+    .panel-header .store-filters > *,
+    .panel-header .search-bar {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .panel-header .header-filters > button.filter-select,
+    .panel-header .header-filters > select,
+    .panel-header .header-filters > input[type="date"],
+    .panel-header .store-filters > select {
+        flex: 1 1 calc(50% - 4px) !important;
+        width: calc(50% - 4px) !important;
+    }
+
+    .panel-header .header-actions > *,
+    .panel-header > div > div:not(.header-filters):not(.store-filters) > .btn {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    /* Períodos com duas datas no mesmo campo: as datas encolhem */
+    .panel-header input[type="date"],
+    .top-header input[type="date"] {
+        min-width: 0;
+        flex: 1 1 0;
+    }
+
+    .custom-multiselect {
+        min-width: 0 !important;
+    }
+
+    .photos-cleanup input[type="date"] {
+        flex: 1 1 100%;
+    }
+
+    /* --- Listas e cartões --- */
+    .store-card {
+        grid-template-columns: auto 1fr auto;
+        gap: 10px;
+    }
+
+    .store-card .store-badge {
+        grid-column: 2;
+        grid-row: 2;
+        justify-self: start;
+    }
+
+    .store-card .btn-icon {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+    }
+
+    .store-grid-full {
+        grid-template-columns: 1fr;
+    }
+
+    .store-main-info {
+        flex-wrap: wrap;
+    }
+
+    .store-main-info strong {
+        flex: 1 1 calc(100% - 30px);
+        min-width: 0;
+    }
+
+    .reports-container,
+    .content-area .panel > div[style*="overflow-x"] {
+        -webkit-overflow-scrolling: touch;
+    }
+}

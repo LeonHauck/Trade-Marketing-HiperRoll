@@ -905,6 +905,12 @@ function applyPermissionsToLayout() {
     toggle(document.getElementById('addVisitBtn'), hasPerm('visits'));
 }
 
+// Celular: abre e fecha o menu lateral (sem argumento, alterna)
+window.toggleMobileNav = function(open) {
+    const next = typeof open === 'boolean' ? open : !document.body.classList.contains('nav-open');
+    document.body.classList.toggle('nav-open', next);
+};
+
 // Aviso padrão quando alguém tenta uma ação sem permissão
 function requirePerm(key) {
     if (hasPerm(key)) return true;
@@ -1656,6 +1662,13 @@ function renderPage(page) {
     currentPage = page;
     // Minha Rota é a tela do celular do promotor: sem a barra de busca e filtros do painel
     document.body.classList.toggle('page-myroute', page === 'myroute');
+    // Celular: a aba atual (o CSS mostra a busca e os filtros gerais só no Dashboard),
+    // o nome dela na barra do topo, e o menu fecha ao trocar de aba
+    document.body.dataset.page = page;
+    document.body.classList.remove('nav-open');
+    const pageTitle = document.getElementById('mobilePageTitle');
+    const navLabel = document.querySelector(`.nav-item[data-page="${page}"] span`);
+    if (pageTitle) pageTitle.textContent = navLabel ? navLabel.textContent : '';
     
     window.reportsTableLimit = 50;
     window.historyVisitsLimit = 50;
