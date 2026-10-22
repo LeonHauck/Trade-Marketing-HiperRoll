@@ -1428,6 +1428,18 @@ const STORES_DATA = [
         "lastVisit":  null
     },
     {
+        "id":  "bahamas-jf-29-emporio-bahamas-santo-antonio",
+        "name":  "29 - EMPORIO BAHAMAS SANTO ANTONIO",
+        "network":  "BAHAMAS JF",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "frequency": 1,
+        "lastVisit":  null
+    },
+    {
         "id":  "bahamas-95-bahamas-mix-ube-segismundo",
         "name":  "95 - BAHAMAS MIX UBE SEGISMUNDO",
         "network":  "BAHAMAS",
