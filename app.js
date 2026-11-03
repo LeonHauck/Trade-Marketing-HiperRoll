@@ -755,7 +755,8 @@ async function hydrateResolvedHistoryFromVisits() {
             saveAppStateLocally(); // fire and forget // Save the updated validated ruptures
         }
         if (addedToResolved > 0) {
-            resolvedRupturesHistory = resolvedRupturesHistory.slice(0, 500);
+            // Sem corte no tamanho: cortar fazia as resolvidas antigas voltarem a cada abertura
+            // (e serem reenviadas ao servidor), e podia descartar baixas manuais antigas
             historyBackfillNotice = `Histórico antigo carregado: ${addedToResolved} rupturas enviadas para histórico resolvido.`;
         }
         persistAppState().then(() => {
@@ -3492,9 +3493,43 @@ function getFilteredHistoryData() {
         const matchesDate = (!filters.startDate || item.resolvedAt >= filters.startDate) && (!filters.endDate || item.resolvedAt <= filters.endDate);
         const matchesProduct = filters.selectedProductIds.length === 0 || filters.selectedProductIds.includes(String(item.productId));
         return matchesText && matchesDate && matchesProduct;
-    });
+    }).sort((a, b) => (b.resolvedAt || '').localeCompare(a.resolvedAt || ''));
 
-    return { filteredVisits, filteredResolved };
+    const pendingRows = statusFilter === 'active' ? getPendingRupturesByStore(filteredVisits, filters.selectedProductIds) : null;
+    return { filteredVisits, filteredResolved, pendingRows, statusFilter };
+}
+
+// "Não resolvidas": o que ainda está em falta, uma linha por loja. A linha é a última
+// visita da loja com item pendente (a mesma que a tela mostra), só com os itens que
+// continuam pendentes. Para cada item: desde quando ele aparece seguido nas visitas da
+// loja e em quantas visitas. As visitas antigas que citaram o mesmo item não viram linhas
+// próprias — antes o PDF listava todas, desde a primeira data em que o item faltou.
+function getPendingRupturesByStore(filteredVisits, selectedProductIds = []) {
+    const seen = new Set();
+    return filteredVisits
+        .filter(v => { if (seen.has(v.storeId)) return false; seen.add(v.storeId); return true; })
+        .map(visit => {
+            const storeVisits = getStoreVisitsIndexed(visit.storeId).filter(v => !isPromoterOnlyVisit(v) && v.date <= visit.date);
+            const items = (visit.ruptures || [])
+                .filter(pId => selectedProductIds.length === 0 || selectedProductIds.includes(String(pId)))
+                .filter(pId => isVisitItemPending(visit, pId))
+                .map(pId => {
+                    let since = visit.date, count = 0;
+                    for (const v of storeVisits) {
+                        if (!(v.ruptures || []).includes(pId)) break;
+                        since = v.date;
+                        count++;
+                    }
+                    const product = products.find(x => x.id === pId);
+                    return { productId: pId, name: product ? product.name : String(pId), since, count: Math.max(count, 1) };
+                });
+            return { visit, items };
+        })
+        .filter(row => row.items.length > 0);
+}
+
+function pendingItemLabel(item) {
+    return `${item.name} (desde ${formatDate(item.since)}${item.count > 1 ? `, ${item.count} visitas seguidas` : ''})`;
 }
 
 // Monta o texto da tooltip do badge de rupturas (nomes dos itens, um por linha),
@@ -3513,7 +3548,8 @@ function getRuptureTooltipAttr(ruptures) {
 }
 
 function renderHistoryViewData() {
-    const { filteredVisits, filteredResolved } = getFilteredHistoryData();
+    const { filteredVisits, filteredResolved, pendingRows } = getFilteredHistoryData();
+    const pendingByVisit = new Map((pendingRows || []).map(row => [row.visit.id, row.items]));
 
     const noticeEl = document.getElementById('historyBackfillNotice');
     if (noticeEl) {
@@ -3529,8 +3565,9 @@ function renderHistoryViewData() {
             tbodyVisits.innerHTML = '';
             
             // FILTRO DE UI: Mostrar apenas a visita mais recente por loja na tela
+            // (em "Não resolvidos", as mesmas linhas do PDF: só lojas com item pendente)
             const seenStores = new Set();
-            const uiVisits = filteredVisits.filter(visit => {
+            const uiVisits = pendingRows ? pendingRows.map(row => row.visit) : filteredVisits.filter(visit => {
                 if (seenStores.has(visit.storeId)) return false;
                 seenStores.add(visit.storeId);
                 return true;
@@ -3546,8 +3583,13 @@ function renderHistoryViewData() {
                     <td>${formatDate(visit.date)}${authorLineHtml(visit)}</td>
                     <td><strong>${store ? store.name : 'Loja Removida'}${visit.isExtra ? ' <span class="badge-visit-extra">⭐ Visita Extra</span>' : ''}</strong></td>
                     <td>${store ? store.network : '-'}</td>
-                    <td>${isPromoterOnlyVisit(visit) ? '<span class="visit-promoter-dash" title="Rupturas não conferidas">—</span>' : `<span class="badge-rupture"${(visit.ruptures || []).length > 0 ? ` data-tooltip="${getRuptureTooltipAttr(visit.ruptures)}"` : ''}>${(visit.ruptures || []).length} Itens</span>`}</td>
-                    <td>${getVisitResolutionBadge(visit)}</td>
+                    <td>${isPromoterOnlyVisit(visit) ? '<span class="visit-promoter-dash" title="Rupturas não conferidas">—</span>'
+                        : pendingByVisit.has(visit.id)
+                        ? `<span class="badge-rupture" data-tooltip="${escapeHtml(pendingByVisit.get(visit.id).map(pendingItemLabel).join('\n'))}">${pendingByVisit.get(visit.id).length} pendente(s)</span>`
+                        : `<span class="badge-rupture"${(visit.ruptures || []).length > 0 ? ` data-tooltip="${getRuptureTooltipAttr(visit.ruptures)}"` : ''}>${(visit.ruptures || []).length} Itens</span>`}</td>
+                    <td>${pendingByVisit.has(visit.id)
+                        ? `<span class="status-tag warning">Pendente desde ${formatDate(pendingByVisit.get(visit.id).reduce((min, item) => item.since < min ? item.since : min, visit.date))}</span>`
+                        : getVisitResolutionBadge(visit)}</td>
                     <td>${(visit.extraPoints || []).map(ep => `<span class="badge-extra-point">${ep}</span>`).join('') || '-'}</td>
                     <td>${window.fixEncoding(visit.notes) || '-'}</td>
                 `;
@@ -4472,11 +4514,38 @@ async function exportSectionedTablesToPdf({ headerHtml, headerDraw, sections, op
 }
 
 window.exportHistoryCSV = function() {
-    let { filteredVisits, filteredResolved } = getFilteredHistoryData();
+    let { filteredVisits, filteredResolved, pendingRows } = getFilteredHistoryData();
     filteredVisits = [...filteredVisits].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    if (filteredVisits.length === 0 && filteredResolved.length === 0) {
+    if ((pendingRows ? pendingRows.length : filteredVisits.length) === 0 && filteredResolved.length === 0) {
         alert('Não há dados para exportar no histórico com os filtros atuais.');
+        return;
+    }
+
+    // "Não resolvidos": uma linha por item pendente de cada loja (a mesma regra da tela e do PDF)
+    if (pendingRows) {
+        let pendingCsv = 'data:text/csv;charset=utf-8,\uFEFFLoja;Rede;Última visita;Item pendente;Pendente desde;Visitas seguidas;Pontos Extras;Observações\n';
+        pendingRows.forEach(({ visit, items }) => {
+            const store = stores.find(s => s.id === visit.storeId);
+            items.forEach(item => {
+                pendingCsv += [
+                    store ? store.name : 'N/A',
+                    store ? store.network : 'N/A',
+                    formatDate(visit.date),
+                    item.name,
+                    formatDate(item.since),
+                    item.count,
+                    (visit.extraPoints || []).join(' | '),
+                    (visit.notes || '').replace(/[;\n\r]+/g, ' ')
+                ].join(';') + '\n';
+            });
+        });
+        const pendingLink = document.createElement('a');
+        pendingLink.setAttribute('href', encodeURI(pendingCsv));
+        pendingLink.setAttribute('download', `rupturas_nao_resolvidas_${new Date().toLocaleDateString()}.csv`);
+        document.body.appendChild(pendingLink);
+        pendingLink.click();
+        document.body.removeChild(pendingLink);
         return;
     }
 
@@ -4537,11 +4606,11 @@ window.exportHistoryCSV = function() {
 // (título/selo + gráficos de Status/Top Produtos + quadro de Principais Insights),
 // desenhado nativamente. `data` vem de buildVisitsChartsAndInsights(filteredVisits),
 // já calculado em cima do recorte de dados que o usuário tem filtrado na tela.
-async function drawHistoryHeaderNative(pdf, { marginH, marginV, contentWidthMm }, data) {
+async function drawHistoryHeaderNative(pdf, { marginH, marginV, contentWidthMm }, data, subtitle = 'Histórico de Rupturas Trade Marketing') {
     const pageHeightMm = pdf.internal.pageSize.getHeight();
     const contentBottomMm = pageHeightMm - marginV;
 
-    let y = drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle: 'Histórico de Rupturas Trade Marketing', subtitleColor: [227, 30, 36] });
+    let y = drawPdfTitleAndBadge(pdf, { marginH, marginV, contentWidthMm, subtitle, subtitleColor: [227, 30, 36] });
 
     if (data) {
         const maxBottomY = contentBottomMm - measurePdfInsightsBox(pdf, contentWidthMm, data.insights).insightsH;
@@ -4560,11 +4629,51 @@ async function drawHistoryHeaderNative(pdf, { marginH, marginV, contentWidthMm }
 }
 
 window.exportHistoryPDF = async function() {
-    let { filteredVisits, filteredResolved } = getFilteredHistoryData();
+    let { filteredVisits, filteredResolved, pendingRows, statusFilter } = getFilteredHistoryData();
     filteredVisits = [...filteredVisits].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    if (filteredVisits.length === 0 && filteredResolved.length === 0) {
+    if ((pendingRows ? pendingRows.length : filteredVisits.length) === 0 && filteredResolved.length === 0) {
         alert('Não há dados para exportar no histórico com os filtros atuais.');
+        return;
+    }
+
+    // "Não resolvidos": uma linha por loja com os itens ainda pendentes (a mesma regra da tela)
+    if (pendingRows) {
+        const pendingVisits = pendingRows.map(({ visit, items }) => ({ ...visit, ruptures: items.map(item => item.productId) }));
+        const pendingChartsData = await buildVisitsChartsAndInsights(pendingVisits);
+        const itemCount = pendingRows.reduce((sum, row) => sum + row.items.length, 0);
+        await exportSectionedTablesToPdf({
+            headerDraw: (pdf, ctx) => drawHistoryHeaderNative(pdf, ctx, pendingChartsData, 'Rupturas Não Resolvidas'),
+            opt: {
+                margin: [6, 6],
+                filename: `Rupturas_Nao_Resolvidas_${new Date().toLocaleDateString()}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            },
+            sections: [{
+                title: `Rupturas não resolvidas: ${itemCount} item(ns) em ${pendingRows.length} loja(s)`,
+                emptyLabel: 'Nenhuma ruptura pendente no filtro',
+                columns: [
+                    { label: 'Loja', width: '22%' },
+                    { label: 'Rede', width: '10%' },
+                    { label: 'Última visita', width: '10%' },
+                    { label: 'Itens pendentes (desde quando faltam)', width: '34%' },
+                    { label: 'Pontos Extras', width: '10%' },
+                    { label: 'Observações', width: '14%' }
+                ],
+                rows: pendingRows.map(({ visit, items }) => {
+                    const store = stores.find(s => s.id === visit.storeId) || { name: 'N/A', network: 'N/A' };
+                    return [
+                        store.name,
+                        store.network,
+                        formatDate(visit.date),
+                        items.map(pendingItemLabel).join('; '),
+                        (visit.extraPoints || []).join(', ') || '-',
+                        visit.notes || '-'
+                    ];
+                })
+            }]
+        });
         return;
     }
 
@@ -4604,8 +4713,8 @@ window.exportHistoryPDF = async function() {
         headerDraw: (pdf, ctx) => drawHistoryHeaderNative(pdf, ctx, chartsData),
         opt,
         sections: [
-            {
-                title: 'Rupturas não resolvidas',
+            ...(statusFilter === 'resolved' ? [] : [{
+                title: 'Visitas',
                 emptyLabel: 'Nenhuma visita no filtro',
                 columns: [
                     { label: 'Data', width: '11%' },
@@ -4617,7 +4726,7 @@ window.exportHistoryPDF = async function() {
                     { label: 'Observações', width: '22%' }
                 ],
                 rows: visitsRows
-            },
+            }]),
             {
                 title: 'Rupturas resolvidas',
                 emptyLabel: 'Nenhuma ruptura resolvida no filtro',
@@ -6461,8 +6570,6 @@ async function handleVisitSubmit(e) {
 
                 validatedRuptures = validatedRuptures.filter(vr => !(vr.productId === r.productId && vr.storeId === r.storeId));
             });
-            // Keep history bounded
-            resolvedRupturesHistory = resolvedRupturesHistory.slice(0, 500);
         }
     })();
     

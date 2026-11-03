@@ -242,6 +242,7 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 ### Rupturas
 
 - Visão única de visitas e rupturas resolvidas, com filtro por status (todas, ativas ou resolvidas), rede e produto.
+- Em **Não resolvidos**, a tela, o PDF e o CSV seguem a mesma regra: uma linha por loja (a última visita), só com os itens ainda em falta, cada um com a data desde quando falta e em quantas visitas seguidas apareceu.
 - Exportação em CSV e PDF.
 
 ### Rotas
