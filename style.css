@@ -2805,3 +2805,307 @@ body.page-myroute .top-header {
         -webkit-overflow-scrolling: touch;
     }
 }
+
+/* ---------- Espaço usado no servidor (topo da Auditoria, só administradores) ---------- */
+.storage-panel {
+    margin-bottom: 25px;
+}
+
+.storage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 1.25rem;
+}
+
+.storage-header h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--navy-deep);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.storage-header h2 i {
+    color: var(--primary-blue);
+}
+
+.storage-header p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.storage-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.storage-updated {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.storage-refresh {
+    padding: 9px 12px;
+}
+
+.storage-loading {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    background: var(--bg-light);
+    border-radius: var(--radius);
+}
+
+.storage-tiles {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 18px;
+}
+
+.storage-tile {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.2rem;
+    background: var(--bg-light);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.storage-tile-main {
+    background: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.storage-tile-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.storage-tile .stat-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 1.2rem;
+}
+
+.storage-tile-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.storage-tile-info h3 {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.storage-tile-info p {
+    font-size: 1.55rem;
+    font-weight: 800;
+    color: var(--text-dark);
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+}
+
+.storage-level {
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.storage-level.ok   { background: #e8f5e9; color: #2e7d32; }
+.storage-level.warn { background: #FFF3E0; color: #c2410c; }
+.storage-level.high { background: var(--accent-red); color: var(--primary-red); }
+
+.storage-meter {
+    height: 10px;
+    border-radius: 999px;
+    background: #EEF1F6;
+    overflow: hidden;
+}
+
+.storage-meter span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.storage-meter.ok span   { background: linear-gradient(90deg, #22c55e, var(--success)); }
+.storage-meter.warn span { background: linear-gradient(90deg, #fb923c, var(--warning)); }
+.storage-meter.high span { background: linear-gradient(90deg, var(--primary-red), var(--primary-red-deep)); }
+
+.storage-meter-legend {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: -4px;
+}
+
+.storage-meter-legend span:first-child {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.storage-hint {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+}
+
+.storage-growth {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-blue);
+    color: var(--primary-blue-deep);
+    font-size: 0.88rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.45;
+}
+
+.storage-growth i {
+    margin-top: 3px;
+}
+
+.storage-details {
+    margin-top: 16px;
+}
+
+.storage-details summary {
+    cursor: pointer;
+    list-style: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--primary-blue);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    user-select: none;
+}
+
+.storage-details summary::-webkit-details-marker {
+    display: none;
+}
+
+.storage-details summary i {
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+}
+
+.storage-details[open] summary i {
+    transform: rotate(90deg);
+}
+
+.storage-details .reports-container {
+    margin-top: 10px;
+}
+
+.storage-table .storage-num {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.storage-share-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 160px;
+}
+
+.storage-share {
+    flex: 1;
+    height: 8px;
+    border-radius: 999px;
+    background: #EEF1F6;
+    overflow: hidden;
+}
+
+.storage-share span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--primary-blue), var(--primary-blue-deep));
+}
+
+.storage-share-cell small {
+    width: 36px;
+    text-align: right;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.storage-share-cell small.storage-muted {
+    width: auto;
+    text-align: left;
+}
+
+.storage-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #EEF1F6;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .storage-tiles {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .storage-tile-main {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 720px) {
+    .storage-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .storage-header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .storage-tiles {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .storage-tile-info p {
+        font-size: 1.35rem;
+    }
+
+    .storage-share-cell {
+        min-width: 110px;
+    }
+}

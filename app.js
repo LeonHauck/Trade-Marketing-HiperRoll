@@ -7633,6 +7633,7 @@ function formatAuditMonth(month) {
 
 function renderAuditView() {
     contentArea.innerHTML = `
+        ${storagePanelHtml()}
         <div class="panel">
             <div class="panel-header" style="display: block; margin-bottom: 20px;">
                 <h2 style="margin-bottom: 8px;">Auditoria</h2>
@@ -7678,7 +7679,186 @@ function renderAuditView() {
         </div>
     `;
     loadAuditEntries();
+    loadStorageStats();
 }
+
+// ── Espaço usado no servidor (quadro do topo da Auditoria, só administradores) ──
+const STORAGE_LIMIT_BYTES = 10 * 1024 * 1024; // acima disso vale arquivar dados antigos
+const STORAGE_WARN_BYTES = 5 * 1024 * 1024;
+const STORAGE_FILE_LABELS = {
+    'visits.json': 'Visitas',
+    'resolved_history.json': 'Rupturas resolvidas',
+    'ruptures.json': 'Rupturas em aberto',
+    'pedidos.json': 'Pedidos',
+    'route_plans.json': 'Planos de rota',
+    'photo_map.json': 'Fotos ligadas às visitas',
+    'store_updates.json': 'Alterações de lojas',
+    'dismissed.json': 'Avisos dispensados',
+    'photos.json': 'Índice das fotos'
+};
+
+function formatBytes(bytes) {
+    const value = Number(bytes) || 0;
+    if (value < 1024) return `${value} B`;
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let size = value / 1024, unit = 0;
+    while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit++; }
+    const digits = size >= 100 ? 0 : 1;
+    return `${size.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${units[unit]}`;
+}
+
+function storagePanelHtml() {
+    return `
+        <div class="panel storage-panel">
+            <div class="storage-header">
+                <div>
+                    <h2><i class="fa-solid fa-hard-drive"></i> Espaço usado no servidor</h2>
+                    <p>Quanto os dados do sistema ocupam na hospedagem. Só administradores veem este quadro.</p>
+                </div>
+                <div class="storage-header-actions">
+                    <span id="storageUpdated" class="storage-updated"></span>
+                    <button class="btn btn-secondary storage-refresh" onclick="loadStorageStats()" title="Recalcular" aria-label="Recalcular espaço usado">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="storageBody">
+                <div class="storage-loading"><i class="fa-solid fa-spinner fa-spin"></i> Calculando espaço usado...</div>
+            </div>
+        </div>
+    `;
+}
+
+function storageLevel(bytes) {
+    if (bytes >= STORAGE_LIMIT_BYTES) return { tone: 'high', label: 'Hora de arquivar', hint: 'Os dados passaram do tamanho recomendado. Vale arquivar o histórico antigo para o sistema continuar abrindo rápido.' };
+    if (bytes >= STORAGE_WARN_BYTES) return { tone: 'warn', label: 'Atenção', hint: 'Acima da metade do recomendado. Ainda sem impacto, mas vale acompanhar.' };
+    return { tone: 'ok', label: 'Tranquilo', hint: 'Bem abaixo do recomendado. O sistema abre rápido, inclusive no celular.' };
+}
+
+// Média por mês desde a primeira visita e, no ritmo atual, quando chegaria aos 10 MB
+function storageGrowthText(stateBytes, firstVisit) {
+    if (!firstVisit) return '';
+    const start = new Date(firstVisit + 'T12:00:00');
+    const months = (Date.now() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+    if (!(months >= 1)) return '';
+    const perMonth = stateBytes / months;
+    const since = start.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
+    let text = `Crescimento médio de <strong>${formatBytes(perMonth)} por mês</strong> desde ${since}`;
+    if (stateBytes < STORAGE_LIMIT_BYTES && perMonth > 0) {
+        const monthsLeft = (STORAGE_LIMIT_BYTES - stateBytes) / perMonth;
+        const when = monthsLeft >= 24 ? `cerca de ${Math.floor(monthsLeft / 12)} anos`
+            : monthsLeft >= 2 ? `cerca de ${Math.round(monthsLeft)} meses` : 'menos de 2 meses';
+        text += `. No ritmo atual, os 10 MB seriam atingidos em <strong>${when}</strong>.`;
+    } else {
+        text += '.';
+    }
+    return text;
+}
+
+function storageFileRow(file, stateBytes, largest) {
+    const bytes = Number(file.bytes) || 0;
+    const share = file.onLoad
+        ? `<div class="storage-share"><span style="width: ${Math.max(2, (bytes / largest) * 100).toFixed(1)}%"></span></div><small>${stateBytes ? Math.round((bytes / stateBytes) * 100) : 0}%</small>`
+        : '<small class="storage-muted">não entra na abertura</small>';
+    return `
+        <tr>
+            <td><strong>${escapeHtml(STORAGE_FILE_LABELS[file.file] || file.file)}</strong>${file.onLoad ? '' : ' <span class="storage-tag">só na aba Fotos</span>'}</td>
+            <td class="storage-num">${(Number(file.records) || 0).toLocaleString('pt-BR')}</td>
+            <td class="storage-num">${formatBytes(bytes)}</td>
+            <td><div class="storage-share-cell">${share}</div></td>
+        </tr>`;
+}
+
+window.loadStorageStats = async function() {
+    const body = document.getElementById('storageBody');
+    if (!body) return;
+    const updated = document.getElementById('storageUpdated');
+    if (updated) updated.textContent = 'Calculando...';
+
+    const result = await Storage.loadStorageStats();
+    if (!document.getElementById('storageBody')) return; // o usuário mudou de aba enquanto carregava
+    if (!result.ok) {
+        if (updated) updated.textContent = '';
+        body.innerHTML = `<div class="storage-loading">${escapeHtml(result.error)}</div>`;
+        return;
+    }
+
+    const files = Array.isArray(result.files) ? result.files : [];
+    const onLoad = files.filter(f => f.onLoad).sort((a, b) => b.bytes - a.bytes);
+    const others = files.filter(f => !f.onLoad);
+    const stateBytes = onLoad.reduce((sum, f) => sum + (Number(f.bytes) || 0), 0);
+    const level = storageLevel(stateBytes);
+    const percent = Math.min(100, (stateBytes / STORAGE_LIMIT_BYTES) * 100);
+    const photos = result.photos || { bytes: 0, count: 0 };
+    const audit = result.audit || { bytes: 0, months: 0 };
+    const growth = storageGrowthText(stateBytes, result.firstVisit);
+    const largest = Math.max(1, ...onLoad.map(f => Number(f.bytes) || 0));
+    const wasOpen = body.querySelector('.storage-details')?.open;
+
+    body.innerHTML = `
+        <div class="storage-tiles">
+            <div class="storage-tile storage-tile-main">
+                <div class="storage-tile-top">
+                    <div class="stat-icon blue"><i class="fa-solid fa-database"></i></div>
+                    <div class="storage-tile-info">
+                        <h3>Dados do sistema</h3>
+                        <p>${formatBytes(stateBytes)}</p>
+                    </div>
+                    <span class="storage-level ${level.tone}">${level.label}</span>
+                </div>
+                <div class="storage-meter ${level.tone}" role="progressbar" aria-label="Uso em relação aos 10 MB recomendados" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(percent)}">
+                    <span style="width: ${Math.max(1, percent).toFixed(1)}%"></span>
+                </div>
+                <div class="storage-meter-legend">
+                    <span>${percent < 1 ? 'Menos de 1' : Math.round(percent)}% dos 10 MB recomendados</span>
+                    <span>baixados ao abrir o sistema</span>
+                </div>
+                <p class="storage-hint">${level.hint}</p>
+            </div>
+            <div class="storage-tile">
+                <div class="storage-tile-top">
+                    <div class="stat-icon red"><i class="fa-solid fa-camera"></i></div>
+                    <div class="storage-tile-info">
+                        <h3>Fotos</h3>
+                        <p>${formatBytes(photos.bytes)}</p>
+                    </div>
+                </div>
+                <p class="storage-hint">${(Number(photos.count) || 0).toLocaleString('pt-BR')} foto(s) guardadas. Não pesam ao abrir o sistema, mas ocupam disco na hospedagem. Para liberar espaço, use "Apagar antigas" na aba Fotos.</p>
+            </div>
+            <div class="storage-tile">
+                <div class="storage-tile-top">
+                    <div class="stat-icon orange"><i class="fa-solid fa-clipboard-list"></i></div>
+                    <div class="storage-tile-info">
+                        <h3>Histórico de auditoria</h3>
+                        <p>${formatBytes(audit.bytes)}</p>
+                    </div>
+                </div>
+                <p class="storage-hint">${Number(audit.months) || 0} mês(es) de registros. Lidos só nesta tela, um mês por vez.</p>
+            </div>
+        </div>
+        ${growth ? `<div class="storage-growth"><i class="fa-solid fa-chart-line"></i><span>${growth}</span></div>` : ''}
+        <details class="storage-details"${wasOpen ? ' open' : ''}>
+            <summary><i class="fa-solid fa-chevron-right"></i> Detalhe por tipo de dado</summary>
+            <div class="reports-container">
+                <table class="reports-table storage-table">
+                    <thead>
+                        <tr>
+                            <th>Tipo de dado</th>
+                            <th class="storage-num">Registros</th>
+                            <th class="storage-num">Tamanho</th>
+                            <th>Participação</th>
+                        </tr>
+                    </thead>
+                    <tbody>${[...onLoad, ...others].map(f => storageFileRow(f, stateBytes, largest)).join('')}</tbody>
+                </table>
+            </div>
+        </details>
+    `;
+    if (updated) {
+        const at = new Date((Number(result.generatedAt) || Date.now() / 1000) * 1000);
+        updated.textContent = `Atualizado às ${at.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+};
 
 window.loadAuditEntries = async function(month) {
     const tbody = document.getElementById('auditTableBody');

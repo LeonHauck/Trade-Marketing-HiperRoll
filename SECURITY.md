@@ -26,6 +26,7 @@ Vale manter pelo menos dois administradores, para o item 6 nunca ser necessário
 - Cada visita e cada pedido também guarda quem adicionou e quem editou por último, mostrado ao administrador nas listas e nos modais. Esse carimbo é definido pelo servidor; o que o navegador enviar nesse campo é descartado.
 - O registro começa na data em que esta versão foi publicada: o que foi feito antes não tem autoria.
 - Faça backup da pasta `backend/data/` de tempos em tempos; os arquivos de auditoria vão junto.
+- O quadro **Espaço usado no servidor**, no topo da mesma aba, também é só para administradores: o servidor recusa a consulta (`storage_stats`) de qualquer outro usuário. Ele mostra apenas tamanhos e quantidades, nunca o conteúdo dos arquivos, e não grava nada.
 
 ## Fotos das visitas
 

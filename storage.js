@@ -147,6 +147,12 @@ const Storage = (function () {
         return accountRequest('audit_log' + (month ? '&month=' + encodeURIComponent(month) : ''));
     }
 
+    // Espaço usado no servidor (só administradores)
+    function loadStorageStats() {
+        if (!isServer) return Promise.resolve({ ok: false, error: 'O espaço usado só aparece com o sistema publicado no servidor.' });
+        return accountRequest('storage_stats');
+    }
+
     // Avisa o servidor de uma ação que só existe neste navegador (plano de rota, importação
     // de CSV), para ela entrar na auditoria. O que é gravado no servidor já é registrado lá.
     function logEvent(type, details) {
@@ -389,6 +395,7 @@ const Storage = (function () {
         saveUser,
         deleteUser,
         loadAuditLog,
+        loadStorageStats,
         logEvent,
         logout,
         sync,

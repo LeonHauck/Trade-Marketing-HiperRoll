@@ -712,6 +712,58 @@ if ($action === 'audit_log') {
     exit;
 }
 
+// ── Espaço usado no servidor (só administradores) ──
+// Só lê tamanhos e conta registros; não grava nada. Calculado quando a tela Auditoria abre.
+if ($action === 'storage_stats') {
+    if (empty($users[$me]['admin'])) {
+        respondError(403, 'Apenas administradores podem consultar o espaço usado.');
+    }
+    $countRecords = function (string $file) {
+        $data = readData($file, [], false);
+        return is_array($data) ? count($data) : 0;
+    };
+    $files = [];
+    foreach (array_merge(STATE_FILES, ['photos.json']) as $file) {
+        $path = $dataDir . $file;
+        $files[] = [
+            'file'    => $file,
+            'bytes'   => is_file($path) ? (int) filesize($path) : 0,
+            'records' => $countRecords($file),
+            'onLoad'  => in_array($file, STATE_FILES, true),
+        ];
+    }
+
+    $auditBytes = 0; $auditMonths = 0;
+    foreach (glob($dataDir . 'audit_*.json') ?: [] as $file) {
+        $auditBytes += (int) filesize($file);
+        $auditMonths++;
+    }
+
+    $photoBytes = 0; $photoCount = 0;
+    foreach (scandir($uploadDir) ?: [] as $name) {
+        if (!preg_match('/\.(jpg|jpeg|png|webp|gif)$/i', $name) || !is_file($uploadDir . $name)) continue;
+        $photoBytes += (int) filesize($uploadDir . $name);
+        $photoCount++;
+    }
+
+    // Data da visita mais antiga: base para a média de crescimento por mês
+    $firstVisit = null;
+    foreach (readData('visits.json', [], false) as $v) {
+        $day = is_array($v) ? (string) ($v['date'] ?? '') : '';
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) && ($firstVisit === null || $day < $firstVisit)) $firstVisit = $day;
+    }
+
+    echo json_encode([
+        'ok'          => true,
+        'files'       => $files,
+        'audit'       => ['bytes' => $auditBytes, 'months' => $auditMonths],
+        'photos'      => ['bytes' => $photoBytes, 'count' => $photoCount],
+        'firstVisit'  => $firstVisit,
+        'generatedAt' => time(),
+    ]);
+    exit;
+}
+
 // ── Auditoria: ações que não passam pelo servidor (planos de rota e importação de CSV
 // ficam só no navegador), avisadas pelo próprio painel ──
 if ($action === 'audit_event') {

@@ -206,7 +206,7 @@ Em telas de até 720 px, a barra lateral vira um menu aberto pelo botão ☰ no 
 
 ### Auditoria
 
-Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o antes e depois de cada alteração. Visível só para administradores, com filtros por mês, usuário e aba.
+Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o antes e depois de cada alteração. Visível só para administradores, com filtros por mês, usuário e aba. No topo, o quadro **Espaço usado no servidor** mostra quanto os dados ocupam na hospedagem.
 
 <img src="docs/screenshots/13-auditoria.png" alt="Aba de auditoria" width="100%">
 
@@ -297,6 +297,16 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 - Cada visita e cada pedido guarda quem adicionou e quem editou por último. O administrador vê isso nas listas ("por Fulano") e, com data e hora, dentro do modal de detalhes da visita e de edição do pedido. As rupturas resolvidas manualmente mostram quem deu a baixa.
 - A aba **Auditoria** é exclusiva de administradores, com busca, filtros por mês, usuário e aba, e exportação em CSV.
 - Os registros só são acrescentados: não existe ação no sistema para editá-los ou apagá-los.
+
+### Espaço usado no servidor
+
+Quadro no topo da aba **Auditoria**, visível só para administradores. É calculado na hora em que a aba abre (ou pelo botão de recalcular) e não grava nada.
+
+- **Dados do sistema:** soma dos arquivos que cada pessoa baixa ao abrir o sistema (visitas, rupturas, pedidos, rotas, status das lojas). A barra compara com os **10 MB recomendados** e muda de cor: verde (Tranquilo) até 5 MB, laranja (Atenção) de 5 a 10 MB e vermelho (Hora de arquivar) acima disso. Passar de 10 MB não quebra nada, mas o sistema passa a demorar mais para abrir, principalmente no celular; é o momento de arquivar o histórico antigo.
+- **Fotos:** tamanho e quantidade das fotos na pasta `uploads/`. Elas não pesam ao abrir o sistema, mas ocupam disco na hospedagem; para liberar espaço, use **Apagar antigas** na aba Fotos.
+- **Histórico de auditoria:** tamanho e quantidade de meses dos arquivos de auditoria, lidos só nesta aba, um mês por vez.
+- **Crescimento:** média por mês desde a visita mais antiga e, no ritmo atual, em quanto tempo os dados chegariam aos 10 MB.
+- **Detalhe por tipo de dado:** registros, tamanho e participação de cada arquivo, para ver qual está crescendo.
 
 ### Importação de dados
 
@@ -451,6 +461,7 @@ Todas as chamadas vão para `backend/api.php?action=<ação>`. Fora `login`, `lo
 | `user_delete` | POST | Exclui um usuário e encerra as sessões dele (somente administrador) |
 | `audit_log` | GET | Registros de auditoria de um mês (somente administrador) |
 | `audit_event` | POST | Registra na auditoria uma ação feita no navegador (plano de rota, importação de CSV) |
+| `storage_stats` | GET | Espaço usado: tamanho e registros de cada arquivo de dados, fotos e auditoria (somente administrador; só leitura) |
 | `session` | GET | Informa se a sessão do navegador ainda é válida |
 | `load` | GET | Retorna todo o estado: visitas, rupturas, histórico, pedidos, status das lojas, fotos e a versão dos dados |
 | `version` | GET | Retorna só a versão dos dados, para o painel saber se há novidades |
