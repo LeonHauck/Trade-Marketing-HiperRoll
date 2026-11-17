@@ -2915,6 +2915,17 @@ const STORES_DATA = [
                            "pending"
                        ],
         "lastVisit":  null
+    },
+    {
+        "id":  "bahamas-97-emporio-bahamas-jardim-karaiba",
+        "name":  "97 - EMPORIO BAHAMAS JARDIM KARAIBA",
+        "network":  "BAHAMAS",
+        "productIds":  [
+                           "lixo-bahamas-30l",
+                           "lixo-bahamas-50l",
+                           "lixo-bahamas-100l"
+                       ],
+        "lastVisit":  null
     },{
         "id": "bramil-nova-friburgo",
         "name": "812 BRAMIL - NOVA FRIBURGO",

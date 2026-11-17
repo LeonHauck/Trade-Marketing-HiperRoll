@@ -7,7 +7,7 @@
 //            "bairro" = endereço exato não encontrado; usada a localização central do bairro (via CEP).
 //            "cidade" = nem endereço nem bairro encontrados; usada a localização central da cidade (fallback grosseiro).
 //
-// Redes já processadas: BAHAMAS JF (27/27), BAHAMAS (49/49), ATACADAO BA (40/40), BRAMIL (23/23), ATACADAO MG (10/10), SUPER BOM (19/19), BARCELOS ATACADISTA (3/3)
+// Redes já processadas: BAHAMAS JF (27/27), BAHAMAS (50/50), ATACADAO BA (40/40), BRAMIL (23/23), ATACADAO MG (10/10), SUPER BOM (19/19), BARCELOS ATACADISTA (3/3)
 const STORE_GEO_DATA = {
   "atacadao-ba-16-atacadao-rotula": { address: "Estr. do Coqueiro Grande, 614 - Cajazeiras, Salvador - BA, 41342-846", lat: -12.9084179, lng: -38.3939193, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
   "atacadao-ba-274-atacadao-aracaju-tancredo-neves": { address: "Av. Pres. Tancredo Neves, 3550 - Ponto Novo, Aracaju - SE, 49025-620", lat: -10.9563657, lng: -37.0532853, geocodedAt: "2026-08-24T18:18:59Z", precision: "endereco" },
@@ -93,6 +93,7 @@ const STORE_GEO_DATA = {
   "bahamas-66-bahamas-mix-patos-de-minas": { address: "Av. Juscelino Kubitscheck de Oliveira, 567 - Cônego Getúlio, Patos de Minas - MG, 38700-209", lat: -18.6303516, lng: -46.4922799, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-68-supermercado-bahamas-muriae": { address: "AV VICENTE ALVES - N° 01 - PREFEITO HELIO ARAUJO / CEP: 36.880-160", lat: -21.138849, lng: -42.3698997, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-69-emporio-bahamas-uberlandia-center-shopping": { address: "Av. João Naves de Ávila, 1331 - Piso E2 - Tibery, Uberlândia - MG, 38408-902", lat: -18.9199453, lng: -48.2620566, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
+  "bahamas-97-emporio-bahamas-jardim-karaiba": { address: "Av. Seme Simão, 3770 - Jardim Karaíba, Uberlândia - MG, 38411-377", lat: -18.9504589, lng: -48.2619836, geocodedAt: "2026-11-17T12:00:00Z", precision: "endereco" },
   "bahamas-72-bahamas-mix-frutal": { address: "Av. José de Alencar, 1333 - Eldourado, Frutal - MG, 38200-000", lat: -20.0096665, lng: -48.9356999, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-74-bahamas-mix-uberlandia-zona-sul": { address: "Av. Lidormira Borges Do Nascimento, 134 - Gávea, Uberlândia - MG, 38425-270", lat: -18.976179, lng: -48.2923807, geocodedAt: "2026-08-24T14:18:23Z", precision: "endereco" },
   "bahamas-75-bahamas-mix-visconde-do-rio-branco": { address: "R RUA VEREADOR JOSE SOARES FERREIRA - N° 190 - BARRA DOS COUTOS / CEP: 36.520-000", lat: -21.01, lng: -42.840833, geocodedAt: "2026-08-24T14:18:23Z", precision: "cidade" },
