@@ -75,7 +75,7 @@ Cada pessoa entra com o próprio usuário. O administrador cadastra os demais na
 
 ### Dashboard
 
-Indicadores do período, status de cada loja (em dia, pendente ou em atraso) e a lista de produtos em ruptura, com destaque para o que continua sem solução após a segunda visita.
+Indicadores do período, status de cada loja (em dia, pendente ou em atraso) e a lista de produtos em ruptura, com destaque para o que continua sem solução após a segunda visita. No topo, o aviso de **pedidos com informações faltando** mostra qual pedido está incompleto e o que falta preencher.
 
 <img src="docs/screenshots/01-dashboard.png" alt="Dashboard" width="100%">
 
@@ -144,7 +144,7 @@ Histórico completo de visitas e de rupturas já resolvidas, com o status de cad
 
 **Lista de pedidos**
 
-Filtros por rede, cliente, número do pedido e período.
+Filtros por rede, cliente, número do pedido, status e período. O selo **Incompleto** e o destaque **Falta** apontam o que ainda não foi preenchido.
 
 <img src="docs/screenshots/10-pedidos.png" alt="Lista de pedidos">
 
@@ -222,6 +222,7 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 - Ranking **TOP 5: Atenção**, que combina rupturas ativas e dias sem visita.
 - Lista de **atraso crítico** para lojas há 14 dias ou mais sem visita.
 - Filtros globais de período e rede, botão “Ver em Atraso” e central de notificações.
+- Aviso de **pedidos com informações faltando** no topo (veja em [Pedidos](#pedidos-1)).
 - PDF de lojas pendentes e em atraso, com gráficos e resumo executivo.
 
 ### Visitas
@@ -274,6 +275,11 @@ Registro de quem adicionou, editou ou excluiu cada coisa, com data e hora e o an
 - Cadastro com número do pedido, cliente, loja, nota fiscal, data do pedido e observações.
 - Visualização do pedido em modo somente leitura, pelo ícone de olho ou clicando no número do pedido, sem risco de alterar algo por engano.
 - Finalização do pedido: quando ele foi concluído com sucesso, o usuário o marca como finalizado. A lista mostra o selo "Finalizado" para todos, com data e autor, e há filtro por status (em andamento ou finalizados). O pedido pode ser reaberto; as duas ações ficam na auditoria.
+- **Pedidos com informações faltando:** um aviso no topo do Dashboard, para quem tem a aba Pedidos, lista os pedidos incompletos, dos mais antigos para os mais novos, com o que falta em cada um, quando foi lançado e por quem. O sistema só cobra o que já deveria estar preenchido:
+  - **Nº da NF, data do pedido e agendamento:** a partir de 3 dias depois de o pedido ser lançado;
+  - **entrega:** quando a primeira data de agendamento já passou, ou quando o pedido foi finalizado há mais de 3 dias sem a data de entrega.
+
+  Os pedidos finalizados também entram, porque o pedido acabou mas o registro ficou incompleto. O botão **Completar** abre o pedido para edição; **Ver todos** leva à aba Pedidos já filtrada; **Lembrar amanhã** esconde o aviso até o dia seguinte, só para quem clicou. Quando não há nada faltando, o aviso some sozinho. Na aba Pedidos, esses pedidos têm o selo **Incompleto**, o campo que falta aparece como **Falta** e o filtro de status tem a opção **Com informações faltando**.
 - Centros de distribuição podem ser o destino de um pedido sem contar como loja: aparecem só no campo "Loja" do pedido, fora de visitas, rotas e indicadores.
 - Até três datas de agendamento e três de entrega por pedido, para pedidos entregues em partes. Todas aparecem na lista, no CSV e no PDF.
 - Busca de cliente por código (`cd-clientes.js`), que preenche o nome e restringe a escolha de loja às redes daquele cliente.

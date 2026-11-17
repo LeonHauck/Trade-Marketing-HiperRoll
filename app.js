@@ -329,6 +329,7 @@ function refreshCurrentView() {
         renderDashboard();
         renderAttentionRanking();
         renderCriticalDelays();
+        renderPedidoReminder();
     } else if (currentPage === 'reports') {
         renderReportsTable();
     } else if (currentPage === 'history') {
@@ -1975,6 +1976,7 @@ function renderReportsView() {
 
 function renderDashboardView() {
     contentArea.innerHTML = `
+        <div id="pedidoReminder"></div>
         <div class="dashboard-stats">
             <div class="stat-card">
                 <div class="stat-icon red"><i class="fa-solid fa-store"></i></div>
@@ -2052,6 +2054,7 @@ function renderDashboardView() {
     renderValidatedRuptures();
     renderAttentionRanking();
     renderCriticalDelays();
+    renderPedidoReminder();
 }
 
 function renderAttentionRanking() {
@@ -4783,6 +4786,7 @@ function getFilteredPedidosList() {
     return pedidos.filter(p => {
         if (statusFilter === 'finalizado' && !p.finalizado) return false;
         if (statusFilter === 'andamento' && p.finalizado) return false;
+        if (statusFilter === 'incompleto' && getPedidoMissingInfo(p).missing.length === 0) return false;
         const store = findPedidoDestination(p.storeId);
         const network = store ? store.network : '';
         if (checkedNets.length > 0 && !checkedNets.includes(network)) return false;
@@ -4802,6 +4806,142 @@ function getFilteredPedidosList() {
 
         return true;
     }).sort((a, b) => (b.dataPedido || '').localeCompare(a.dataPedido || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+}
+
+// ---------- Pedidos com informações faltando (aviso do Dashboard e selo da aba Pedidos) ----------
+// Cobra só o que já deveria estar preenchido:
+// - Nº da NF, data do pedido e agendamento: a partir de 3 dias depois de lançado;
+// - entrega: quando a primeira data de agendamento já passou, ou quando o pedido foi
+//   finalizado (já entregue) há mais de 3 dias sem a data de entrega.
+// Vale também para os pedidos finalizados: o pedido acabou, mas o registro ficou incompleto.
+const PEDIDO_REMINDER_DAYS = 3;
+const PEDIDO_REMINDER_VISIBLE = 3; // quantos aparecem no Dashboard antes de "+ N pedidos"
+
+// Quando o pedido foi lançado: createdAt (navegador), o carimbo do servidor ou, nos
+// pedidos antigos sem nenhum dos dois, a data do pedido. Sem nada disso, null.
+function pedidoLaunchDate(p) {
+    if (p.createdAt) { const d = new Date(p.createdAt); if (!isNaN(d)) return d; }
+    if (p.createdBy && p.createdBy.t) return new Date(p.createdBy.t * 1000);
+    if (p.dataPedido) return new Date(p.dataPedido + 'T12:00:00');
+    return null;
+}
+
+// Campos que faltam no pedido, já pela regra de prazo acima (lista vazia = nada a cobrar)
+function getPedidoMissingInfo(p, now = new Date()) {
+    const launch = pedidoLaunchDate(p);
+    const ageDays = launch ? Math.floor((now - launch) / 86400000) : null;
+    const due = ageDays === null || ageDays >= PEDIDO_REMINDER_DAYS; // sem data: pedido antigo
+    const today = formatISODate(now);
+    const agendamentos = getPedidoDates(p, 'Agendamento').slice().sort();
+    const entregas = getPedidoDates(p, 'Entrega');
+    const missing = [];
+    if (due && !String(p.numeroNF || '').trim()) missing.push({ key: 'nf', label: 'Nº da NF' });
+    if (due && !p.dataPedido) missing.push({ key: 'dataPedido', label: 'data do pedido' });
+    if (due && agendamentos.length === 0) missing.push({ key: 'agendamento', label: 'agendamento' });
+    const agendamentoPassou = agendamentos.length > 0 && agendamentos[0] < today;
+    if (entregas.length === 0 && (agendamentoPassou || (p.finalizado && due))) missing.push({ key: 'entrega', label: 'entrega' });
+    return { missing, ageDays, agendamentoPassou, firstAgendamento: agendamentos[0] || '' };
+}
+
+function getIncompletePedidos() {
+    const now = new Date();
+    return pedidos
+        .map(p => ({ pedido: p, info: getPedidoMissingInfo(p, now) }))
+        .filter(x => x.info.missing.length > 0)
+        .sort((a, b) => (b.info.ageDays === null ? Infinity : b.info.ageDays) - (a.info.ageDays === null ? Infinity : a.info.ageDays));
+}
+
+function pedidoMissingSummary(info) {
+    return 'Falta: ' + info.missing.map(m => m.label).join(', ');
+}
+
+function pedidoMissingBadgeHtml(p) {
+    const info = getPedidoMissingInfo(p);
+    if (info.missing.length === 0) return '';
+    return `<div><span class="pedido-status-badge missing" title="${escapeHtml(pedidoMissingSummary(info))}"><i class="fa-solid fa-circle-exclamation"></i> Incompleto</span></div>`;
+}
+
+// Célula da tabela: o valor, ou "Falta" em destaque quando o campo está sendo cobrado
+function pedidoCellHtml(p, info, key, valueHtml) {
+    if (valueHtml) return valueHtml;
+    return info.missing.some(m => m.key === key) ? '<span class="pedido-missing-cell">Falta</span>' : '-';
+}
+
+// "Lembrar amanhã": esconde o aviso até o dia seguinte, só para este usuário e navegador
+function pedidoReminderSnoozeKey() {
+    return 'hr_pedido_reminder_snooze:' + ((currentUser && currentUser.username) || 'local');
+}
+
+function isPedidoReminderSnoozed() {
+    try { return localStorage.getItem(pedidoReminderSnoozeKey()) === formatISODate(new Date()); } catch (e) { return false; }
+}
+
+window.snoozePedidoReminder = function() {
+    try { localStorage.setItem(pedidoReminderSnoozeKey(), formatISODate(new Date())); } catch (e) {}
+    const box = document.getElementById('pedidoReminder');
+    if (box) box.innerHTML = '';
+};
+
+window.openIncompletePedidos = function() {
+    renderPage('pedidos');
+    const select = document.getElementById('pedidoStatusFilter');
+    if (select) { select.value = 'incompleto'; renderPedidosTable(); }
+};
+
+function pedidoReminderItemHtml({ pedido: p, info }) {
+    const store = findPedidoDestination(p.storeId);
+    const title = [`Pedido ${p.numeroPedido || '-'}`, p.clienteNome, store ? store.name : ''].filter(Boolean).map(escapeHtml).join(' · ');
+    const meta = [];
+    if (info.ageDays !== null) meta.push(info.ageDays === 0 ? 'Lançado hoje' : `Lançado há ${info.ageDays} ${info.ageDays === 1 ? 'dia' : 'dias'}`);
+    else meta.push('Lançado antes do controle de datas');
+    if (p.createdBy && (p.createdBy.n || p.createdBy.u)) meta[0] += ` por ${escapeHtml(p.createdBy.n || p.createdBy.u)}`;
+    if (info.agendamentoPassou && info.missing.some(m => m.key === 'entrega')) meta.push(`agendado para ${formatDate(info.firstAgendamento)}`);
+    if (p.finalizado) meta.push('<span class="pedido-reminder-done"><i class="fa-solid fa-circle-check"></i> Finalizado</span>');
+    return `
+        <li class="pedido-reminder-item">
+            <div class="pedido-reminder-main">
+                <div class="pedido-reminder-name">${title}</div>
+                <div class="pedido-reminder-meta">${meta.join(' · ')}</div>
+                <div class="pedido-reminder-missing">
+                    <span>Falta:</span>
+                    ${info.missing.map(m => `<span class="pedido-reminder-chip">${escapeHtml(m.label)}</span>`).join('')}
+                </div>
+            </div>
+            <button class="btn btn-secondary btn-small" onclick="openPedidoModal('${escapeHtml(String(p.id))}')">
+                <i class="fa-solid fa-pen"></i> Completar
+            </button>
+        </li>`;
+}
+
+// Aviso no topo do Dashboard, para quem tem a aba Pedidos. Some sozinho quando não há
+// pedido incompleto. É chamado de novo sempre que os pedidos mudam (renderPedidosTable).
+function renderPedidoReminder() {
+    const box = document.getElementById('pedidoReminder');
+    if (!box) return;
+    if (!hasPerm('pedidos') || isPedidoReminderSnoozed()) { box.innerHTML = ''; return; }
+    const list = getIncompletePedidos();
+    if (list.length === 0) { box.innerHTML = ''; return; }
+
+    const rest = list.length - PEDIDO_REMINDER_VISIBLE;
+    box.innerHTML = `
+        <section class="pedido-reminder" aria-label="Pedidos com informações faltando">
+            <div class="pedido-reminder-head">
+                <div class="pedido-reminder-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+                <div class="pedido-reminder-title">
+                    <h3>${list.length} ${list.length === 1 ? 'pedido com informações faltando' : 'pedidos com informações faltando'}</h3>
+                    <p>Complete os dados ou cobre o fornecedor pelas datas de agendamento e de entrega.</p>
+                </div>
+                <div class="pedido-reminder-actions">
+                    <button class="btn btn-secondary btn-small" onclick="openIncompletePedidos()"><i class="fa-solid fa-list"></i> Ver todos</button>
+                    <button class="pedido-reminder-snooze" onclick="snoozePedidoReminder()" title="Esconder este aviso até amanhã"><i class="fa-regular fa-bell-slash"></i> Lembrar amanhã</button>
+                </div>
+            </div>
+            <ul class="pedido-reminder-list">
+                ${list.slice(0, PEDIDO_REMINDER_VISIBLE).map(pedidoReminderItemHtml).join('')}
+            </ul>
+            ${rest > 0 ? `<button class="pedido-reminder-more" onclick="openIncompletePedidos()">+ ${rest} ${rest === 1 ? 'pedido' : 'pedidos'} na aba Pedidos <i class="fa-solid fa-arrow-right"></i></button>` : ''}
+        </section>
+    `;
 }
 
 function renderPedidosView() {
@@ -4850,6 +4990,7 @@ function renderPedidosView() {
                         <option value="">Todos os status</option>
                         <option value="andamento">Em andamento</option>
                         <option value="finalizado">Finalizados</option>
+                        <option value="incompleto">Com informações faltando</option>
                     </select>
 
                     <div style="display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #eee; border-radius: 8px; padding: 0 10px; height: 40px;">
@@ -4907,6 +5048,7 @@ window.updatePedidoNetworkLabel = function() {
 };
 
 function renderPedidosTable() {
+    renderPedidoReminder(); // o aviso do Dashboard acompanha qualquer mudança nos pedidos
     const tbody = document.getElementById('pedidosTableBody');
     if (!tbody) return;
 
@@ -4922,16 +5064,17 @@ function renderPedidosTable() {
     tbody.innerHTML = filtered.map(p => {
         const store = findPedidoDestination(p.storeId);
         const itemCount = (p.itens || []).length;
+        const info = getPedidoMissingInfo(p);
         return `
             <tr class="${p.finalizado ? 'pedido-finalizado' : ''}">
-                <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="viewPedido('${p.id}')" title="Ver detalhes do pedido">${p.numeroPedido || '-'}</strong>${pedidoStatusBadgeHtml(p)}${authorLineHtml(p)}</td>
+                <td><strong style="cursor: pointer; color: var(--primary-blue);" onclick="viewPedido('${p.id}')" title="Ver detalhes do pedido">${p.numeroPedido || '-'}</strong>${pedidoStatusBadgeHtml(p)}${pedidoMissingBadgeHtml(p)}${authorLineHtml(p)}</td>
                 <td>${p.clienteNome || '-'}${p.clienteCodigo ? ` <span style="color:var(--text-muted); font-size:0.78rem;">(${p.clienteCodigo})</span>` : ''}</td>
                 <td>${store ? store.name : '<span style="color:var(--text-muted);">loja removida</span>'}</td>
                 <td>${store ? `<span class="network-tag">${store.network}</span>` : '-'}</td>
-                <td>${p.numeroNF || '-'}</td>
-                <td>${p.dataPedido ? formatDate(p.dataPedido) : '-'}</td>
-                <td>${formatPedidoDates(p, 'Agendamento', '<br>') || '-'}</td>
-                <td>${formatPedidoDates(p, 'Entrega', '<br>') || '-'}</td>
+                <td>${pedidoCellHtml(p, info, 'nf', p.numeroNF || '')}</td>
+                <td>${pedidoCellHtml(p, info, 'dataPedido', p.dataPedido ? formatDate(p.dataPedido) : '')}</td>
+                <td>${pedidoCellHtml(p, info, 'agendamento', formatPedidoDates(p, 'Agendamento', '<br>'))}</td>
+                <td>${pedidoCellHtml(p, info, 'entrega', formatPedidoDates(p, 'Entrega', '<br>'))}</td>
                 <td>${itemCount} ${itemCount === 1 ? 'item' : 'itens'}</td>
                 <td style="white-space: nowrap;">
                     <button class="btn-edit-small" onclick="viewPedido('${p.id}')" title="Visualizar"><i class="fa-solid fa-eye"></i></button>

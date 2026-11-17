@@ -3109,3 +3109,215 @@ body.page-myroute .top-header {
         min-width: 110px;
     }
 }
+
+/* ---------- Pedidos com informações faltando (topo do Dashboard e aba Pedidos) ---------- */
+.pedido-reminder {
+    margin-bottom: 25px;
+    background: white;
+    border: 1px solid #FED7AA;
+    border-left: 4px solid var(--warning);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 1.1rem 1.4rem 1.2rem;
+}
+
+.pedido-reminder-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.pedido-reminder-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: var(--radius);
+    background: #FFF3E0;
+    color: #c2410c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.pedido-reminder-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.pedido-reminder-title h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--navy-deep);
+}
+
+.pedido-reminder-title p {
+    margin-top: 2px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.pedido-reminder-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.pedido-reminder .btn-small {
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    border-radius: var(--radius-sm);
+}
+
+.pedido-reminder-snooze {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.pedido-reminder-snooze:hover {
+    color: var(--text-dark);
+}
+
+.pedido-reminder-list {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pedido-reminder-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--bg-light);
+    border: 1px solid var(--border-color);
+}
+
+.pedido-reminder-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pedido-reminder-name {
+    font-weight: 700;
+    color: var(--text-dark);
+    font-size: 0.92rem;
+}
+
+.pedido-reminder-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.pedido-reminder-done {
+    color: #2e7d32;
+    font-weight: 600;
+}
+
+.pedido-reminder-missing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #9a3412;
+    font-weight: 600;
+}
+
+.pedido-reminder-chip {
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #FFEDD5;
+    color: #9a3412;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.pedido-reminder-more {
+    margin-top: 10px;
+    background: none;
+    border: none;
+    padding: 4px 0;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--primary-blue);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pedido-reminder-more:hover {
+    text-decoration: underline;
+}
+
+/* Aba Pedidos: selo "Incompleto" e o campo que falta em destaque */
+.pedido-status-badge.missing {
+    background: #FFF3E0;
+    color: #c2410c;
+}
+
+.pedido-missing-cell {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #FFF3E0;
+    color: #c2410c;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+@media (max-width: 720px) {
+    .pedido-reminder {
+        padding: 1rem;
+    }
+
+    .pedido-reminder-head {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .pedido-reminder-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.05rem;
+    }
+
+    .pedido-reminder-title {
+        flex: 1 1 calc(100% - 60px);
+    }
+
+    .pedido-reminder-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .pedido-reminder-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .pedido-reminder-item .btn {
+        justify-content: center;
+    }
+}
