@@ -113,6 +113,9 @@ body {
     box-shadow: 0 12px 28px rgba(7, 26, 61, 0.22);
     position: relative;
     overflow: hidden;
+    /* Com overflow: hidden, a coluna do menu podia espremer este quadro em telas baixas e
+       cortar o logo. Ele mantém a altura e, se faltar espaço, o menu rola. */
+    flex-shrink: 0;
 }
 
 .logo-container::after {
