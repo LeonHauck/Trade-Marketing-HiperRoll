@@ -7631,10 +7631,14 @@ function auditStoreName(storeId) {
     return store ? store.name : 'Loja removida';
 }
 
+// Produtos que saíram do catálogo mas aparecem em registros antigos da auditoria
+// (o REFORCADO 50L virou BRAMIL REFORCADO 50L em 11/2026; os dados foram migrados no servidor)
+const RETIRED_PRODUCT_NAMES = { 'reforcado-50l': 'REFORCADO 50L' };
+
 function auditProductNames(ids) {
     return (ids || []).map(id => {
         const product = products.find(p => p.id === id);
-        return product ? product.name : id;
+        return product ? product.name : (RETIRED_PRODUCT_NAMES[id] || id);
     }).join(', ') || 'nenhum';
 }
 

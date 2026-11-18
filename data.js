@@ -73,12 +73,6 @@
     },
     {
         "status":  "ATIVO",
-        "name":  "REFORCADO 50L",
-        "id":  "reforcado-50l",
-        "network":  "BARCELOS ATACADISTA"
-    },
-    {
-        "status":  "ATIVO",
         "name":  "REFORCADO 100L",
         "id":  "reforcado-100l",
         "network":  "BARCELOS ATACADISTA"
@@ -111,6 +105,18 @@
         "status":  "ATIVO",
         "name":  "BRAMIL LIXO 100L",
         "id":  "bramil-lixo-100l",
+        "network":  "BRAMIL"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BRAMIL REFORCADO 50L",
+        "id":  "bramil-reforcado-50l",
+        "network":  "BRAMIL"
+    },
+    {
+        "status":  "ATIVO",
+        "name":  "BRAMIL REFORCADO 100L",
+        "id":  "bramil-reforcado-100l",
         "network":  "BRAMIL"
     },
             {
@@ -1950,8 +1956,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -1965,8 +1971,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -1980,8 +1986,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -1995,8 +2001,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2010,8 +2016,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2025,8 +2031,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2040,8 +2046,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2055,8 +2061,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2070,8 +2076,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2085,8 +2091,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2100,8 +2106,8 @@ const STORES_DATA = [
                            "bramil-lixo-30l",
                            "bramil-lixo-50l",
                            "bramil-lixo-100l",
-                           "reforcado-100l",
-                           "reforcado-50l"],
+                           "bramil-reforcado-100l",
+                           "bramil-reforcado-50l"],
         "status":  "pending",
         "lastVisit":  null
     },
@@ -2931,7 +2937,7 @@ const STORES_DATA = [
         "name": "812 BRAMIL - NOVA FRIBURGO",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -2939,7 +2945,7 @@ const STORES_DATA = [
         "name": "816 BRAMIL - PINHEIRAL ORIENTE",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -2947,7 +2953,7 @@ const STORES_DATA = [
         "name": "817 BRAMIL - PINHEIRAL SAO JORGE",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -2955,7 +2961,7 @@ const STORES_DATA = [
         "name": "807 BRAMIL - COMENDADOR LEVY GASPARIAN",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -2963,7 +2969,7 @@ const STORES_DATA = [
         "name": "803 BRAMIL - ARCOZELO",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -2971,7 +2977,7 @@ const STORES_DATA = [
         "name": "814 BRAMIL - PATY DO ALFERES",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -2979,7 +2985,7 @@ const STORES_DATA = [
         "name": "823 BRAMIL - VALENCA",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -2987,7 +2993,7 @@ const STORES_DATA = [
         "name": "810 BRAMIL - MATIAS BARBOSA",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -2995,7 +3001,7 @@ const STORES_DATA = [
         "name": "808 BRAMIL - ITAIPAVA",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -3003,7 +3009,7 @@ const STORES_DATA = [
         "name": "809 BRAMIL - ITAMARATI",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -3011,7 +3017,7 @@ const STORES_DATA = [
         "name": "819 BRAMIL - QUITANDINHA",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     },{
@@ -3019,7 +3025,7 @@ const STORES_DATA = [
         "name": "825 BRAMIL - VOLTA REDONDA",
         "network": "BRAMIL",
         "frequency": 1,
-        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "reforcado-100l", "reforcado-50l"],
+        "productIds": ["bramil-lixo-15l", "bramil-lixo-30l", "bramil-lixo-50l", "bramil-lixo-100l", "bramil-reforcado-100l", "bramil-reforcado-50l"],
         "status": "pending",
         "lastVisit": null
     }];

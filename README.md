@@ -55,7 +55,7 @@ A aplicação é um front-end em JavaScript puro, sem etapa de build, com um bac
 | Em números | |
 |---|---|
 | Lojas cadastradas | 172, em 7 redes |
-| Produtos monitorados nas visitas | 25 |
+| Produtos monitorados nas visitas | 26 |
 | Catálogo comercial (aba Pedidos) | 202 itens |
 | Lojas com coordenadas para rotas | 100% |
 
@@ -351,6 +351,7 @@ flowchart LR
 - **Gravações em fila.** O servidor usa uma trava para atender uma gravação por vez e troca cada arquivo de uma vez só, de modo que duas pessoas salvando no mesmo instante não corrompem nem perdem dados.
 - **Tolerância a queda de conexão.** Uma alteração que não chegou ao servidor fica guardada no navegador e é reenviada na próxima sincronização ou na próxima abertura da página.
 - **Backend sem banco de dados.** `backend/api.php` lê e grava arquivos JSON em `backend/data/` e salva as fotos em `uploads/`, com os dados de cada uma (hora, usuário, localização e distância da loja) em `backend/data/photos.json`.
+- **Migrações de dados.** Quando um produto troca de código, o `api.php` converte uma única vez o que já estava gravado, na primeira chamada de um usuário logado depois da publicação. Antes de mexer, copia os arquivos para `backend/data/backup_<migração>/`, e o que foi feito fica anotado em `backend/data/migrations.json`. Depois disso, o código antigo que ainda chegar (de uma aba aberta com a versão anterior) também é convertido. Exemplo: em 11/2026, os reforçados de 50L e 100L das lojas BRAMIL passaram a ser os produtos **BRAMIL REFORCADO 50L** e **BRAMIL REFORCADO 100L**, separados do REFORCADO 100L de Atacadão BA, Barcelos e Super Bom. As visitas, as rupturas ativas, as resolvidas e as notificações dispensadas das lojas BRAMIL foram convertidas, sem perder histórico.
 - **Fotos só com login.** A pasta `uploads/` é bloqueada para o navegador (`uploads/.htaccess`); as fotos são exibidas por `api.php?action=photo`, que confere a sessão.
 - **Login validado no servidor.** Usuário e senha são conferidos pelo `api.php`, que só responde a quem tem sessão aberta. Nenhuma credencial fica no código.
 - **PDF desenhado nativamente.** Cabeçalhos, gráficos e tabelas são desenhados direto no jsPDF, em vez de capturar a tela como imagem. Isso mantém o arquivo leve, com texto pesquisável, e evita páginas em branco em relatórios com milhares de registros.
@@ -513,6 +514,7 @@ Mais orientações em [SECURITY.md](./SECURITY.md).
 | Fotos quebradas na aba Fotos | Confira se a sessão não expirou (entre de novo) e se o arquivo ainda existe em `uploads/` |
 | Promotor não vê a rota | O plano precisa estar atribuído a ele no campo Promotor da aba Rotas e ter paradas na data de hoje |
 | Tela de login diz “Sistema ainda não configurado” | Falta o `backend/config.php`: abra `backend/setup.php` e defina usuário e senha |
+| Preciso desfazer uma migração de dados | Os arquivos de antes estão em `backend/data/backup_<migração>/`. Copie-os de volta para `backend/data/` junto com a versão anterior do sistema; com a versão atual, a migração roda de novo |
 | Login bloqueado por excesso de tentativas | Aguarde 15 minutos ou apague `backend/data/login_attempts.json` no servidor |
 | Alguém esqueceu a senha | Um administrador define outra na janela **Usuários** |
 | O único administrador esqueceu a senha | Apague `backend/config.php` no servidor e abra `backend/setup.php` novamente (os outros usuários precisam ser recriados) |

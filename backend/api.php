@@ -295,6 +295,138 @@ function itemKey(string $collection, $item): ?string {
     return null;
 }
 
+// --- Produtos que trocaram de código ---
+// Os reforçados da BRAMIL são produtos diferentes dos de Atacadão, Barcelos e Super Bom
+// e ganharam código próprio em 11/2026. Nas lojas cujo id começa com o prefixo, o código
+// antigo vira o novo: na migração dos dados já gravados (runDataMigrations) e em tudo que
+// chegar depois, inclusive de uma aba que ficou aberta com a versão anterior do painel.
+const LEGACY_PRODUCT_IDS = [
+    'bramil-' => ['reforcado-50l' => 'bramil-reforcado-50l', 'reforcado-100l' => 'bramil-reforcado-100l'],
+];
+const LEGACY_PRODUCT_NAMES = [
+    'bramil-reforcado-50l'  => 'BRAMIL REFORCADO 50L',
+    'bramil-reforcado-100l' => 'BRAMIL REFORCADO 100L',
+];
+
+function currentProductId(string $storeId, $productId) {
+    if (!is_string($productId)) return $productId;
+    foreach (LEGACY_PRODUCT_IDS as $prefix => $map) {
+        if (strpos($storeId, $prefix) === 0 && isset($map[$productId])) return $map[$productId];
+    }
+    return $productId;
+}
+
+// Item de qualquer lista com os códigos de produto atuais (o mesmo item, se nada muda)
+function withCurrentProductIds(string $collection, $item) {
+    if (!is_array($item) || !isset($item['storeId']) || !is_scalar($item['storeId'])) return $item;
+    $storeId = (string) $item['storeId'];
+    if ($collection === 'visits' && isset($item['ruptures']) && is_array($item['ruptures'])) {
+        $ruptures = [];
+        foreach ($item['ruptures'] as $productId) {
+            $productId = currentProductId($storeId, $productId);
+            if (!in_array($productId, $ruptures, true)) $ruptures[] = $productId;
+        }
+        if ($ruptures !== $item['ruptures']) $item['ruptures'] = $ruptures;
+    } elseif (($collection === 'validated_ruptures' || $collection === 'resolved_history') && isset($item['productId'])) {
+        $productId = currentProductId($storeId, $item['productId']);
+        if ($productId !== $item['productId']) {
+            $item['productId'] = $productId;
+            if (array_key_exists($productId, LEGACY_PRODUCT_NAMES)) $item['productName'] = LEGACY_PRODUCT_NAMES[$productId];
+        }
+    }
+    return $item;
+}
+
+function currentProductIdsInList(string $collection, $list) {
+    if (!is_array($list)) return $list;
+    return array_map(function ($item) use ($collection) { return withCurrentProductIds($collection, $item); }, $list);
+}
+
+// --- Migrações dos dados já gravados ---
+// Cada uma roda uma única vez (fica anotada em migrations.json), na primeira chamada de
+// um usuário logado depois da publicação. Antes de mexer, copia os arquivos para
+// backend/data/backup_<migração>/. Se algo falhar, nada é anotado e a próxima chamada
+// tenta de novo; refazer não causa estrago, porque os códigos já trocados ficam como estão.
+const DATA_MIGRATIONS = ['2026-11-bramil-reforcado'];
+
+function runDataMigrations(): void {
+    global $dataDir;
+    $done = readData('migrations.json', [], false);
+    if (!is_array($done)) $done = [];
+    if (count(array_diff(DATA_MIGRATIONS, array_keys($done))) === 0) return;
+
+    $lock = fopen($dataDir . '.lock', 'c');
+    if (!$lock) return;
+    flock($lock, LOCK_EX);
+    $done = readData('migrations.json', [], false); // outra chamada pode ter feito enquanto esperava
+    if (!is_array($done)) $done = [];
+
+    foreach (DATA_MIGRATIONS as $migration) {
+        if (isset($done[$migration])) continue;
+        $result = migrateLegacyProductIds($migration);
+        if ($result === null) break;
+        $done[$migration] = ['at' => date('c'), 'changed' => $result];
+        file_put_contents($dataDir . 'migrations.json', json_encode($done, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+    flock($lock, LOCK_UN);
+    fclose($lock);
+}
+
+// Troca os códigos antigos (LEGACY_PRODUCT_IDS) nas visitas, rupturas ativas, histórico de
+// resolvidas e notificações dispensadas. Retorna quantos itens mudaram em cada arquivo,
+// ou null se não conseguiu fazer a cópia de segurança ou gravar.
+function migrateLegacyProductIds(string $migration): ?array {
+    global $dataDir;
+    $files = ['visits.json' => 'visits', 'ruptures.json' => 'validated_ruptures', 'resolved_history.json' => 'resolved_history', 'dismissed.json' => null];
+
+    $backupDir = $dataDir . 'backup_' . $migration . '/';
+    if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true)) return null;
+    foreach (array_keys($files) as $file) {
+        if (is_file($dataDir . $file) && !is_file($backupDir . $file) && !copy($dataDir . $file, $backupDir . $file)) return null;
+    }
+
+    $changed = [];
+    $visitStore = [];
+    foreach ($files as $file => $collection) {
+        if ($collection === null) continue;
+        $list = readData($file, [], false);
+        if (!is_array($list)) continue;
+        $count = 0;
+        $result = [];
+        $seen = [];
+        foreach ($list as $item) {
+            $new = withCurrentProductIds($collection, $item);
+            if ($new !== $item) $count++;
+            if ($collection === 'visits' && is_array($new) && isset($new['id'], $new['storeId'])) $visitStore[keyPart($new['id'])] = (string) $new['storeId'];
+            // Rupturas ativas: a chave é produto + loja; não deixa dois itens com a mesma
+            $key = $collection === 'validated_ruptures' ? itemKey($collection, $new) : null;
+            if ($key !== null) {
+                if (isset($seen[$key])) { $count++; continue; }
+                $seen[$key] = true;
+            }
+            $result[] = $new;
+        }
+        if ($count > 0 && !writeData($file, $result)) return null;
+        $changed[$file] = $count;
+    }
+
+    // Notificações dispensadas guardam "rupture-<visita>-<produto>"
+    $dismissed = readData('dismissed.json', [], false);
+    $count = 0;
+    if (is_array($dismissed)) {
+        foreach ($dismissed as $i => $id) {
+            if (!is_string($id) || !preg_match('/^rupture-([^-]+)-(.+)$/', $id, $m)) continue;
+            $storeId = $visitStore[$m[1]] ?? null;
+            if ($storeId === null) continue;
+            $productId = currentProductId($storeId, $m[2]);
+            if ($productId !== $m[2]) { $dismissed[$i] = 'rupture-' . $m[1] . '-' . $productId; $count++; }
+        }
+        if ($count > 0 && !writeData('dismissed.json', array_values(array_unique($dismissed)))) return null;
+    }
+    $changed['dismissed.json'] = $count;
+    return $changed;
+}
+
 // Aplica { upsert: [itens], remove: [itens] } em uma lista. Retorna a lista nova, ou
 // null se nada mudou de fato. Itens novos vão para o fim (ou para o início, com $prepend).
 // $events recebe o que aconteceu: ['create'|'update'|'delete', chave, itemAntes, itemDepois].
@@ -308,13 +440,14 @@ function applyListChanges(string $collection, array $current, $changes, bool $pr
         if ($key !== null) $map['k' . $key] = $item;
     }
     foreach ($removes as $item) {
-        $key = itemKey($collection, $item);
+        $key = itemKey($collection, withCurrentProductIds($collection, $item));
         if ($key === null || !isset($map['k' . $key])) continue;
         $events[] = ['delete', $key, $map['k' . $key], null];
         unset($map['k' . $key]);
     }
     $added = [];
     foreach ($upserts as $item) {
+        $item = withCurrentProductIds($collection, $item);
         $key = itemKey($collection, $item);
         if ($key === null) continue;
         $item = withAuthorship($collection, $map['k' . $key] ?? null, $item);
@@ -335,12 +468,12 @@ function applyListChanges(string $collection, array $current, $changes, bool $pr
 // Lê, aplica, grava e registra na auditoria as alterações de uma lista.
 // Retorna false só se a gravação falhou.
 function syncList(string $collection, string $file, $changes): bool {
-    // Histórico de resolvidas: os mais novos ficam na frente e a lista é limitada
+    // Histórico de resolvidas: os mais novos ficam na frente. Sem limite de tamanho: cortar
+    // apagava as resolvidas antigas, que o painel recalculava e reenviava a cada abertura.
     $isHistory = $collection === 'resolved_history';
     $events    = [];
     $updated   = applyListChanges($collection, readData($file, []), $changes, $isHistory, $events);
     if ($updated === null) return true;
-    if ($isHistory) $updated = array_slice($updated, 0, 500);
     if (!writeData($file, $updated)) return false;
     auditListEvents($collection, $events);
     return true;
@@ -787,6 +920,8 @@ if ($action === 'audit_event') {
 setcookie(session_name(), session_id(), sessionCookieOptions(time() + SESSION_LIFETIME));
 session_write_close();
 
+runDataMigrations();
+
 // Uma gravação por vez: duas pessoas salvando no mesmo instante entram em fila, e
 // quem lê espera a gravação em andamento terminar. A trava é liberada sozinha ao fim.
 $lockHandle = fopen($dataDir . '.lock', 'c');
@@ -899,7 +1034,7 @@ switch ($action) {
     // ── Salva rupturas validadas ──────────────────────────────
     case 'save_ruptures':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
-        $ok = writeData('ruptures.json', $body['ruptures'] ?? []);
+        $ok = writeData('ruptures.json', currentProductIdsInList('validated_ruptures', $body['ruptures'] ?? []));
         echo json_encode(['ok' => $ok]);
         break;
 
@@ -913,7 +1048,7 @@ switch ($action) {
     // ── Salva histórico de rupturas resolvidas ───────────────
     case 'save_resolved_history':
         if ($method !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false]); break; }
-        $ok = writeData('resolved_history.json', $body['resolved_history'] ?? []);
+        $ok = writeData('resolved_history.json', currentProductIdsInList('resolved_history', $body['resolved_history'] ?? []));
         echo json_encode(['ok' => $ok]);
         break;
 
